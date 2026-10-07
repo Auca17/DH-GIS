@@ -3,6 +3,7 @@
 import { closeDb, isDbAvailable } from "@/lib/mongodb";
 import { findNearbyTrails } from "@/lib/queries/c1-nearby-trails";
 import { isInsideStartRadius } from "@/lib/queries/c2-inside-start-radius";
+import { getLeaderboard } from "@/lib/queries/c3-leaderboard";
 
 // Circuito DH Pequia (from the seed).
 const PEQUIA_SLUG = "circuito-dh-pequia";
@@ -26,6 +27,9 @@ async function main() {
   // ~0.0009 degrees of latitude is about 100 m.
   console.log("At the start:      ", await isInsideStartRadius(PEQUIA_SLUG, PEQUIA_START.lat, PEQUIA_START.lng));
   console.log("~100 m to the south:", await isInsideStartRadius(PEQUIA_SLUG, PEQUIA_START.lat - 0.0009, PEQUIA_START.lng));
+
+  title("C3 Leaderboard of Pequia (top 10, must NOT include the SOS or the invalid time)");
+  console.table(await getLeaderboard(PEQUIA_SLUG, 10));
 }
 
 main()
