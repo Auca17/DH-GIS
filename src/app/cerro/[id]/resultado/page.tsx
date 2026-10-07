@@ -24,38 +24,38 @@ export default function ResultadoPage() {
   if (!resultado) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
-        <p className="text-foreground/60">No recent run found for this trail.</p>
-        <Button onClick={() => router.push(`/cerro/${id}`)}>Back to trail</Button>
+        <p className="text-foreground/60">No encontramos un descenso reciente en este sendero.</p>
+        <Button onClick={() => router.push(`/cerro/${id}`)}>Volver al sendero</Button>
       </main>
     );
   }
 
   return (
-    <main className="flex flex-1 flex-col gap-4 p-4">
-      <h1 className="text-xl font-bold">Run summary</h1>
+    <main className="flex flex-1 flex-col gap-5 p-4">
+      <h1 className="text-xl font-bold">Resultado del descenso</h1>
 
       {resultado.interrumpidoPorSos ? (
         <div className="rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm font-medium text-danger">
-          ⚠ Interrupted via SOS
+          ⚠ Interrumpido por SOS — no cuenta para el leaderboard
         </div>
       ) : null}
 
       <Card className="grid grid-cols-3 gap-3 text-center">
-        <SummaryStat label="Time" value={formatearMs(resultado.tiempoMs)} />
+        <SummaryStat label="Tiempo" value={formatearMs(resultado.tiempoMs)} />
         <SummaryStat
-          label="Avg speed"
+          label="Vel. promedio"
           value={`${resultado.velocidadPromedioKmh.toFixed(1)} km/h`}
         />
         <SummaryStat
-          label="Elevation drop"
+          label="Desnivel"
           value={`${Math.round(resultado.cambioElevacionM)} m`}
         />
       </Card>
 
       <Card className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold text-foreground/80">Leave a review</h2>
+        <h2 className="text-sm font-semibold text-foreground/80">Dejá tu opinión</h2>
         {enviado ? (
-          <p className="text-sm text-brand">Thanks for your feedback!</p>
+          <p className="text-sm text-brand">¡Gracias por tu comentario!</p>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">
             <div className="flex gap-1">
@@ -64,7 +64,7 @@ export default function ResultadoPage() {
                   key={n}
                   type="button"
                   onClick={() => setCalificacion(n)}
-                  aria-label={`Rate ${n} out of 5`}
+                  aria-label={`Calificar ${n} de 5`}
                   className={`text-2xl leading-none ${n <= calificacion ? "text-brand" : "text-border"}`}
                 >
                   ★
@@ -74,19 +74,19 @@ export default function ResultadoPage() {
             <textarea
               value={texto}
               onChange={(event) => setTexto(event.target.value)}
-              placeholder="How was the run?"
+              placeholder="¿Cómo estuvo el descenso?"
               rows={3}
               className="rounded-xl border border-border bg-surface-muted px-4 py-3 text-sm text-foreground outline-none placeholder:text-foreground/40 focus:border-brand focus:ring-2 focus:ring-brand/30"
             />
             <Button type="submit" variant="ghost" disabled={calificacion === 0}>
-              Submit review
+              Enviar opinión
             </Button>
           </form>
         )}
       </Card>
 
       <Button onClick={() => router.push(`/cerro/${id}/leaderboard`)} className="w-full">
-        View leaderboard
+        Ver leaderboard
       </Button>
     </main>
   );

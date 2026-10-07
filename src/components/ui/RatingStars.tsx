@@ -14,7 +14,7 @@ export function RatingStars({ rating, className = "" }: RatingStarsProps) {
     <div
       className={`flex items-center gap-1 ${className}`}
       role="img"
-      aria-label={`${rating.toFixed(1)} out of 5 stars`}
+      aria-label={`${rating.toFixed(1)} de 5 estrellas`}
     >
       {Array.from({ length: TOTAL_STARS }, (_, i) => (
         <span

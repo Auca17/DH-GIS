@@ -12,21 +12,26 @@ const MapaCerros = dynamic(
     ssr: false,
     loading: () => (
       <div className="flex h-full w-full items-center justify-center bg-surface text-sm text-foreground/60">
-        Loading map…
+        Cargando mapa…
       </div>
     ),
   },
 );
 
+// Header height is fixed by its padding/line-height (py-4 + text-lg + subtitle ≈ 73px).
+// The map gets an explicit height instead of relying on a multi-level flex-grow chain
+// (body -> main -> this div) to stay a 0-height-proof fix for Leaflet, per spec section 2.
+const ALTO_HEADER = "73px";
+
 export default function MapaPage() {
   return (
-    <main className="flex flex-1 flex-col">
+    <main className="flex flex-col">
       <header className="border-b border-border bg-surface px-4 py-4">
-        <h1 className="text-lg font-bold">Choose a trail</h1>
-        <p className="text-sm text-foreground/60">Tap a pin to see the details.</p>
+        <h1 className="text-lg font-bold">Elegí un sendero</h1>
+        <p className="text-sm text-foreground/60">Tocá un pin para ver los detalles.</p>
       </header>
-      <div className="relative flex-1">
-        <MapaCerros cerros={cerros} />
+      <div className="relative" style={{ height: `calc(100dvh - ${ALTO_HEADER})` }}>
+        <MapaCerros cerros={cerros.filter((cerro) => cerro.visibleEnMapa)} />
       </div>
     </main>
   );

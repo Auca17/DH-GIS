@@ -9,7 +9,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "DH Leaderboard",
-  description: "Downhill mountain-bike run tracker and leaderboard.",
+  description: "Medición de descensos en bici y leaderboard por sendero.",
 };
 
 export const viewport: Viewport = {

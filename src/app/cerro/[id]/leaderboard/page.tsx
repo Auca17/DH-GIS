@@ -5,8 +5,13 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useUltimoResultado } from "@/hooks/use-ultimo-resultado";
 import { leaderboardPorCerro } from "@/lib/mock-data";
-import type { EntradaLeaderboard } from "@/lib/types";
+import type { EntradaLeaderboard, TipoBici } from "@/lib/types";
 import { useDescent } from "@/providers/descent-provider";
+
+// The in-progress run has no rider profile yet (bike type is picked at sign-up, not
+// built in this etapa), so the injected row allows a "—" placeholder instead of a
+// fabricated TipoBici value.
+type FilaLeaderboard = Omit<EntradaLeaderboard, "bikeType"> & { bikeType: TipoBici | "—" };
 
 export default function LeaderboardPage() {
   const { id } = useParams<{ id: string }>();
@@ -14,16 +19,17 @@ export default function LeaderboardPage() {
   const { reset } = useDescent();
   const resultado = useUltimoResultado(id);
 
-  const entradasBase = leaderboardPorCerro[id] ?? [];
+  const entradasBase: FilaLeaderboard[] = leaderboardPorCerro[id] ?? [];
   // Insert the just-finished run into the displayed ranking without mutating mock-data.
-  const propiaEntrada: EntradaLeaderboard | null = resultado
+  const propiaEntrada: FilaLeaderboard | null = resultado
     ? {
         id: "own-run",
         cerroId: id,
-        usuario: "You",
+        usuario: "Vos",
         tiempoMs: resultado.tiempoMs,
         velocidadPromedioKmh: resultado.velocidadPromedioKmh,
         fecha: new Date(resultado.guardadoEn).toISOString().slice(0, 10),
+        bikeType: "—",
       }
     : null;
 
@@ -44,10 +50,12 @@ export default function LeaderboardPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-foreground/50">
-              <th className="px-4 py-3">#</th>
-              <th className="px-4 py-3">Rider</th>
-              <th className="px-4 py-3">Time</th>
-              <th className="px-4 py-3">Avg</th>
+              <th className="px-3 py-3 sm:px-4">#</th>
+              <th className="px-3 py-3 sm:px-4">Usuario</th>
+              <th className="px-3 py-3 sm:px-4">Fecha</th>
+              <th className="px-3 py-3 sm:px-4">Tiempo</th>
+              <th className="px-3 py-3 sm:px-4">Vel. prom.</th>
+              <th className="px-3 py-3 sm:px-4">Bici</th>
             </tr>
           </thead>
           <tbody>
@@ -58,27 +66,29 @@ export default function LeaderboardPage() {
                   key={entrada.id}
                   className={`border-b border-border last:border-none ${esPropia ? "bg-brand/10" : ""}`}
                 >
-                  <td className="px-4 py-3 font-semibold">{i + 1}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-3 font-semibold sm:px-4">{i + 1}</td>
+                  <td className="px-3 py-3 sm:px-4">
                     {entrada.usuario}
-                    {esPropia ? " (you)" : ""}
+                    {esPropia ? " (vos)" : ""}
                   </td>
-                  <td className="px-4 py-3 font-mono tabular-nums">
+                  <td className="px-3 py-3 text-foreground/60 sm:px-4">{entrada.fecha}</td>
+                  <td className="px-3 py-3 font-mono tabular-nums sm:px-4">
                     {formatearMs(entrada.tiempoMs)}
                   </td>
-                  <td className="px-4 py-3">{entrada.velocidadPromedioKmh.toFixed(1)} km/h</td>
+                  <td className="px-3 py-3 sm:px-4">{entrada.velocidadPromedioKmh.toFixed(1)} km/h</td>
+                  <td className="px-3 py-3 text-foreground/60 sm:px-4">{entrada.bikeType}</td>
                 </tr>
               );
             })}
           </tbody>
         </table>
         {entradas.length === 0 ? (
-          <p className="p-4 text-sm text-foreground/50">No times recorded yet.</p>
+          <p className="p-4 text-sm text-foreground/50">Todavía no hay tiempos registrados.</p>
         ) : null}
       </Card>
 
       <Button onClick={handleFinalizar} className="w-full">
-        Finish
+        Finalizar
       </Button>
     </main>
   );

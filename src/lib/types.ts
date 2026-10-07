@@ -17,12 +17,26 @@ export interface TramoPista {
 
 export interface Cerro {
   id: string;
+  slug: string;
   nombre: string;
   ubicacion: { lat: number; lng: number };
   descripcion: string;
+  /** Overall trail rating shown in the header (ski-run style: facil/intermedia/dificil). */
+  dificultadGeneral: Dificultad;
   calificacion: number;
   pista: TramoPista[];
   duracionEstimadaMs: number;
+  terreno: string;
+  largoM: number;
+  desnivelM: number;
+  pendientePromedioPct: number;
+  tiempoPromedioS: number;
+  /** True while the real GPS track hasn't been recorded yet — see mock-data.ts TODOs. */
+  isPlaceholder: boolean;
+  /** False hides the trail from the main map without deleting its data (prompt.md paso 1.e). */
+  visibleEnMapa: boolean;
+  /** Optional attribution link shown on the trail screen when the track comes from an external source. */
+  fuenteDatos?: { nombre: string; url: string };
 }
 
 export interface Comentario {
@@ -38,6 +52,8 @@ export interface Usuario {
   nombre: string;
 }
 
+export type TipoBici = "DH" | "Enduro" | "Trail";
+
 export interface EntradaLeaderboard {
   id: string;
   cerroId: string;
@@ -45,6 +61,7 @@ export interface EntradaLeaderboard {
   tiempoMs: number;
   velocidadPromedioKmh: number;
   fecha: string;
+  bikeType: TipoBici;
 }
 
 export interface PuntoDescenso {

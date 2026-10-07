@@ -3,9 +3,13 @@
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useEffect } from "react";
-import { CircleMarker, MapContainer, Polyline, TileLayer, useMap } from "react-leaflet";
-import { getBounds } from "@/lib/track-geometry";
+import { CircleMarker, MapContainer, Marker, Polyline, TileLayer, useMap } from "react-leaflet";
+import { getBounds, obtenerFlechasDeDireccion } from "@/lib/track-geometry";
 import type { Dificultad, TramoPista } from "@/lib/types";
+
+const TOPO_URL = "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png";
+const TOPO_ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, SRTM | Style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)';
 
 // Same Leaflet + bundler marker-icon fix as MapaCerros (this component mounts its own
 // MapContainer, so it needs the default-icon patch applied here too).
@@ -27,6 +31,17 @@ interface TrackMapPreviewProps {
   className?: string;
   /** Optional live rider position, used by the cronometro screen. */
   puntoActual?: { lat: number; lng: number } | null;
+  /** True (default): small locked preview. False: free pan/zoom, used by "Ver mapa completo". */
+  bloqueado?: boolean;
+}
+
+function iconoFlecha(rumboDeg: number) {
+  return L.divIcon({
+    className: "",
+    html: `<div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid #f8fafc;filter:drop-shadow(0 1px 1px rgba(0,0,0,.6));transform:rotate(${rumboDeg}deg);"></div>`,
+    iconSize: [12, 12],
+    iconAnchor: [6, 6],
+  });
 }
 
 function FitBoundsAlMontar({ pista }: { pista: TramoPista[] }) {
@@ -43,24 +58,62 @@ export function TrackMapPreview({
   pista,
   className = "",
   puntoActual = null,
+  bloqueado = true,
 }: TrackMapPreviewProps) {
   const bounds = getBounds(pista);
   const centro: [number, number] = [
     (bounds[0][0] + bounds[1][0]) / 2,
     (bounds[0][1] + bounds[1][1]) / 2,
   ];
+  const inicio = pista[0]?.puntos[0];
+  const ultimoTramo = pista[pista.length - 1];
+  const fin = ultimoTramo?.puntos[ultimoTramo.puntos.length - 1];
+  const flechas = obtenerFlechasDeDireccion(pista, 5);
 
   return (
-    <MapContainer center={centro} zoom={14} className={`h-full w-full ${className}`}>
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
+    <MapContainer
+      key={JSON.stringify(centro)}
+      center={centro}
+      zoom={14}
+      maxZoom={17}
+      className={`h-full w-full ${className}`}
+      // Mini-mapa bloqueado (sección 5.3): solo el sendero elegido, sin arrastrar ni
+      // zoomear. "Ver mapa completo" reutiliza este mismo componente con bloqueado={false}.
+      dragging={!bloqueado}
+      scrollWheelZoom={!bloqueado}
+      doubleClickZoom={!bloqueado}
+      touchZoom={!bloqueado}
+      zoomControl={!bloqueado}
+      keyboard={!bloqueado}
+    >
+      <TileLayer attribution={TOPO_ATTRIBUTION} url={TOPO_URL} maxZoom={17} />
       {pista.map((tramo, i) => (
         <Polyline
           key={i}
           positions={tramo.puntos.map((p) => [p.lat, p.lng] as [number, number])}
           pathOptions={{ color: COLOR_POR_DIFICULTAD[tramo.dificultad], weight: 5 }}
+        />
+      ))}
+      {inicio ? (
+        <CircleMarker
+          center={[inicio.lat, inicio.lng]}
+          radius={7}
+          pathOptions={{ color: "#16a34a", fillColor: "#16a34a", fillOpacity: 1, weight: 2 }}
+        />
+      ) : null}
+      {fin ? (
+        <CircleMarker
+          center={[fin.lat, fin.lng]}
+          radius={7}
+          pathOptions={{ color: "#dc2626", fillColor: "#dc2626", fillOpacity: 1, weight: 2 }}
+        />
+      ) : null}
+      {flechas.map((flecha, i) => (
+        <Marker
+          key={i}
+          position={[flecha.lat, flecha.lng]}
+          icon={iconoFlecha(flecha.rumboDeg)}
+          interactive={false}
         />
       ))}
       {puntoActual ? (

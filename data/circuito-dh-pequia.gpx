@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<gpx version="1.1" creator="Trailforks.com" xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd http://www.garmin.com/xmlschemas/TrackPointExtension/v1 http://www.garmin.com/xmlschemas/TrackPointExtensionv1.xsd">
+<metadata>
+<name>Circuito DH Pequia Trailforks Trail</name>
+<link href="https://www.trailforks.com/">
+<text>Trailforks</text>
+</link>
+</metadata>
+<trk>
+<name>
+Circuito DH Pequia
+</name>
+<link href="https://www.trailforks.com/trails/circuito-dh-pequia/">
+</link>
+<trkseg>
+<trkpt lat="-32.8959" lon="-68.89533">
+<ele>948</ele>
+<time>2026-10-07T09:38:46-07:00</time>
+</trkpt>
+<trkpt lat="-32.89587" lon="-68.89524">
+<ele>948</ele>
+<time>2026-10-07T09:38:47-07:00</time>
+</trkpt>
+<trkpt lat="-32.89584" lon="-68.89518">
+<ele>948</ele>
+<time>2026-10-07T09:38:48-07:00</time>
+</trkpt>
+<trkpt lat="-32.89576" lon="-68.89516">
+<ele>948</ele>
+<time>2026-10-07T09:38:49-07:00</time>
+</trkpt>
+<trkpt lat="-32.89571" lon="-68.89521">
+<ele>948</ele>
+<time>2026-10-07T09:38:50-07:00</time>
+</trkpt>
+<trkpt lat="-32.89565" lon="-68.89526">
+<ele>947</ele>
+<time>2026-10-07T09:38:51-07:00</time>
+</trkpt>
+<trkpt lat="-32.89559" lon="-68.89526">
+<ele>947</ele>
+<time>2026-10-07T09:38:52-07:00</time>
+</trkpt>
+<trkpt lat="-32.89551" lon="-68.89528">
+<ele>947</ele>
+<time>2026-10-07T09:38:53-07:00</time>
+</trkpt>
+<trkpt lat="-32.89537" lon="-68.89515">
+<ele>947</ele>
+<time>2026-10-07T09:38:54-07:00</time>
+</trkpt>
+<trkpt lat="-32.89528" lon="-68.89504">
+<ele>944</ele>
+<time>2026-10-07T09:38:55-07:00</time>
+</trkpt>
+<trkpt lat="-32.89524" lon="-68.89499">
+<ele>944</ele>
+<time>2026-10-07T09:38:56-07:00</time>
+</trkpt>
+<trkpt lat="-32.89521" lon="-68.89493">
+<ele>944</ele>
+<time>2026-10-07T09:38:57-07:00</time>
+</trkpt>
+<trkpt lat="-32.8952" lon="-68.89489">
+<ele>944</ele>
+<time>2026-10-07T09:38:58-07:00</time>
+</trkpt>
+<trkpt lat="-32.89518" lon="-68.89484">
+<ele>940</ele>
+<time>2026-10-07T09:38:59-07:00</time>
+</trkpt>
+<trkpt lat="-32.89514" lon="-68.89482">
+<ele>940</ele>
+<time>2026-10-07T09:39:00-07:00</time>
+</trkpt>
+<trkpt lat="-32.89504" lon="-68.89482">
+<ele>938</ele>
+<time>2026-10-07T09:39:01-07:00</time>
+</trkpt>
+<trkpt lat="-32.89498" lon="-68.89482">
+<ele>938</ele>
+<time>2026-10-07T09:39:02-07:00</time>
+</trkpt>
+<trkpt lat="-32.89491" lon="-68.89484">
+<ele>938</ele>
+<time>2026-10-07T09:39:03-07:00</time>
+</trkpt>
+<trkpt lat="-32.89486" lon="-68.89484">
+<ele>935</ele>
+<time>2026-10-07T09:39:04-07:00</time>
+</trkpt>
+<trkpt lat="-32.89479" lon="-68.89483">
+<ele>935</ele>
+<time>2026-10-07T09:39:05-07:00</time>
+</trkpt>
+<trkpt lat="-32.89473" lon="-68.89481">
+<ele>935</ele>
+<time>2026-10-07T09:39:06-07:00</time>
+</trkpt>
+<trkpt lat="-32.89462" lon="-68.89474">
+<ele>935</ele>
+<time>2026-10-07T09:39:07-07:00</time>
+</trkpt>
+<trkpt lat="-32.89455" lon="-68.89469">
+<ele>934</ele>
+<time>2026-10-07T09:39:08-07:00</time>
+</trkpt>
+<trkpt lat="-32.89452" lon="-68.89461">
+<ele>934</ele>
+<time>2026-10-07T09:39:09-07:00</time>
+</trkpt>
+<trkpt lat="-32.89443" lon="-68.89449">
+<ele>932</ele>
+<time>2026-10-07T09:39:10-07:00</time>
+</trkpt>
+<trkpt lat="-32.89437" lon="-68.89443">
+<ele>932</ele>
+<time>2026-10-07T09:39:11-07:00</time>
+</trkpt>
+<trkpt lat="-32.89424" lon="-68.89441">
+<ele>931</ele>
+<time>2026-10-07T09:39:12-07:00</time>
+</trkpt>
+<trkpt lat="-32.89415" lon="-68.8944">
+<ele>931</ele>
+<time>2026-10-07T09:39:13-07:00</time>
+</trkpt>
+<trkpt lat="-32.8941" lon="-68.89437">
+<ele>931</ele>
+<time>2026-10-07T09:39:14-07:00</time>
+</trkpt>
+<trkpt lat="-32.89405" lon="-68.89434">
+<ele>931</ele>
+<time>2026-10-07T09:39:15-07:00</time>
+</trkpt>
+<trkpt lat="-32.89406" lon="-68.89425">
+<ele>928</ele>
+<time>2026-10-07T09:39:16-07:00</time>
+</trkpt>
+<trkpt lat="-32.89406" lon="-68.89415">
+<ele>928</ele>
+<time>2026-10-07T09:39:17-07:00</time>
+</trkpt>
+<trkpt lat="-32.89398" lon="-68.89398">
+<ele>921</ele>
+<time>2026-10-07T09:39:18-07:00</time>
+</trkpt>
+<trkpt lat="-32.89392" lon="-68.89388">
+<ele>921</ele>
+<time>2026-10-07T09:39:19-07:00</time>
+</trkpt>
+<trkpt lat="-32.89383" lon="-68.89379">
+<ele>921</ele>
+<time>2026-10-07T09:39:20-07:00</time>
+</trkpt>
+<trkpt lat="-32.89377" lon="-68.89376">
+<ele>921</ele>
+<time>2026-10-07T09:39:21-07:00</time>
+</trkpt>
+<trkpt lat="-32.89366" lon="-68.89376">
+<ele>922</ele>
+<time>2026-10-07T09:39:22-07:00</time>
+</trkpt>
+<trkpt lat="-32.8936" lon="-68.89373">
+<ele>917</ele>
+<time>2026-10-07T09:39:23-07:00</time>
+</trkpt>
+<trkpt lat="-32.89355" lon="-68.89366">
+<ele>917</ele>
+<time>2026-10-07T09:39:24-07:00</time>
+</trkpt>
+<trkpt lat="-32.89347" lon="-68.89357">
+<ele>917</ele>
+<time>2026-10-07T09:39:25-07:00</time>
+</trkpt>
+</trkseg>
+</trk>
+</gpx>

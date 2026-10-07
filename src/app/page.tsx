@@ -30,22 +30,22 @@ export default function LoginPage() {
           </div>
           <h1 className="text-xl font-bold">DH Leaderboard</h1>
           <p className="text-sm text-foreground/60">
-            Track your downhill runs and race the mountain.
+            Medí tus descensos y corré contra el cerro.
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <Input
             id="usuario"
-            label="Username"
-            placeholder="your username"
+            label="Usuario"
+            placeholder="tu usuario"
             autoComplete="username"
             value={usuario}
             onChange={(event) => setUsuario(event.target.value)}
           />
           <Input
             id="password"
-            label="Password"
+            label="Contraseña"
             type="password"
             placeholder="••••••••"
             autoComplete="current-password"
@@ -54,7 +54,7 @@ export default function LoginPage() {
           />
 
           <Button type="submit" disabled={!puedeContinuar} className="mt-2 w-full">
-            Enter
+            Entrar
           </Button>
         </form>
       </Card>
