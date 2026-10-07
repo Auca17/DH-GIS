@@ -1,26 +1,56 @@
 @import "tailwindcss";
 
+/* Single dark theme by design (action-sport / leaderboard app), not a light/dark toggle. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0b0f14;
+  --foreground: #eef2f6;
+  --surface: #121923;
+  --surface-muted: #1a2330;
+  --border: #253142;
+
+  --brand: #f97316;
+  --brand-foreground: #0b0f14;
+  --danger: #dc2626;
+
+  --difficulty-facil: #2563eb;
+  --difficulty-intermedia: #eab308;
+  --difficulty-dificil: #dc2626;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-border: var(--border);
+
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-danger: var(--danger);
+
+  --color-difficulty-facil: var(--difficulty-facil);
+  --color-difficulty-intermedia: var(--difficulty-intermedia);
+  --color-difficulty-dificil: var(--difficulty-dificil);
+
+  --font-sans: var(--font-inter);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: dark;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Leaflet containers are sized by their parent via Tailwind utilities; this just
+   guarantees the map tiles have somewhere to paint and matches the app's dark surface
+   while tiles load. */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  background: var(--surface);
+  font-family: var(--font-sans), system-ui, sans-serif;
 }
