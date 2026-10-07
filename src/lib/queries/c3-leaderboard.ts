@@ -1,14 +1,15 @@
 import { getDb } from "@/lib/mongodb";
 
 /*
- * C3 — Leaderboard: top-N times of one trail
+ * C3 — Leaderboard: top-N riders of one trail
  *
- * What it does: returns the N best VALID times of a trail (completed and
- * validated, so SOS and suspicious times are left out), with the rider's name.
+ * What it does: returns the N best riders of a trail, ONE ROW PER RIDER with
+ * their best VALID time (completed and validated, so SOS and suspicious times
+ * are left out), with the rider's name.
  *
- * Course concept: filter + sort + limit over the compound index
- * { trailId, status, validated, durationMs }, and a relation between
- * collections with $lookup (descents.userId → users._id).
+ * Course concept: filter + sort over the compound index
+ * { trailId, status, validated, durationMs }, grouping with $group + $first,
+ * and a relation between collections with $lookup (userId → users._id).
  *
  * Compass (collection `descents` → Aggregations → paste).
  * Replace the ObjectId with Pequia's _id (copy it from the `trails` collection):
@@ -22,11 +23,21 @@ import { getDb } from "@/lib/mongodb";
  *     }
  *   },
  *   { $sort: { durationMs: 1 } },
+ *   {
+ *     $group: {
+ *       _id: "$userId",
+ *       durationMs: { $first: "$durationMs" },
+ *       avgSpeedKmh: { $first: "$avgSpeedKmh" },
+ *       bikeType: { $first: "$bikeType" },
+ *       startedAt: { $first: "$startedAt" }
+ *     }
+ *   },
+ *   { $sort: { durationMs: 1 } },
  *   { $limit: 10 },
  *   {
  *     $lookup: {
  *       from: "users",
- *       localField: "userId",
+ *       localField: "_id",
  *       foreignField: "_id",
  *       as: "user"
  *     }
@@ -49,9 +60,13 @@ import { getDb } from "@/lib/mongodb";
  *   The three equality fields are the first three fields of the compound index.
  * - $sort: orders by time, fastest first. The index already has durationMs as its
  *   last field, so Mongo reads them in order instead of sorting in memory.
- * - $limit: keeps the top N. It goes BEFORE $lookup so we only join N documents.
- * - $lookup: brings the matching user from `users` (like a JOIN). The result is an
- *   array called `user` with one element.
+ * - $group: one group per rider (userId). Since the input is already sorted,
+ *   $first takes the values of each rider's FASTEST descent (time, speed, bike, date).
+ * - $sort (again): $group does not keep any order, so we sort the riders by their
+ *   best time.
+ * - $limit: keeps the top N riders. It goes BEFORE $lookup so we only join N documents.
+ * - $lookup: brings the user whose _id equals the group _id (the userId), like a
+ *   JOIN. The result is an array called `user` with one element.
  * - $unwind: turns that one-element array into a plain object, so we can
  *   write "$user.displayName".
  * - $project: shapes the row the leaderboard shows: rider, time, speed, bike, date.
@@ -78,11 +93,21 @@ export async function getLeaderboard(slug: string, limit = 10): Promise<Leaderbo
   const pipeline = [
     { $match: { trailId: trail._id, status: "completed", validated: true } },
     { $sort: { durationMs: 1 } },
+    {
+      $group: {
+        _id: "$userId",
+        durationMs: { $first: "$durationMs" },
+        avgSpeedKmh: { $first: "$avgSpeedKmh" },
+        bikeType: { $first: "$bikeType" },
+        startedAt: { $first: "$startedAt" },
+      },
+    },
+    { $sort: { durationMs: 1 } },
     { $limit: limit },
     {
       $lookup: {
         from: "users",
-        localField: "userId",
+        localField: "_id",
         foreignField: "_id",
         as: "user",
       },

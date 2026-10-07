@@ -31,7 +31,7 @@ async function main() {
   console.log("At the start:      ", await isInsideStartRadius(PEQUIA_SLUG, PEQUIA_START.lat, PEQUIA_START.lng));
   console.log("~100 m to the south:", await isInsideStartRadius(PEQUIA_SLUG, PEQUIA_START.lat - 0.0009, PEQUIA_START.lng));
 
-  title("C3 Leaderboard of Pequia (top 10, must NOT include the SOS or the invalid time)");
+  title("C3 Leaderboard of Pequia (top 10, one row per rider, must NOT include the SOS or the invalid time)");
   console.table(await getLeaderboard(PEQUIA_SLUG, 10));
 
   title("C4 Personal best on Pequia");
