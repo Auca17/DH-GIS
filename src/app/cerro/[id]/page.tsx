@@ -193,8 +193,10 @@ function DifficultyBadge({ dificultad }: { dificultad: Dificultad }) {
 function StatItem({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-sm font-semibold text-foreground">{value}</span>
-      <span className="text-[10px] text-foreground/50">{label}</span>
+      <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+        {value}
+      </span>
+      <span className="text-[10px] uppercase tracking-wide text-foreground/50">{label}</span>
     </div>
   );
 }

@@ -27,7 +27,10 @@ export default function MapaPage() {
   return (
     <main className="flex flex-col">
       <header className="border-b border-border bg-surface px-4 py-4">
-        <h1 className="text-lg font-bold">Elegí un sendero</h1>
+        <p className="font-mono text-[11px] font-semibold uppercase tracking-wider text-brand">
+          Mapa
+        </p>
+        <h1 className="text-lg font-bold tracking-tight">Elegí un sendero</h1>
         <p className="text-sm text-foreground/60">Tocá un pin para ver los detalles.</p>
       </header>
       <div className="relative" style={{ height: `calc(100dvh - ${ALTO_HEADER})` }}>

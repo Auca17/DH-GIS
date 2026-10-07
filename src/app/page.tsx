@@ -22,13 +22,13 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex flex-1 items-center justify-center p-6">
+    <main className="flex flex-1 items-center justify-center bg-background p-6">
       <Card className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand text-2xl font-black text-brand-foreground">
+          <div className="flex h-14 w-14 items-center justify-center rounded-lg border-b-2 border-black/20 bg-brand font-mono text-2xl font-bold tracking-tight text-brand-foreground shadow-lg shadow-brand/20">
             DH
           </div>
-          <h1 className="text-xl font-bold">DH Leaderboard</h1>
+          <h1 className="text-xl font-bold tracking-tight">DH Leaderboard</h1>
           <p className="text-sm text-foreground/60">
             Medí tus descensos y corré contra el cerro.
           </p>

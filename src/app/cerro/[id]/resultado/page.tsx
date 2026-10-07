@@ -95,7 +95,7 @@ export default function ResultadoPage() {
 function SummaryStat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-lg font-bold">{value}</p>
+      <p className="font-mono text-lg font-bold tabular-nums">{value}</p>
       <p className="text-xs uppercase tracking-wide text-foreground/50">{label}</p>
     </div>
   );

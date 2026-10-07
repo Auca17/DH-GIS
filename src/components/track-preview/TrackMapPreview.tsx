@@ -48,7 +48,18 @@ function FitBoundsAlMontar({ pista }: { pista: TramoPista[] }) {
   const map = useMap();
 
   useEffect(() => {
+    // Leaflet mide su contenedor al montar, pero en un layout flex/dinámico (este
+    // componente se carga vía next/dynamic) el tamaño real puede asentarse un instante
+    // después. Como el mini-mapa va bloqueado (sin drag/zoom), nunca hay una interacción
+    // del usuario que lo autocorrija -- sin este invalidateSize() el grid de tiles queda
+    // mal alineado y se ve como una línea clara cruzando el mapa.
+    map.invalidateSize();
     map.fitBounds(getBounds(pista), { padding: [24, 24] });
+
+    const contenedor = map.getContainer();
+    const observer = new ResizeObserver(() => map.invalidateSize());
+    observer.observe(contenedor);
+    return () => observer.disconnect();
   }, [map, pista]);
 
   return null;

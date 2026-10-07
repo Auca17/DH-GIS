@@ -66,7 +66,9 @@ export default function LeaderboardPage() {
                   key={entrada.id}
                   className={`border-b border-border last:border-none ${esPropia ? "bg-brand/10" : ""}`}
                 >
-                  <td className="px-3 py-3 font-semibold sm:px-4">{i + 1}</td>
+                  <td className="px-3 py-3 font-mono font-semibold tabular-nums sm:px-4">
+                    {i + 1}
+                  </td>
                   <td className="px-3 py-3 sm:px-4">
                     {entrada.usuario}
                     {esPropia ? " (vos)" : ""}
@@ -75,7 +77,9 @@ export default function LeaderboardPage() {
                   <td className="px-3 py-3 font-mono tabular-nums sm:px-4">
                     {formatearMs(entrada.tiempoMs)}
                   </td>
-                  <td className="px-3 py-3 sm:px-4">{entrada.velocidadPromedioKmh.toFixed(1)} km/h</td>
+                  <td className="px-3 py-3 font-mono tabular-nums sm:px-4">
+                    {entrada.velocidadPromedioKmh.toFixed(1)} km/h
+                  </td>
                   <td className="px-3 py-3 text-foreground/60 sm:px-4">{entrada.bikeType}</td>
                 </tr>
               );

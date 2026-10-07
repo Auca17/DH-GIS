@@ -62,13 +62,13 @@ export function MapaCerros({ cerros }: MapaCerrosProps) {
         {cerros.map((cerro) => (
           <Marker key={cerro.id} position={[cerro.ubicacion.lat, cerro.ubicacion.lng]}>
             <Popup>
-              <div className="flex flex-col gap-2">
-                <p className="font-semibold text-black">{cerro.nombre}</p>
+              <div className="flex flex-col gap-2 p-1">
+                <p className="font-semibold text-foreground">{cerro.nombre}</p>
                 <Link
                   href={`/cerro/${cerro.id}`}
-                  className="text-sm font-medium text-blue-600 underline"
+                  className="text-sm font-semibold text-brand transition-colors duration-150 hover:brightness-110"
                 >
-                  Ver sendero
+                  Ver sendero →
                 </Link>
               </div>
             </Popup>
@@ -79,7 +79,7 @@ export function MapaCerros({ cerros }: MapaCerrosProps) {
       <button
         type="button"
         onClick={() => setCapa((prev) => (prev === "topo" ? "osm" : "topo"))}
-        className="absolute top-3 right-3 z-[1000] rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground shadow-md"
+        className="absolute top-3 right-3 z-[1000] inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-surface/95 px-4 text-xs font-semibold tracking-wide uppercase text-foreground shadow-md transition duration-150 hover:border-foreground/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
       >
         {capa === "topo" ? CAPAS.osm.label : CAPAS.topo.label}
       </button>

@@ -121,7 +121,7 @@ export default function CronometroPage() {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-2xl font-semibold">{value}</p>
+      <p className="font-mono text-2xl font-semibold tabular-nums">{value}</p>
       <p className="text-xs uppercase tracking-wide text-foreground/50">{label}</p>
     </div>
   );
