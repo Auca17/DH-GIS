@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed": "tsx --env-file=.env.local scripts/seed.ts"
+    "seed": "tsx --env-file=.env.local scripts/seed.ts",
+    "queries": "tsx --env-file=.env.local scripts/queries.ts"
   },
   "dependencies": {
     "leaflet": "^1.9.4",
