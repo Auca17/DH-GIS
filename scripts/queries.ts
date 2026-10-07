@@ -6,6 +6,7 @@ import { isInsideStartRadius } from "@/lib/queries/c2-inside-start-radius";
 import { getLeaderboard } from "@/lib/queries/c3-leaderboard";
 import { getPersonalBest } from "@/lib/queries/c4-personal-best";
 import { getAverageRatings } from "@/lib/queries/c5-average-rating";
+import { getDescentsPerTrail } from "@/lib/queries/c6-descents-per-trail";
 
 // Circuito DH Pequia (from the seed).
 const PEQUIA_SLUG = "circuito-dh-pequia";
@@ -39,6 +40,9 @@ async function main() {
 
   title("C5 Average rating per trail");
   console.table(await getAverageRatings());
+
+  title("C6 Descents per trail (total vs valid)");
+  console.table(await getDescentsPerTrail());
 }
 
 main()
