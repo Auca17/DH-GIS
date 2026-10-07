@@ -165,9 +165,9 @@ Tabla simple y legible en celular. **Columnas:** puesto, usuario, fecha, tiempo,
 
 ---
 
-## 7. Base de datos: MongoDB Atlas
+## 7. Base de datos: MongoDB local
 
-**Conexión.** Hay un cluster gratuito (M0) en Atlas, región São Paulo. La cadena de conexión está en `.env.local` con el nombre **`MONGODB_URI`**. No la leas ni la muestres.
+**Conexión.** MongoDB Community Server corriendo en la máquina local, administrado con Compass. La cadena de conexión está en `.env.local` con el nombre **`MONGODB_URI`** (`mongodb://127.0.0.1:27017/dh`).
 
 **Reglas de código:**
 
@@ -250,7 +250,7 @@ Arreglar el mapa (sección 2), cargar mosaicos libres (sección 3), mostrar el s
 *Listo cuando:* abro `/mapa`, veo el mapa de fondo y los pines, toco uno, veo el sendero con colores y los datos, y puedo recorrer las 6 pantallas.
 
 **Etapa 2: que guarde.**
-Conectar MongoDB Atlas, crear colecciones e índices, seed idempotente, Route Handlers para senderos, descensos, opiniones y leaderboard. Las pantallas leen de la base.
+Conectar MongoDB local, crear colecciones e índices, seed idempotente, Route Handlers para senderos, descensos, opiniones y leaderboard. Las pantallas leen de la base.
 *Listo cuando:* los senderos salen de Mongo, un descenso de prueba aparece en el leaderboard y las 6 consultas clave responden.
 
 **Etapa 3: que mida.**
@@ -290,7 +290,7 @@ Login real con Google y perfil, validación del descenso, rastro, pulido visual,
 - [ ] El cronómetro respeta las reglas (proximidad, 3 m, fin automático, Parar, SOS por swipe).
 - [ ] El leaderboard muestra puesto, usuario, fecha, tiempo, velocidad y tipo de bici.
 - [ ] Modo demo funcionando y claramente marcado.
-- [ ] MongoDB Atlas conectado vía `MONGODB_URI`, sin la cadena en ningún archivo versionado.
+- [ ] MongoDB local conectado vía `MONGODB_URI`, definida en `.env.local`.
 - [ ] Índices creados y justificados; consultas clave guardadas.
 - [ ] `.env*` ignorado por git; nada sensible en el repositorio.
 - [ ] Ninguna coordenada inventada presentada como real: lo provisorio está marcado.

@@ -8,13 +8,19 @@ académico de Diseño de Bases de Datos: usa MongoDB con información geoespacia
 
 - [Next.js](https://nextjs.org) (App Router) + TypeScript + Tailwind CSS
 - [Leaflet](https://leafletjs.com) con mosaicos de OpenStreetMap / OpenTopoMap
-- [MongoDB Atlas](https://www.mongodb.com/atlas) con índices geoespaciales (`2dsphere`)
+- [MongoDB](https://www.mongodb.com/try/download/community) local (Community Server + Compass) con índices geoespaciales (`2dsphere`)
+
+## Cómo levantar la base
+
+1. Instalá [MongoDB Community Server](https://www.mongodb.com/try/download/community) y [MongoDB Compass](https://www.mongodb.com/try/download/compass).
+2. Abrí Compass y conectate a `mongodb://127.0.0.1:27017`.
+3. Cargá los datos de ejemplo con `npm run seed` (se puede correr varias veces sin duplicar).
 
 ## Cómo correrla
 
 ```bash
 npm install
-cp .env.example .env.local   # completá MONGODB_URI con la connection string real
+cp .env.example .env.local   # ya apunta a la base local, no hace falta cambiarlo
 npm run dev
 ```
 
