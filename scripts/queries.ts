@@ -4,6 +4,7 @@ import { closeDb, isDbAvailable } from "@/lib/mongodb";
 import { findNearbyTrails } from "@/lib/queries/c1-nearby-trails";
 import { isInsideStartRadius } from "@/lib/queries/c2-inside-start-radius";
 import { getLeaderboard } from "@/lib/queries/c3-leaderboard";
+import { getPersonalBest } from "@/lib/queries/c4-personal-best";
 
 // Circuito DH Pequia (from the seed).
 const PEQUIA_SLUG = "circuito-dh-pequia";
@@ -30,6 +31,10 @@ async function main() {
 
   title("C3 Leaderboard of Pequia (top 10, must NOT include the SOS or the invalid time)");
   console.table(await getLeaderboard(PEQUIA_SLUG, 10));
+
+  title("C4 Personal best on Pequia");
+  console.log("Lucas R. (3 valid descents):", await getPersonalBest(PEQUIA_SLUG, "Lucas R."));
+  console.log("Dieguito (only an invalid one):", await getPersonalBest(PEQUIA_SLUG, "Dieguito"));
 }
 
 main()
