@@ -1,5 +1,7 @@
 @AGENTS.md
 
+Contexto de la última sesión (qué se hizo, en qué paso estamos y qué falta): @Claude-code.md
+
 ## Base de datos
 
 ### Decisión del docente (Diseño de Bases de Datos, Universidad de Mendoza)
