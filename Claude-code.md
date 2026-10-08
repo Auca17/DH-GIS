@@ -100,6 +100,9 @@ Cerramos el día con todo pusheado. El usuario todavía no probó a mano en su n
 - Valores de `minValidTimeS` para Cantera, Zampal y Quebrada Seca.
 - ¿Las corridas demo cuentan para el ranking en la presentación? (hoy sí: `INCLUDE_DEMO_RUNS = true`).
 
+**Pedido del usuario para el próximo paso (probado a mano con un descenso de 5 s):**
+- Si el descenso **no es válido** (tiempo no creíble: "too fast", o SOS), la pantalla de resultado **no tiene que ofrecer escribir una review**. El formulario de opinión solo aparece cuando el descenso se hizo en un tiempo creíble (válido). Hoy el formulario se muestra siempre. Cuando se haga el `POST` de reviews, el servidor también tiene que rechazarla si el descenso de ese usuario no es válido (no confiar en el cliente).
+
 **Pendientes técnicos** (detalle en `REVISION.md`):
 - `/cerro/zzz` responde 200 en vez de 404.
 - Fallo de red (no de base) sin mensaje claro en mapa, reviews y leaderboard.
