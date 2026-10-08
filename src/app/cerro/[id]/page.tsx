@@ -3,11 +3,12 @@
 import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
+import { DbStatusNotice } from "@/components/db-status/DbStatusNotice";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { RatingStars } from "@/components/ui/RatingStars";
-import { cerros, comentarios } from "@/lib/mock-data";
-import type { Dificultad } from "@/lib/types";
+import { useTrailApi } from "@/hooks/use-trail-api";
+import type { Cerro, Comentario, Dificultad } from "@/lib/types";
 import { useDescent } from "@/providers/descent-provider";
 
 const TrackMapPreview = dynamic(
@@ -31,8 +32,23 @@ export default function CerroPage() {
   const { start } = useDescent();
   const [mapaCompleto, setMapaCompleto] = useState(false);
 
-  const cerro = cerros.find((c) => c.id === id);
-  const comentariosDelCerro = comentarios.filter((c) => c.cerroId === id);
+  // `id` in the URL is the trail slug. Detail and reviews come from the API.
+  const trail = useTrailApi<Cerro>(`/api/trails/${id}`);
+  const reviews = useTrailApi<Comentario[]>(`/api/trails/${id}/reviews`);
+  const cerro = trail.data;
+  const comentariosDelCerro = reviews.data ?? [];
+
+  if (trail.loading) {
+    return (
+      <main className="flex flex-1 items-center justify-center p-6 text-center text-foreground/60">
+        Cargando sendero…
+      </main>
+    );
+  }
+
+  if (trail.dbStatus === "empty") {
+    return <DbStatusNotice dbStatus="empty" />;
+  }
 
   if (!cerro) {
     return (
@@ -51,6 +67,7 @@ export default function CerroPage() {
 
   return (
     <>
+      <DbStatusNotice dbStatus={trail.dbStatus} />
       {/* Jerarquía (prompt.md paso 3): título, datos clave en una fila, mini-mapa, play
           grande (fijo abajo), opiniones. pb-32 deja lugar de sobra para que el Play fijo
           no tape el último comentario. */}

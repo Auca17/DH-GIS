@@ -65,7 +65,7 @@ export function MapaCerros({ cerros }: MapaCerrosProps) {
               <div className="flex flex-col gap-2 p-1">
                 <p className="font-semibold text-foreground">{cerro.nombre}</p>
                 <Link
-                  href={`/cerro/${cerro.id}`}
+                  href={`/cerro/${cerro.slug}`}
                   className="text-sm font-semibold text-brand transition-colors duration-150 hover:brightness-110"
                 >
                   Ver sendero →

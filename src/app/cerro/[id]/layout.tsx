@@ -1,12 +1,13 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
-import { cerros } from "@/lib/mock-data";
+import { DbStatusNotice } from "@/components/db-status/DbStatusNotice";
+import { legacyIdToSlug, loadTrail } from "@/lib/data/trail-data";
 import { DescentProvider } from "@/providers/descent-provider";
 
-// This route looks up mock data per dynamic `id` at request time — it is not static
-// content — so it opts out of the project's Cache Components static/streaming
-// requirement (next.config.ts `cacheComponents: true`) and renders as a normal
-// blocking (dynamic) route instead.
+// This route reads the trail from MongoDB per dynamic `id` (now the trail slug) at
+// request time — it is not static content — so it opts out of the project's Cache
+// Components static/streaming requirement (next.config.ts `cacheComponents: true`)
+// and renders as a normal blocking (dynamic) route instead.
 export const instant = false;
 
 // Keeps the descent state alive across /cerro/[id] -> /cronometro -> /resultado ->
@@ -20,7 +21,20 @@ export default async function CerroLayout({
   children: ReactNode;
 }) {
   const { id } = await params;
-  const cerro = cerros.find((c) => c.id === id);
+
+  // Old links used ids like "pequia". Send them to the slug URL. A layout does not
+  // know the rest of the path, so old sub-paths (/cronometro, ...) land on the trail page.
+  const slug = legacyIdToSlug(id);
+  if (slug && slug !== id) {
+    redirect(`/cerro/${slug}`);
+  }
+
+  const { dbStatus, data: cerro } = await loadTrail(id);
+
+  // Database up but without trails: tell how to fill it (no mock data here).
+  if (dbStatus === "empty") {
+    return <DbStatusNotice dbStatus="empty" />;
+  }
 
   if (!cerro) {
     notFound();

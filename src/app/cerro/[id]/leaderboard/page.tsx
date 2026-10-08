@@ -1,10 +1,11 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
+import { DbStatusNotice } from "@/components/db-status/DbStatusNotice";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useUltimoResultado } from "@/hooks/use-ultimo-resultado";
-import { leaderboardPorCerro } from "@/lib/mock-data";
+import { useTrailApi } from "@/hooks/use-trail-api";
 import type { EntradaLeaderboard, TipoBici } from "@/lib/types";
 import { useDescent } from "@/providers/descent-provider";
 
@@ -19,7 +20,11 @@ export default function LeaderboardPage() {
   const { reset } = useDescent();
   const resultado = useUltimoResultado(id);
 
-  const entradasBase: FilaLeaderboard[] = leaderboardPorCerro[id] ?? [];
+  // `id` in the URL is the trail slug.
+  const { loading, dbStatus, data } = useTrailApi<EntradaLeaderboard[]>(
+    `/api/trails/${id}/leaderboard`,
+  );
+  const entradasBase: FilaLeaderboard[] = data ?? [];
   // Insert the just-finished run into the displayed ranking without mutating mock-data.
   const propiaEntrada: FilaLeaderboard | null = resultado
     ? {
@@ -42,59 +47,74 @@ export default function LeaderboardPage() {
     router.push("/mapa");
   }
 
+  if (loading) {
+    return (
+      <main className="flex flex-1 items-center justify-center p-6 text-center text-foreground/60">
+        Cargando leaderboard…
+      </main>
+    );
+  }
+
+  if (dbStatus === "empty") {
+    return <DbStatusNotice dbStatus="empty" />;
+  }
+
   return (
-    <main className="flex flex-1 flex-col gap-4 p-4">
-      <h1 className="text-xl font-bold">Leaderboard</h1>
+    <>
+      <DbStatusNotice dbStatus={dbStatus} />
+      <main className="flex flex-1 flex-col gap-4 p-4">
+        <h1 className="text-xl font-bold">Leaderboard</h1>
 
-      <Card className="overflow-hidden p-0">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-foreground/50">
-              <th className="px-3 py-3 sm:px-4">#</th>
-              <th className="px-3 py-3 sm:px-4">Usuario</th>
-              <th className="px-3 py-3 sm:px-4">Fecha</th>
-              <th className="px-3 py-3 sm:px-4">Tiempo</th>
-              <th className="px-3 py-3 sm:px-4">Vel. prom.</th>
-              <th className="px-3 py-3 sm:px-4">Bici</th>
-            </tr>
-          </thead>
-          <tbody>
-            {entradas.map((entrada, i) => {
-              const esPropia = entrada.id === "own-run";
-              return (
-                <tr
-                  key={entrada.id}
-                  className={`border-b border-border last:border-none ${esPropia ? "bg-brand/10" : ""}`}
-                >
-                  <td className="px-3 py-3 font-mono font-semibold tabular-nums sm:px-4">
-                    {i + 1}
-                  </td>
-                  <td className="px-3 py-3 sm:px-4">
-                    {entrada.usuario}
-                    {esPropia ? " (vos)" : ""}
-                  </td>
-                  <td className="px-3 py-3 text-foreground/60 sm:px-4">{entrada.fecha}</td>
-                  <td className="px-3 py-3 font-mono tabular-nums sm:px-4">
-                    {formatearMs(entrada.tiempoMs)}
-                  </td>
-                  <td className="px-3 py-3 font-mono tabular-nums sm:px-4">
-                    {entrada.velocidadPromedioKmh.toFixed(1)} km/h
-                  </td>
-                  <td className="px-3 py-3 text-foreground/60 sm:px-4">{entrada.bikeType}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {entradas.length === 0 ? (
-          <p className="p-4 text-sm text-foreground/50">Todavía no hay tiempos registrados.</p>
-        ) : null}
-      </Card>
+        <Card className="overflow-hidden p-0">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-foreground/50">
+                <th className="px-3 py-3 sm:px-4">#</th>
+                <th className="px-3 py-3 sm:px-4">Usuario</th>
+                <th className="px-3 py-3 sm:px-4">Fecha</th>
+                <th className="px-3 py-3 sm:px-4">Tiempo</th>
+                <th className="px-3 py-3 sm:px-4">Vel. prom.</th>
+                <th className="px-3 py-3 sm:px-4">Bici</th>
+              </tr>
+            </thead>
+            <tbody>
+              {entradas.map((entrada, i) => {
+                const esPropia = entrada.id === "own-run";
+                return (
+                  <tr
+                    key={entrada.id}
+                    className={`border-b border-border last:border-none ${esPropia ? "bg-brand/10" : ""}`}
+                  >
+                    <td className="px-3 py-3 font-mono font-semibold tabular-nums sm:px-4">
+                      {i + 1}
+                    </td>
+                    <td className="px-3 py-3 sm:px-4">
+                      {entrada.usuario}
+                      {esPropia ? " (vos)" : ""}
+                    </td>
+                    <td className="px-3 py-3 text-foreground/60 sm:px-4">{entrada.fecha}</td>
+                    <td className="px-3 py-3 font-mono tabular-nums sm:px-4">
+                      {formatearMs(entrada.tiempoMs)}
+                    </td>
+                    <td className="px-3 py-3 font-mono tabular-nums sm:px-4">
+                      {entrada.velocidadPromedioKmh.toFixed(1)} km/h
+                    </td>
+                    <td className="px-3 py-3 text-foreground/60 sm:px-4">{entrada.bikeType}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {entradas.length === 0 ? (
+            <p className="p-4 text-sm text-foreground/50">Todavía no hay tiempos registrados.</p>
+          ) : null}
+        </Card>
 
-      <Button onClick={handleFinalizar} className="w-full">
-        Finalizar
-      </Button>
-    </main>
+        <Button onClick={handleFinalizar} className="w-full">
+          Finalizar
+        </Button>
+      </main>
+    </>
   );
 }
 

@@ -3,9 +3,11 @@
 import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { DbStatusNotice } from "@/components/db-status/DbStatusNotice";
 import { Button } from "@/components/ui/Button";
 import { useElapsedTime } from "@/hooks/use-elapsed-time";
-import { cerros } from "@/lib/mock-data";
+import { useTrailApi } from "@/hooks/use-trail-api";
+import type { Cerro } from "@/lib/types";
 import { flattenPista, getTotalDistanceM } from "@/lib/track-geometry";
 import { useDescent } from "@/providers/descent-provider";
 
@@ -30,7 +32,8 @@ export default function CronometroPage() {
   const { state, stop, sos } = useDescent();
   const [confirmandoSos, setConfirmandoSos] = useState(false);
 
-  const cerro = cerros.find((c) => c.id === id);
+  // `id` in the URL is the trail slug. Name and track come from the API.
+  const { loading, dbStatus, data: cerro } = useTrailApi<Cerro>(`/api/trails/${id}`);
   // Display-only 200ms clock; the GPS tick inside DescentProvider stays at 1Hz
   // regardless of how often this re-renders.
   const { formateado } = useElapsedTime(state.startedAt, state.estado === "corriendo");
@@ -48,6 +51,18 @@ export default function CronometroPage() {
       router.push(`/cerro/${id}/resultado`);
     }
   }, [state.estado, id, router]);
+
+  if (loading) {
+    return (
+      <main className="flex flex-1 items-center justify-center p-6 text-center text-foreground/60">
+        Cargando sendero…
+      </main>
+    );
+  }
+
+  if (dbStatus === "empty") {
+    return <DbStatusNotice dbStatus="empty" />;
+  }
 
   if (!cerro) {
     return (
@@ -78,43 +93,46 @@ export default function CronometroPage() {
     distanciaTotalM > 0 ? Math.min(100, (distanciaRecorridaM / distanciaTotalM) * 100) : 0;
 
   return (
-    <main className="flex flex-1 flex-col">
-      <div className="flex flex-col items-center gap-2 bg-surface px-4 py-6">
-        <p className="text-sm uppercase tracking-wide text-foreground/50">{cerro.nombre}</p>
-        <p className="font-mono text-6xl font-bold tabular-nums">{formateado}</p>
-        <div className="mt-2 flex gap-8 text-center">
-          <Stat label="Velocidad" value={`${velocidadKmh.toFixed(1)} km/h`} />
-          <Stat label="Altitud" value={`${Math.round(elevacionActualM)} m`} />
-          <Stat label="Desnivel bajado" value={`${Math.round(desnivelDescendidoM)} m`} />
+    <>
+      <DbStatusNotice dbStatus={dbStatus} />
+      <main className="flex flex-1 flex-col">
+        <div className="flex flex-col items-center gap-2 bg-surface px-4 py-6">
+          <p className="text-sm uppercase tracking-wide text-foreground/50">{cerro.nombre}</p>
+          <p className="font-mono text-6xl font-bold tabular-nums">{formateado}</p>
+          <div className="mt-2 flex gap-8 text-center">
+            <Stat label="Velocidad" value={`${velocidadKmh.toFixed(1)} km/h`} />
+            <Stat label="Altitud" value={`${Math.round(elevacionActualM)} m`} />
+            <Stat label="Desnivel bajado" value={`${Math.round(desnivelDescendidoM)} m`} />
+          </div>
+          <div className="mt-2 h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-surface-muted">
+            <div
+              className="h-full rounded-full bg-brand transition-[width]"
+              style={{ width: `${progresoPct}%` }}
+            />
+          </div>
         </div>
-        <div className="mt-2 h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-surface-muted">
-          <div
-            className="h-full rounded-full bg-brand transition-[width]"
-            style={{ width: `${progresoPct}%` }}
+
+        <div className="relative min-h-[200px] flex-1">
+          <TrackMapPreview
+            pista={cerro.pista}
+            puntoActual={
+              state.puntoActual
+                ? { lat: state.puntoActual.lat, lng: state.puntoActual.lng }
+                : null
+            }
           />
         </div>
-      </div>
 
-      <div className="relative min-h-[200px] flex-1">
-        <TrackMapPreview
-          pista={cerro.pista}
-          puntoActual={
-            state.puntoActual
-              ? { lat: state.puntoActual.lat, lng: state.puntoActual.lng }
-              : null
-          }
-        />
-      </div>
-
-      <div className="flex gap-3 border-t border-border bg-background p-4">
-        <Button variant="ghost" onClick={handleStop} className="flex-1">
-          ■ Parar
-        </Button>
-        <Button variant="danger" onClick={handleSos} className="flex-1">
-          {confirmandoSos ? "Confirmar SOS" : "SOS"}
-        </Button>
-      </div>
-    </main>
+        <div className="flex gap-3 border-t border-border bg-background p-4">
+          <Button variant="ghost" onClick={handleStop} className="flex-1">
+            ■ Parar
+          </Button>
+          <Button variant="danger" onClick={handleSos} className="flex-1">
+            {confirmandoSos ? "Confirmar SOS" : "SOS"}
+          </Button>
+        </div>
+      </main>
+    </>
   );
 }
 

@@ -32,6 +32,7 @@ import { getDb } from "@/lib/mongodb";
  *     $project: {
  *       _id: 0,
  *       trail: "$trail.name",
+ *       slug: "$trail.slug",
  *       avgRating: { $round: ["$avgRating", 1] },
  *       reviews: 1
  *     }
@@ -45,12 +46,13 @@ import { getDb } from "@/lib/mongodb";
  * - $lookup: for each group, brings the trail whose _id equals the group _id
  *   (the trailId), so we can show its name instead of an ObjectId.
  * - $unwind: turns the one-element `trail` array into a plain object.
- * - $project: returns trail name, average rounded to 1 decimal, and review count.
+ * - $project: returns trail name and slug (the slug lets the screens match the rating to a trail), average rounded to 1 decimal, and review count.
  * - $sort: best rated first; ties are ordered alphabetically by name.
  */
 
 export interface TrailRating {
   trail: string;
+  slug: string;
   avgRating: number;
   reviews: number;
 }
@@ -77,6 +79,7 @@ export async function getAverageRatings(): Promise<TrailRating[]> {
       $project: {
         _id: 0,
         trail: "$trail.name",
+        slug: "$trail.slug",
         avgRating: { $round: ["$avgRating", 1] },
         reviews: 1,
       },
