@@ -4,12 +4,17 @@ import { useParams, useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { useGuardarDescenso } from "@/hooks/use-guardar-descenso";
 import { useUltimoResultado } from "@/hooks/use-ultimo-resultado";
 
 export default function ResultadoPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const resultado = useUltimoResultado(id);
+  // Sends the run to the server once and tells us how the save went.
+  const guardado = useGuardarDescenso(id, resultado);
+  // Too fast for this trail: the server saved it as invalid. We do not show it as a normal time.
+  const demasiadoRapido = guardado?.outcome === "invalid" && guardado.invalidReason === "too fast";
 
   const [texto, setTexto] = useState("");
   const [calificacion, setCalificacion] = useState(0);
@@ -40,7 +45,20 @@ export default function ResultadoPage() {
         </div>
       ) : null}
 
-      <Card className="grid grid-cols-3 gap-3 text-center">
+      {demasiadoRapido ? (
+        <div className="rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm font-medium text-danger">
+          Descenso interrumpido: el tiempo es demasiado corto para este sendero. No cuenta para el
+          ranking.
+        </div>
+      ) : null}
+
+      {guardado?.outcome === "failed" ? (
+        <div className="rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm font-medium text-danger">
+          {guardado.message ?? "No se pudo guardar el descenso (sin conexión a la base)"}
+        </div>
+      ) : null}
+
+      <Card className={`grid grid-cols-3 gap-3 text-center ${demasiadoRapido ? "opacity-40" : ""}`}>
         <SummaryStat label="Tiempo" value={formatearMs(resultado.tiempoMs)} />
         <SummaryStat
           label="Vel. promedio"
@@ -51,6 +69,13 @@ export default function ResultadoPage() {
           value={`${Math.round(resultado.cambioElevacionM)} m`}
         />
       </Card>
+
+      {guardado?.outcome === "pending" ? (
+        <p className="text-xs text-foreground/50">Guardando descenso…</p>
+      ) : null}
+      {guardado?.outcome === "saved" ? (
+        <p className="text-xs text-foreground/50">Descenso guardado.</p>
+      ) : null}
 
       <Card className="flex flex-col gap-3">
         <h2 className="text-sm font-semibold text-foreground/80">Dejá tu opinión</h2>

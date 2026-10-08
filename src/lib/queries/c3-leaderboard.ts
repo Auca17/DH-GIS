@@ -29,7 +29,8 @@ import { getDb } from "@/lib/mongodb";
  *       durationMs: { $first: "$durationMs" },
  *       avgSpeedKmh: { $first: "$avgSpeedKmh" },
  *       bikeType: { $first: "$bikeType" },
- *       startedAt: { $first: "$startedAt" }
+ *       startedAt: { $first: "$startedAt" },
+ *       isDemo: { $first: "$isDemo" }
  *     }
  *   },
  *   { $sort: { durationMs: 1 } },
@@ -50,10 +51,13 @@ import { getDb } from "@/lib/mongodb";
  *       durationMs: 1,
  *       avgSpeedKmh: 1,
  *       bikeType: 1,
- *       startedAt: 1
+ *       startedAt: 1,
+ *       isDemo: 1
  *     }
  *   }
  * ]
+ *
+ * To leave demo runs out, add isDemo: { $ne: true } to the $match (see INCLUDE_DEMO_RUNS).
  *
  * Stages:
  * - $match: keeps only the descents of this trail that were completed and validated.
@@ -69,8 +73,14 @@ import { getDb } from "@/lib/mongodb";
  *   JOIN. The result is an array called `user` with one element.
  * - $unwind: turns that one-element array into a plain object, so we can
  *   write "$user.displayName".
- * - $project: shapes the row the leaderboard shows: rider, time, speed, bike, date.
+ * - $project: shapes the row the leaderboard shows: rider, time, speed, bike, date and
+ *   isDemo (so the screen can tag simulated runs).
  */
+
+// The only place to change if demo runs must be excluded from the leaderboard.
+// true: simulated runs (isDemo: true) rank like any other run and the screen tags them DEMO.
+// false: the $match below also adds isDemo: { $ne: true }.
+export const INCLUDE_DEMO_RUNS = true;
 
 export interface LeaderboardRow {
   rider: string;
@@ -78,6 +88,8 @@ export interface LeaderboardRow {
   avgSpeedKmh: number;
   bikeType: string;
   startedAt: Date;
+  // Missing (undefined) in seed descents; true for simulated runs.
+  isDemo?: boolean;
 }
 
 export async function getLeaderboard(slug: string, limit = 10): Promise<LeaderboardRow[]> {
@@ -90,8 +102,12 @@ export async function getLeaderboard(slug: string, limit = 10): Promise<Leaderbo
   }
 
   // Step 2: the aggregation shown above.
+  // With INCLUDE_DEMO_RUNS = false we also skip the demo runs (isDemo: { $ne: true }
+  // matches false and missing, so the seed descents stay).
+  const match = { trailId: trail._id, status: "completed", validated: true };
+  const filter = INCLUDE_DEMO_RUNS ? match : { ...match, isDemo: { $ne: true } };
   const pipeline = [
-    { $match: { trailId: trail._id, status: "completed", validated: true } },
+    { $match: filter },
     { $sort: { durationMs: 1 } },
     {
       $group: {
@@ -100,6 +116,7 @@ export async function getLeaderboard(slug: string, limit = 10): Promise<Leaderbo
         avgSpeedKmh: { $first: "$avgSpeedKmh" },
         bikeType: { $first: "$bikeType" },
         startedAt: { $first: "$startedAt" },
+        isDemo: { $first: "$isDemo" },
       },
     },
     { $sort: { durationMs: 1 } },
@@ -121,6 +138,7 @@ export async function getLeaderboard(slug: string, limit = 10): Promise<Leaderbo
         avgSpeedKmh: 1,
         bikeType: 1,
         startedAt: 1,
+        isDemo: 1,
       },
     },
   ];

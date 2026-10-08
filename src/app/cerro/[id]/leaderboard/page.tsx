@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { DbStatusNotice } from "@/components/db-status/DbStatusNotice";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { crearRunId, useGuardadoDescenso } from "@/hooks/use-guardar-descenso";
 import { useUltimoResultado } from "@/hooks/use-ultimo-resultado";
 import { useTrailApi } from "@/hooks/use-trail-api";
 import type { EntradaLeaderboard, TipoBici } from "@/lib/types";
@@ -19,6 +20,10 @@ export default function LeaderboardPage() {
   const router = useRouter();
   const { reset } = useDescent();
   const resultado = useUltimoResultado(id);
+  const guardado = useGuardadoDescenso(
+    id,
+    resultado ? crearRunId(id, resultado.guardadoEn) : null,
+  );
 
   // `id` in the URL is the trail slug.
   const { loading, dbStatus, data } = useTrailApi<EntradaLeaderboard[]>(
@@ -26,17 +31,21 @@ export default function LeaderboardPage() {
   );
   const entradasBase: FilaLeaderboard[] = data ?? [];
   // Insert the just-finished run into the displayed ranking without mutating mock-data.
-  const propiaEntrada: FilaLeaderboard | null = resultado
-    ? {
-        id: "own-run",
-        cerroId: id,
-        usuario: "Vos",
-        tiempoMs: resultado.tiempoMs,
-        velocidadPromedioKmh: resultado.velocidadPromedioKmh,
-        fecha: new Date(resultado.guardadoEn).toISOString().slice(0, 10),
-        bikeType: "—",
-      }
-    : null;
+  // Only when the run did NOT reach the database (offline demo): if it was saved, the
+  // server data already has it; if it was invalid or an SOS, it must not rank.
+  const guardadoEnBase = guardado?.outcome === "saved" || guardado?.outcome === "invalid";
+  const propiaEntrada: FilaLeaderboard | null =
+    resultado && !resultado.interrumpidoPorSos && !guardadoEnBase
+      ? {
+          id: "own-run",
+          cerroId: id,
+          usuario: "Vos",
+          tiempoMs: resultado.tiempoMs,
+          velocidadPromedioKmh: resultado.velocidadPromedioKmh,
+          fecha: new Date(resultado.guardadoEn).toISOString().slice(0, 10),
+          bikeType: "—",
+        }
+      : null;
 
   const entradas = [...entradasBase, ...(propiaEntrada ? [propiaEntrada] : [])].sort(
     (a, b) => a.tiempoMs - b.tiempoMs,
@@ -91,6 +100,11 @@ export default function LeaderboardPage() {
                     <td className="px-3 py-3 sm:px-4">
                       {entrada.usuario}
                       {esPropia ? " (vos)" : ""}
+                      {entrada.esDemo ? (
+                        <span className="ml-2 rounded border border-border px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground/50">
+                          Demo
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-3 py-3 text-foreground/60 sm:px-4">{entrada.fecha}</td>
                     <td className="px-3 py-3 font-mono tabular-nums sm:px-4">
@@ -99,7 +113,7 @@ export default function LeaderboardPage() {
                     <td className="px-3 py-3 font-mono tabular-nums sm:px-4">
                       {entrada.velocidadPromedioKmh.toFixed(1)} km/h
                     </td>
-                    <td className="px-3 py-3 text-foreground/60 sm:px-4">{entrada.bikeType}</td>
+                    <td className="px-3 py-3 text-foreground/60 sm:px-4">{entrada.bikeType ?? "—"}</td>
                   </tr>
                 );
               })}

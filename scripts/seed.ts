@@ -70,6 +70,13 @@ async function createIndexes() {
     .collection("descents")
     .createIndex({ trailId: 1, status: 1, validated: 1, durationMs: 1 });
 
+  // Unique runId: POST /api/descents saves each run once, even if two identical
+  // requests arrive at the same time. Seed descents have no runId, so the index
+  // only covers documents that have one (partial index).
+  await db
+    .collection("descents")
+    .createIndex({ runId: 1 }, { unique: true, partialFilterExpression: { runId: { $type: "string" } } });
+
   // Reviews of one trail, newest first: filter by trailId, sort by createdAt desc.
   await db.collection("reviews").createIndex({ trailId: 1, createdAt: -1 });
 }
@@ -95,6 +102,8 @@ async function seedUsers(): Promise<Map<string, ObjectId>> {
     for (const entry of entries) names.add(entry.usuario);
   }
   for (const comment of comentarios) names.add(comment.autor);
+  // The user that POST /api/descents saves runs under (there is no login yet).
+  names.add("Demo rider");
 
   const idByName = new Map<string, ObjectId>();
   for (const displayName of names) {
@@ -141,6 +150,9 @@ async function seedTrails(): Promise<Map<string, ObjectId>> {
           elevationM: p.elevacionM,
         })),
       })),
+      // Fastest time the server accepts as valid (anti-cheat). Only Pequia's value is
+      // real; the other trails use placeholder values (see mock-data.ts).
+      minValidTimeS: cerro.tiempoMinimoValidoS,
       startRadiusM: 30, // play is enabled within this distance of `start`
       endRadiusM: 15, // the timer stops within this distance of `end`
       stats: {

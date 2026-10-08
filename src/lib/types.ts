@@ -31,6 +31,8 @@ export interface Cerro {
   desnivelM: number;
   pendientePromedioPct: number;
   tiempoPromedioS: number;
+  /** Fastest time (seconds) the server accepts as a valid descent; faster runs do not rank. */
+  tiempoMinimoValidoS: number;
   /** True while the real GPS track hasn't been recorded yet — see mock-data.ts TODOs. */
   isPlaceholder: boolean;
   /** False hides the trail from the main map without deleting its data (prompt.md paso 1.e). */
@@ -62,6 +64,8 @@ export interface EntradaLeaderboard {
   velocidadPromedioKmh: number;
   fecha: string;
   bikeType: TipoBici;
+  /** True when the run was simulated (demo mode). */
+  esDemo?: boolean;
 }
 
 export interface PuntoDescenso {

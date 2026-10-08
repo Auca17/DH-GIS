@@ -39,6 +39,8 @@ export interface TrailDoc {
   }[];
   startRadiusM: number;
   endRadiusM: number;
+  // Older documents may not have it (treated as 0 = every time is valid).
+  minValidTimeS?: number;
   stats: { lengthM: number; dropM: number; avgGradePct: number; avgTimeS: number };
   isPlaceholder: boolean;
   visibleOnMap: boolean;

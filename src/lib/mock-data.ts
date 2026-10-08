@@ -31,6 +31,7 @@ export const cerros: Cerro[] = [
     desnivelM: statsPequia.desnivelM,
     pendientePromedioPct: statsPequia.pendientePromedioPct,
     tiempoPromedioS: 52,
+    tiempoMinimoValidoS: 30,
     isPlaceholder: false,
     visibleEnMapa: true,
     fuenteDatos: { nombre: "Trailforks", url: "https://www.trailforks.com/trails/circuito-dh-pequia/" },
@@ -51,6 +52,7 @@ export const cerros: Cerro[] = [
     desnivelM: 48,
     pendientePromedioPct: 9.1,
     tiempoPromedioS: 88,
+    tiempoMinimoValidoS: 60, // placeholder value (only Pequia is a real trail)
     isPlaceholder: true,
     visibleEnMapa: false,
     pista: [
@@ -98,6 +100,7 @@ export const cerros: Cerro[] = [
     desnivelM: 18,
     pendientePromedioPct: 5.4,
     tiempoPromedioS: 60,
+    tiempoMinimoValidoS: 30, // placeholder value (only Pequia is a real trail)
     isPlaceholder: true,
     visibleEnMapa: false,
     pista: [
@@ -143,6 +146,7 @@ export const cerros: Cerro[] = [
     desnivelM: 33,
     pendientePromedioPct: 8.0,
     tiempoPromedioS: 70,
+    tiempoMinimoValidoS: 45, // placeholder value (only Pequia is a real trail)
     isPlaceholder: true,
     visibleEnMapa: false,
     pista: [

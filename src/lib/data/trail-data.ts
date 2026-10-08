@@ -1,4 +1,5 @@
 import "server-only";
+import { connection } from "next/server";
 import { getDb, isDbAvailable } from "@/lib/mongodb";
 import { cerros, comentarios, leaderboardPorCerro } from "@/lib/mock-data";
 import { getAverageRatings } from "@/lib/queries/c5-average-rating";
@@ -33,6 +34,11 @@ async function load<T>(
   fromDb: () => Promise<T | null>,
   fromMock: () => T | null,
 ): Promise<DbResult<T>> {
+  // Tells Next.js this data belongs to the request, so it is not prerendered.
+  // It lives here and not in mongodb.ts because the seed and queries scripts
+  // also use mongodb.ts, and they run outside Next.js.
+  await connection();
+
   if (!(await isDbAvailable())) {
     return { dbStatus: "offline", data: fromMock() };
   }
@@ -80,6 +86,7 @@ function toCerro(doc: TrailDoc, rating: number): Cerro {
     desnivelM: doc.stats.dropM,
     pendientePromedioPct: doc.stats.avgGradePct,
     tiempoPromedioS: doc.stats.avgTimeS,
+    tiempoMinimoValidoS: doc.minValidTimeS ?? 0,
     isPlaceholder: doc.isPlaceholder,
     visibleEnMapa: doc.visibleOnMap,
     fuenteDatos: doc.dataSource ?? undefined,
@@ -139,6 +146,7 @@ export async function loadLeaderboard(slug: string): Promise<DbResult<EntradaLea
         velocidadPromedioKmh: row.avgSpeedKmh,
         fecha: toDay(row.startedAt),
         bikeType: row.bikeType as TipoBici,
+        esDemo: row.isDemo === true,
       }));
     },
     () => {
