@@ -5,6 +5,7 @@ import "leaflet/dist/leaflet.css";
 import Link from "next/link";
 import { useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
+import { useIsVisible } from "@/hooks/use-is-visible";
 import type { Cerro } from "@/lib/types";
 
 // Leaflet's default marker icon paths are relative to its own package and break once
@@ -43,38 +44,42 @@ const CAPAS: Record<CapaMapa, { url: string; attribution: string; maxZoom?: numb
 
 export function MapaCerros({ cerros }: MapaCerrosProps) {
   const [capa, setCapa] = useState<CapaMapa>("topo");
+  // Mount the Leaflet map only while the page is on screen (see useIsVisible).
+  const visible = useIsVisible();
 
   return (
     <div className="relative h-full w-full">
-      <MapContainer
-        key="mapa-cerros"
-        center={CENTRO_POR_DEFECTO}
-        zoom={12}
-        scrollWheelZoom
-        className="h-full w-full"
-      >
-        <TileLayer
-          key={capa}
-          attribution={CAPAS[capa].attribution}
-          url={CAPAS[capa].url}
-          maxZoom={CAPAS[capa].maxZoom}
-        />
-        {cerros.map((cerro) => (
-          <Marker key={cerro.id} position={[cerro.ubicacion.lat, cerro.ubicacion.lng]}>
-            <Popup>
-              <div className="flex flex-col gap-2 p-1">
-                <p className="font-semibold text-foreground">{cerro.nombre}</p>
-                <Link
-                  href={`/cerro/${cerro.slug}`}
-                  className="text-sm font-semibold text-brand transition-colors duration-150 hover:brightness-110"
-                >
-                  Ver sendero →
-                </Link>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
-      </MapContainer>
+      {visible ? (
+        <MapContainer
+          key="mapa-cerros"
+          center={CENTRO_POR_DEFECTO}
+          zoom={12}
+          scrollWheelZoom
+          className="h-full w-full"
+        >
+          <TileLayer
+            key={capa}
+            attribution={CAPAS[capa].attribution}
+            url={CAPAS[capa].url}
+            maxZoom={CAPAS[capa].maxZoom}
+          />
+          {cerros.map((cerro) => (
+            <Marker key={cerro.id} position={[cerro.ubicacion.lat, cerro.ubicacion.lng]}>
+              <Popup>
+                <div className="flex flex-col gap-2 p-1">
+                  <p className="font-semibold text-foreground">{cerro.nombre}</p>
+                  <Link
+                    href={`/cerro/${cerro.slug}`}
+                    className="text-sm font-semibold text-brand transition-colors duration-150 hover:brightness-110"
+                  >
+                    Ver sendero →
+                  </Link>
+                </div>
+              </Popup>
+            </Marker>
+          ))}
+        </MapContainer>
+      ) : null}
 
       <button
         type="button"

@@ -4,6 +4,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useEffect } from "react";
 import { CircleMarker, MapContainer, Marker, Polyline, TileLayer, useMap } from "react-leaflet";
+import { useIsVisible } from "@/hooks/use-is-visible";
 import { getBounds, obtenerFlechasDeDireccion } from "@/lib/track-geometry";
 import type { Dificultad, TramoPista } from "@/lib/types";
 
@@ -54,7 +55,9 @@ function FitBoundsAlMontar({ pista }: { pista: TramoPista[] }) {
     // del usuario que lo autocorrija -- sin este invalidateSize() el grid de tiles queda
     // mal alineado y se ve como una línea clara cruzando el mapa.
     map.invalidateSize();
-    map.fitBounds(getBounds(pista), { padding: [24, 24] });
+    // animate: false -> no zoom animation left running if the screen changes right
+    // away (the map is removed and the animation end used to crash: "_leaflet_pos").
+    map.fitBounds(getBounds(pista), { padding: [24, 24], animate: false });
 
     const contenedor = map.getContainer();
     const observer = new ResizeObserver(() => map.invalidateSize());
@@ -80,6 +83,12 @@ export function TrackMapPreview({
   const ultimoTramo = pista[pista.length - 1];
   const fin = ultimoTramo?.puntos[ultimoTramo.puntos.length - 1];
   const flechas = obtenerFlechasDeDireccion(pista, 5);
+  // Mount the Leaflet map only while the page is on screen (see useIsVisible).
+  const visible = useIsVisible();
+
+  if (!visible) {
+    return null;
+  }
 
   return (
     <MapContainer
