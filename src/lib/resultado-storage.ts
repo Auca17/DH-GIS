@@ -18,13 +18,22 @@ export function guardarResultado(resultado: ResultadoDescenso): void {
   }
 }
 
-export function leerResultado(cerroId: string): ResultadoDescenso | null {
+// Returns the raw JSON string. useSyncExternalStore needs a stable snapshot:
+// two equal strings compare equal, while JSON.parse makes a new object each call.
+export function leerResultadoCrudo(cerroId: string): string | null {
   if (typeof window === "undefined") return null;
 
   try {
-    const raw = window.sessionStorage.getItem(storageKey(cerroId));
-    if (!raw) return null;
+    return window.sessionStorage.getItem(storageKey(cerroId));
+  } catch {
+    return null;
+  }
+}
 
+export function parsearResultado(raw: string | null): ResultadoDescenso | null {
+  if (!raw) return null;
+
+  try {
     const parsed = JSON.parse(raw) as Partial<ResultadoDescenso>;
     if (
       typeof parsed.cerroId !== "string" ||

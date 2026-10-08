@@ -1,7 +1,7 @@
 "use client";
 
-import { useContext, useSyncExternalStore } from "react";
-import { leerResultado } from "@/lib/resultado-storage";
+import { useContext, useMemo, useSyncExternalStore } from "react";
+import { leerResultadoCrudo, parsearResultado } from "@/lib/resultado-storage";
 import type { ResultadoDescenso } from "@/lib/types";
 import { DescentContext } from "@/providers/descent-provider";
 
@@ -23,11 +23,14 @@ function sinSuscripcion() {
  */
 export function useUltimoResultado(cerroId: string): ResultadoDescenso | null {
   const ctx = useContext(DescentContext);
-  const snapshot = useSyncExternalStore(
+  // The snapshot is the raw string (stable between reads); it is parsed only
+  // when that string changes.
+  const raw = useSyncExternalStore(
     sinSuscripcion,
-    () => leerResultado(cerroId),
+    () => leerResultadoCrudo(cerroId),
     () => null,
   );
+  const snapshot = useMemo(() => parsearResultado(raw), [raw]);
 
   if (ctx && ctx.state.cerroId === cerroId && ctx.state.estado === "detenido") {
     const { state } = ctx;
