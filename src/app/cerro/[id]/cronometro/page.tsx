@@ -6,10 +6,9 @@ import { useEffect, useMemo, useState } from "react";
 import { DbStatusNotice } from "@/components/db-status/DbStatusNotice";
 import { Button } from "@/components/ui/Button";
 import { useElapsedTime } from "@/hooks/use-elapsed-time";
-import { useTrailApi } from "@/hooks/use-trail-api";
-import type { Cerro } from "@/lib/types";
 import { flattenPista, getTotalDistanceM } from "@/lib/track-geometry";
 import { useDescent } from "@/providers/descent-provider";
+import { useTrail } from "@/providers/trail-provider";
 
 const TrackMapPreview = dynamic(
   () =>
@@ -32,14 +31,14 @@ export default function CronometroPage() {
   const { state, stop, sos } = useDescent();
   const [confirmandoSos, setConfirmandoSos] = useState(false);
 
-  // `id` in the URL is the trail slug. Name and track come from the API.
-  const { loading, dbStatus, data: cerro } = useTrailApi<Cerro>(`/api/trails/${id}`);
+  // Name and track come from the layout (already loaded on the server).
+  const { cerro, dbStatus } = useTrail();
   // Display-only 200ms clock; the GPS tick inside DescentProvider stays at 1Hz
   // regardless of how often this re-renders.
   const { formateado } = useElapsedTime(state.startedAt, state.estado === "corriendo");
 
   const distanciaTotalM = useMemo(
-    () => (cerro ? getTotalDistanceM(flattenPista(cerro.pista)) : 0),
+    () => getTotalDistanceM(flattenPista(cerro.pista)),
     [cerro],
   );
 
@@ -51,26 +50,6 @@ export default function CronometroPage() {
       router.push(`/cerro/${id}/resultado`);
     }
   }, [state.estado, id, router]);
-
-  if (loading) {
-    return (
-      <main className="flex flex-1 items-center justify-center p-6 text-center text-foreground/60">
-        Cargando sendero…
-      </main>
-    );
-  }
-
-  if (dbStatus === "empty") {
-    return <DbStatusNotice dbStatus="empty" />;
-  }
-
-  if (!cerro) {
-    return (
-      <main className="flex flex-1 items-center justify-center p-6 text-center text-foreground/60">
-        Sendero no encontrado.
-      </main>
-    );
-  }
 
   function handleStop() {
     stop();

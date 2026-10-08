@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { RatingStars } from "@/components/ui/RatingStars";
 import { useTrailApi } from "@/hooks/use-trail-api";
-import type { Cerro, Comentario, Dificultad } from "@/lib/types";
+import type { Comentario, Dificultad } from "@/lib/types";
 import { useDescent } from "@/providers/descent-provider";
+import { useTrail } from "@/providers/trail-provider";
 
 const TrackMapPreview = dynamic(
   () =>
@@ -32,31 +33,11 @@ export default function CerroPage() {
   const { start } = useDescent();
   const [mapaCompleto, setMapaCompleto] = useState(false);
 
-  // `id` in the URL is the trail slug. Detail and reviews come from the API.
-  const trail = useTrailApi<Cerro>(`/api/trails/${id}`);
+  // The trail comes from the layout (already loaded on the server). Only the
+  // reviews are fetched here. `id` in the URL is the trail slug.
+  const { cerro, dbStatus } = useTrail();
   const reviews = useTrailApi<Comentario[]>(`/api/trails/${id}/reviews`);
-  const cerro = trail.data;
   const comentariosDelCerro = reviews.data ?? [];
-
-  if (trail.loading) {
-    return (
-      <main className="flex flex-1 items-center justify-center p-6 text-center text-foreground/60">
-        Cargando sendero…
-      </main>
-    );
-  }
-
-  if (trail.dbStatus === "empty") {
-    return <DbStatusNotice dbStatus="empty" />;
-  }
-
-  if (!cerro) {
-    return (
-      <main className="flex flex-1 items-center justify-center p-6 text-center text-foreground/60">
-        Sendero no encontrado.
-      </main>
-    );
-  }
 
   const cerroId = cerro.id;
 
@@ -67,7 +48,7 @@ export default function CerroPage() {
 
   return (
     <>
-      <DbStatusNotice dbStatus={trail.dbStatus} />
+      <DbStatusNotice dbStatus={dbStatus} />
       {/* Jerarquía (prompt.md paso 3): título, datos clave en una fila, mini-mapa, play
           grande (fijo abajo), opiniones. pb-32 deja lugar de sobra para que el Play fijo
           no tape el último comentario. */}
