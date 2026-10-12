@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { crearRunId, useGuardadoDescenso } from "@/hooks/use-guardar-descenso";
 import { useUltimoResultado } from "@/hooks/use-ultimo-resultado";
 import { useTrailApi } from "@/hooks/use-trail-api";
+import { formatDuration, formatSpeed } from "@/lib/format";
 import type { EntradaLeaderboard, TipoBici } from "@/lib/types";
 import { useDescent } from "@/providers/descent-provider";
 
@@ -108,10 +109,10 @@ export default function LeaderboardPage() {
                     </td>
                     <td className="px-3 py-3 text-foreground/60 sm:px-4">{entrada.fecha}</td>
                     <td className="px-3 py-3 font-mono tabular-nums sm:px-4">
-                      {formatearMs(entrada.tiempoMs)}
+                      {formatDuration(entrada.tiempoMs)}
                     </td>
                     <td className="px-3 py-3 font-mono tabular-nums sm:px-4">
-                      {entrada.velocidadPromedioKmh.toFixed(1)} km/h
+                      {formatSpeed(entrada.velocidadPromedioKmh)}
                     </td>
                     <td className="px-3 py-3 text-foreground/60 sm:px-4">{entrada.bikeType ?? "—"}</td>
                   </tr>
@@ -130,11 +131,4 @@ export default function LeaderboardPage() {
       </main>
     </>
   );
-}
-
-function formatearMs(ms: number): string {
-  const totalSeconds = Math.floor(ms / 1000);
-  const seconds = totalSeconds % 60;
-  const minutes = Math.floor(totalSeconds / 60);
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }

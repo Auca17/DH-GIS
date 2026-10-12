@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { formatDistance, formatDuration, formatSpeed } from "@/lib/format";
 import { useGuardarDescenso } from "@/hooks/use-guardar-descenso";
 import { useUltimoResultado } from "@/hooks/use-ultimo-resultado";
 
@@ -59,14 +60,14 @@ export default function ResultadoPage() {
       ) : null}
 
       <Card className={`grid grid-cols-3 gap-3 text-center ${demasiadoRapido ? "opacity-40" : ""}`}>
-        <SummaryStat label="Tiempo" value={formatearMs(resultado.tiempoMs)} />
+        <SummaryStat label="Tiempo" value={formatDuration(resultado.tiempoMs)} />
         <SummaryStat
           label="Vel. promedio"
-          value={`${resultado.velocidadPromedioKmh.toFixed(1)} km/h`}
+          value={formatSpeed(resultado.velocidadPromedioKmh)}
         />
         <SummaryStat
           label="Desnivel"
-          value={`${Math.round(resultado.cambioElevacionM)} m`}
+          value={formatDistance(resultado.cambioElevacionM)}
         />
       </Card>
 
@@ -124,11 +125,4 @@ function SummaryStat({ label, value }: { label: string; value: string }) {
       <p className="text-xs uppercase tracking-wide text-foreground/50">{label}</p>
     </div>
   );
-}
-
-function formatearMs(ms: number): string {
-  const totalSeconds = Math.floor(ms / 1000);
-  const seconds = totalSeconds % 60;
-  const minutes = Math.floor(totalSeconds / 60);
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }

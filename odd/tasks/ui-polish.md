@@ -21,7 +21,7 @@ Implement comprehensive UI/UX polish for DH downhill MTB leaderboard according t
 - [x] P02 — Tests for `src/lib/gps-simulator.ts`
 - [x] P03 — Tests for `src/lib/track-geometry.ts`
 - [x] P04 — Tests for `src/lib/descents/validate-descent.ts`
-- [ ] P05 — Shared formatters in `src/lib/format.ts` (Checkpoint 1)
+- [x] P05 — Shared formatters in `src/lib/format.ts` (Checkpoint 1)
 - [ ] P06 — Difficulty single source in `src/lib/difficulty.ts`
 
 ### Block 1: Impeccable foundation
@@ -101,8 +101,30 @@ Implement comprehensive UI/UX polish for DH downhill MTB leaderboard according t
 - Notes: Tests cover flattenPista deduplication and distances, getTotalDistanceM, getBounds, and obtenerFlechasDeDireccion bearings.
 
 ### P04 — Tests for validate-descent
-- Commit: pending
+- Commit: `355c09a`
 - Touched: `tests/validate-descent.test.ts`, `odd/tasks/ui-polish.md`
 - Checks: `npm run typecheck` (0), `npm run lint` (0), `npm test` (29 passed across 4 test files)
 - Notes: Tests cover valid bodies (ISO dates, timestamps, SOS flag) and all 400 validation cases (null body, missing runId/trailSlug, bad dates, non-finite/negative numbers, non-booleans).
+
+### P05 — Shared formatters
+- Commit: pending
+- Touched: `src/lib/format.ts`, `tests/format.test.ts`, `src/app/cerro/[id]/resultado/page.tsx`, `src/app/cerro/[id]/leaderboard/page.tsx`, `src/app/cerro/[id]/cronometro/page.tsx`, `src/app/cerro/[id]/page.tsx`, `src/hooks/use-elapsed-time.ts`, `odd/tasks/ui-polish.md`
+- Checks: `npm run typecheck` (0), `npm run lint` (0), `npm test` (39 passed across 5 test files)
+- Notes: Centralized duration (m:ss.d), speed (km/h), distance (m), and es-AR date formatters. Replaced duplicate implementations across screens.
+
+### Checkpoint 1 (after P05)
+- Server started: `npx next start -p 3101`
+- Pages:
+  - `/` -> 200
+  - `/mapa` -> 200
+  - `/cerro/circuito-dh-pequia` -> 200
+  - `/cerro/circuito-dh-pequia/leaderboard` -> 200
+- API:
+  - `/api/health` -> 200
+  - `/api/trails` -> 200
+  - `/api/trails/circuito-dh-pequia` -> 200
+  - `/api/trails/circuito-dh-pequia/leaderboard` -> 200
+  - `/api/trails/circuito-dh-pequia/reviews` -> 200
+  - `/api/trails/nearby?lat=-32.8959&lng=-68.89533` -> 200
+- Server stopped: Port 3101 confirmed clean and free.
 

@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { DbStatusNotice } from "@/components/db-status/DbStatusNotice";
 import { Button } from "@/components/ui/Button";
 import { useElapsedTime } from "@/hooks/use-elapsed-time";
+import { formatDistance, formatSpeed } from "@/lib/format";
 import { flattenPista, getTotalDistanceM } from "@/lib/track-geometry";
 import { useDescent } from "@/providers/descent-provider";
 import { useTrail } from "@/providers/trail-provider";
@@ -79,9 +80,9 @@ export default function CronometroPage() {
           <p className="text-sm uppercase tracking-wide text-foreground/50">{cerro.nombre}</p>
           <p className="font-mono text-6xl font-bold tabular-nums">{formateado}</p>
           <div className="mt-2 flex gap-8 text-center">
-            <Stat label="Velocidad" value={`${velocidadKmh.toFixed(1)} km/h`} />
-            <Stat label="Altitud" value={`${Math.round(elevacionActualM)} m`} />
-            <Stat label="Desnivel bajado" value={`${Math.round(desnivelDescendidoM)} m`} />
+            <Stat label="Velocidad" value={formatSpeed(velocidadKmh)} />
+            <Stat label="Altitud" value={formatDistance(elevacionActualM)} />
+            <Stat label="Desnivel bajado" value={formatDistance(desnivelDescendidoM)} />
           </div>
           <div className="mt-2 h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-surface-muted">
             <div

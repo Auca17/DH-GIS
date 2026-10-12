@@ -7,6 +7,7 @@ import { DbStatusNotice } from "@/components/db-status/DbStatusNotice";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { RatingStars } from "@/components/ui/RatingStars";
+import { formatDistance } from "@/lib/format";
 import { useTrailApi } from "@/hooks/use-trail-api";
 import type { Comentario, Dificultad } from "@/lib/types";
 import { useDescent } from "@/providers/descent-provider";
@@ -71,8 +72,8 @@ export default function CerroPage() {
         <p className="text-sm leading-relaxed text-foreground/80">{cerro.descripcion}</p>
 
         <div className="grid grid-cols-5 gap-2 rounded-2xl border border-border bg-surface p-3 text-center">
-          <StatItem label="Distancia" value={`${cerro.largoM} m`} />
-          <StatItem label="Desnivel" value={`${cerro.desnivelM} m`} />
+          <StatItem label="Distancia" value={formatDistance(cerro.largoM)} />
+          <StatItem label="Desnivel" value={formatDistance(cerro.desnivelM)} />
           <StatItem label="Pendiente" value={`${cerro.pendientePromedioPct}%`} />
           <StatItem label="T. promedio" value={`${cerro.tiempoPromedioS}s`} />
           <StatItem label="Terreno" value={cerro.terreno} />
