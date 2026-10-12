@@ -19,7 +19,7 @@ Implement comprehensive UI/UX polish for DH downhill MTB leaderboard according t
 - [x] P00 — Baseline tracker
 - [x] P01 — Vitest setup and smoke test
 - [x] P02 — Tests for `src/lib/gps-simulator.ts`
-- [ ] P03 — Tests for `src/lib/track-geometry.ts`
+- [x] P03 — Tests for `src/lib/track-geometry.ts`
 - [ ] P04 — Tests for `src/lib/descents/validate-descent.ts`
 - [ ] P05 — Shared formatters in `src/lib/format.ts` (Checkpoint 1)
 - [ ] P06 — Difficulty single source in `src/lib/difficulty.ts`
@@ -89,8 +89,14 @@ Implement comprehensive UI/UX polish for DH downhill MTB leaderboard according t
 - Notes: Vitest 3.2.7 installed with `@/` alias and smoke test passing.
 
 ### P02 — Tests for gps-simulator
-- Commit: pending
+- Commit: `24c68d5`
 - Touched: `tests/gps-simulator.test.ts`, `odd/tasks/ui-polish.md`
 - Checks: `npm run typecheck` (0), `npm run lint` (0), `npm test` (7 passed across 2 test files)
 - Notes: Tests cover speed clamping to base ± 6, minimum speed 8 km/h, monotonic distance advancement, and total distance completion.
+
+### P03 — Tests for track-geometry
+- Commit: pending
+- Touched: `tests/track-geometry.test.ts`, `odd/tasks/ui-polish.md`
+- Checks: `npm run typecheck` (0), `npm run lint` (0), `npm test` (16 passed across 3 test files)
+- Notes: Tests cover flattenPista deduplication and distances, getTotalDistanceM, getBounds, and obtenerFlechasDeDireccion bearings.
 
