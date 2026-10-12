@@ -17,7 +17,7 @@ Implement comprehensive UI/UX polish for DH downhill MTB leaderboard according t
 
 ### Block 0: Setup and safety net
 - [x] P00 — Baseline tracker
-- [ ] P01 — Vitest setup and smoke test
+- [x] P01 — Vitest setup and smoke test
 - [ ] P02 — Tests for `src/lib/gps-simulator.ts`
 - [ ] P03 — Tests for `src/lib/track-geometry.ts`
 - [ ] P04 — Tests for `src/lib/descents/validate-descent.ts`
@@ -77,8 +77,14 @@ Implement comprehensive UI/UX polish for DH downhill MTB leaderboard according t
 
 ## Phase Logs
 ### P00 — Baseline
-- Commit: pending
+- Commit: `562929a`
 - Touched: `odd/tasks/ui-polish.md`
 - Checks: `npx tsc --noEmit` (0), `npm run lint` (0), `npm run build` (0)
 - Notes: Baseline established at `08028b6`.
+
+### P01 — Vitest
+- Commit: pending
+- Touched: `package.json`, `package-lock.json`, `vitest.config.ts`, `tests/smoke.test.ts`, `odd/tasks/ui-polish.md`
+- Checks: `npm run typecheck` (0), `npm run lint` (0), `npm test` (1 passed)
+- Notes: Vitest 3.2.7 installed with `@/` alias and smoke test passing.
 
