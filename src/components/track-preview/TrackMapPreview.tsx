@@ -5,8 +5,9 @@ import "leaflet/dist/leaflet.css";
 import { useEffect } from "react";
 import { CircleMarker, MapContainer, Marker, Polyline, TileLayer, useMap } from "react-leaflet";
 import { useIsVisible } from "@/hooks/use-is-visible";
+import { getDifficulty } from "@/lib/difficulty";
 import { getBounds, obtenerFlechasDeDireccion } from "@/lib/track-geometry";
-import type { Dificultad, TramoPista } from "@/lib/types";
+import type { TramoPista } from "@/lib/types";
 
 const TOPO_URL = "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png";
 const TOPO_ATTRIBUTION =
@@ -20,12 +21,6 @@ L.Icon.Default.mergeOptions({
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
   shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
-
-const COLOR_POR_DIFICULTAD: Record<Dificultad, string> = {
-  facil: "#2563eb",
-  intermedia: "#eab308",
-  dificil: "#dc2626",
-};
 
 interface TrackMapPreviewProps {
   pista: TramoPista[];
@@ -111,7 +106,7 @@ export function TrackMapPreview({
         <Polyline
           key={i}
           positions={tramo.puntos.map((p) => [p.lat, p.lng] as [number, number])}
-          pathOptions={{ color: COLOR_POR_DIFICULTAD[tramo.dificultad], weight: 5 }}
+          pathOptions={{ color: getDifficulty(tramo.dificultad).hex, weight: 5 }}
         />
       ))}
       {inicio ? (

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import { useIsVisible } from "@/hooks/use-is-visible";
+import { getDifficulty } from "@/lib/difficulty";
 import type { Cerro } from "@/lib/types";
 
 // Leaflet's default marker icon paths are relative to its own package and break once
@@ -68,6 +69,12 @@ export function MapaCerros({ cerros }: MapaCerrosProps) {
               <Popup>
                 <div className="flex flex-col gap-2 p-1">
                   <p className="font-semibold text-foreground">{cerro.nombre}</p>
+                  <span
+                    className="text-xs font-semibold"
+                    style={{ color: getDifficulty(cerro.dificultadGeneral).hex }}
+                  >
+                    {getDifficulty(cerro.dificultadGeneral).label}
+                  </span>
                   <Link
                     href={`/cerro/${cerro.slug}`}
                     className="text-sm font-semibold text-brand transition-colors duration-150 hover:brightness-110"

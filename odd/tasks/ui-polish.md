@@ -22,7 +22,7 @@ Implement comprehensive UI/UX polish for DH downhill MTB leaderboard according t
 - [x] P03 — Tests for `src/lib/track-geometry.ts`
 - [x] P04 — Tests for `src/lib/descents/validate-descent.ts`
 - [x] P05 — Shared formatters in `src/lib/format.ts` (Checkpoint 1)
-- [ ] P06 — Difficulty single source in `src/lib/difficulty.ts`
+- [x] P06 — Difficulty single source in `src/lib/difficulty.ts`
 
 ### Block 1: Impeccable foundation
 - [ ] P07 — Tokens (`globals.css`, light scheme, semantic color mappings)
@@ -107,10 +107,16 @@ Implement comprehensive UI/UX polish for DH downhill MTB leaderboard according t
 - Notes: Tests cover valid bodies (ISO dates, timestamps, SOS flag) and all 400 validation cases (null body, missing runId/trailSlug, bad dates, non-finite/negative numbers, non-booleans).
 
 ### P05 — Shared formatters
-- Commit: pending
+- Commit: `a0eb6e3`
 - Touched: `src/lib/format.ts`, `tests/format.test.ts`, `src/app/cerro/[id]/resultado/page.tsx`, `src/app/cerro/[id]/leaderboard/page.tsx`, `src/app/cerro/[id]/cronometro/page.tsx`, `src/app/cerro/[id]/page.tsx`, `src/hooks/use-elapsed-time.ts`, `odd/tasks/ui-polish.md`
 - Checks: `npm run typecheck` (0), `npm run lint` (0), `npm test` (39 passed across 5 test files)
 - Notes: Centralized duration (m:ss.d), speed (km/h), distance (m), and es-AR date formatters. Replaced duplicate implementations across screens.
+
+### P06 — Difficulty single source
+- Commit: pending
+- Touched: `src/lib/difficulty.ts`, `tests/difficulty.test.ts`, `src/components/track-preview/TrackMapPreview.tsx`, `src/components/mapa/MapaCerros.tsx`, `src/app/cerro/[id]/page.tsx`, `odd/tasks/ui-polish.md`
+- Checks: `npm run typecheck` (0), `npm run lint` (0), `npm test` (42 passed across 6 test files)
+- Notes: Centralized difficulty metadata (label, hex, cssVar). Replaced duplicated hex definitions and replaced legacy Suave/Media/Fuerte with Fácil/Intermedia/Difícil.
 
 ### Checkpoint 1 (after P05)
 - Server started: `npx next start -p 3101`

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { RatingStars } from "@/components/ui/RatingStars";
 import { formatDistance } from "@/lib/format";
+import { getDifficulty } from "@/lib/difficulty";
 import { useTrailApi } from "@/hooks/use-trail-api";
 import type { Comentario, Dificultad } from "@/lib/types";
 import { useDescent } from "@/providers/descent-provider";
@@ -91,9 +92,9 @@ export default function CerroPage() {
         </div>
 
         <div className="flex gap-4 text-xs text-foreground/60">
-          <LegendItem colorClass="bg-difficulty-facil" label="Suave" />
-          <LegendItem colorClass="bg-difficulty-intermedia" label="Media" />
-          <LegendItem colorClass="bg-difficulty-dificil" label="Fuerte" />
+          <LegendItem colorClass="bg-difficulty-facil" label={getDifficulty("facil").label} />
+          <LegendItem colorClass="bg-difficulty-intermedia" label={getDifficulty("intermedia").label} />
+          <LegendItem colorClass="bg-difficulty-dificil" label={getDifficulty("dificil").label} />
         </div>
 
         {cerro.fuenteDatos ? (
@@ -167,11 +168,11 @@ function LegendItem({ colorClass, label }: { colorClass: string; label: string }
   );
 }
 
-const ETIQUETA_DIFICULTAD: Record<Dificultad, string> = {
-  facil: "Fácil",
-  intermedia: "Intermedia",
-  dificil: "Difícil",
-};
+// ETIQUETA_DIFICULTAD removed in favor of @/lib/difficulty
+//
+//
+//
+//
 
 const COLOR_BADGE_DIFICULTAD: Record<Dificultad, string> = {
   facil: "bg-difficulty-facil/15 text-difficulty-facil",
@@ -184,7 +185,7 @@ function DifficultyBadge({ dificultad }: { dificultad: Dificultad }) {
     <span
       className={`rounded-full px-2 py-0.5 text-xs font-semibold ${COLOR_BADGE_DIFICULTAD[dificultad]}`}
     >
-      {ETIQUETA_DIFICULTAD[dificultad]}
+      {getDifficulty(dificultad).label}
     </span>
   );
 }
