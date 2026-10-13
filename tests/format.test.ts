@@ -65,6 +65,11 @@ describe("format", () => {
       expect(formatDate(d.getTime())).toBe("15 ene 2026");
     });
 
+    it("reads a bare YYYY-MM-DD string as a local day, not UTC midnight", () => {
+      // In UTC-3 a UTC parse would show the previous day (11 sep).
+      expect(formatDate("2026-09-12")).toBe("12 sep 2026");
+    });
+
     it("handles invalid date gracefully", () => {
       expect(formatDate("invalid")).toBe("");
     });

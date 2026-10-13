@@ -44,11 +44,21 @@ export function formatDistance(m: number): string {
   return `${Math.round(m)} m`;
 }
 
+// A bare "YYYY-MM-DD" string is read by `new Date()` as midnight UTC, which in
+// Mendoza (UTC-3) is still the previous day. Build it as a local date instead.
+function parseDate(value: string | number): Date {
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split("-").map(Number);
+    return new Date(year, month - 1, day);
+  }
+  return new Date(value);
+}
+
 /**
  * Formats date into concise `es-AR` format (e.g. `12 sep 2026`).
  */
 export function formatDate(date: Date | string | number): string {
-  const d = date instanceof Date ? date : new Date(date);
+  const d = date instanceof Date ? date : parseDate(date);
   if (Number.isNaN(d.getTime())) return "";
   const day = d.getDate();
   const month = MONTHS_ES[d.getMonth()];
