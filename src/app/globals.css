@@ -1,94 +1,122 @@
 @import "tailwindcss";
 
-/* Single dark theme by design (action-sport / leaderboard app), not a light/dark toggle. */
+/* Impeccable Design System — Brand "DH" (Light theme poster aesthetic) */
 :root {
-  --background: #0b0f14;
-  --foreground: #eef2f6;
-  --surface: #121923;
-  --surface-muted: #1a2330;
-  --border: #253142;
+  --bg: #FBF6EC;
+  --surface: #FFFFFF;
+  --surface-muted: #F3EADB;
+  --border: #E2D5BF;
+  --text: #111827;
+  --text-muted: #4B5563;
+  --primary: #CC8800;
+  --primary-ink: #7A5200;
+  --secondary: #C55221;
+  --success: #16A34A;
+  --warning: #D97706;
+  --danger: #DC2626;
 
-  --brand: #f97316;
-  --brand-foreground: #0b0f14;
-  --danger: #dc2626;
+  --diff-facil: #2563EB;
+  --diff-intermedia: #EAB308;
+  --diff-dificil: #DC2626;
 
-  --difficulty-facil: #2563eb;
-  --difficulty-intermedia: #eab308;
-  --difficulty-dificil: #dc2626;
+  /* Motion tokens (D4) */
+  --duration-fast: 120ms;
+  --duration-normal: 200ms;
+  --duration-moderate: 320ms;
+  --duration-slow: 600ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-bg: var(--bg);
+  --color-background: var(--bg);
   --color-surface: var(--surface);
   --color-surface-muted: var(--surface-muted);
   --color-border: var(--border);
+  --color-text: var(--text);
+  --color-foreground: var(--text);
+  --color-text-muted: var(--text-muted);
 
-  --color-brand: var(--brand);
-  --color-brand-foreground: var(--brand-foreground);
+  --color-primary: var(--primary);
+  --color-primary-ink: var(--primary-ink);
+  --color-secondary: var(--secondary);
+  --color-brand: var(--primary);
+  --color-brand-foreground: var(--text);
+
+  --color-success: var(--success);
+  --color-warning: var(--warning);
   --color-danger: var(--danger);
 
-  --color-difficulty-facil: var(--difficulty-facil);
-  --color-difficulty-intermedia: var(--difficulty-intermedia);
-  --color-difficulty-dificil: var(--difficulty-dificil);
+  --color-diff-facil: var(--diff-facil);
+  --color-diff-intermedia: var(--diff-intermedia);
+  --color-diff-dificil: var(--diff-dificil);
+  --color-difficulty-facil: var(--diff-facil);
+  --color-difficulty-intermedia: var(--diff-intermedia);
+  --color-difficulty-dificil: var(--diff-dificil);
 
-  --font-sans: var(--font-inter);
-  --font-mono: var(--font-jetbrains-mono);
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
+
+  --ease-out: var(--ease-out);
+  --ease-in-out: var(--ease-in-out);
 }
 
 html {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--bg);
+  color: var(--text);
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
-/* Leaflet containers are sized by their parent via Tailwind utilities; this just
-   guarantees the map tiles have somewhere to paint and matches the app's dark surface
-   while tiles load. */
+/* Leaflet container and light theme overrides */
 .leaflet-container {
   width: 100%;
   height: 100%;
-  background: var(--surface);
+  background: var(--surface-muted);
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
-/* Leaflet trae sus propios controles y popups con tema claro fijo (cajas blancas). Se
-   sobreescriben acá, una sola vez, para que no rompan la cohesión del tema oscuro de
-   toda la app; no toca nada del comportamiento del mapa. !important porque leaflet.css
-   se importa desde el componente del mapa y puede cargar después de este archivo. */
 .leaflet-popup-content-wrapper {
   background: var(--surface) !important;
-  color: var(--foreground) !important;
+  color: var(--text) !important;
   border: 1px solid var(--border) !important;
   border-radius: 0.75rem !important;
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35) !important;
+  box-shadow: 0 4px 16px rgb(17 24 39 / 0.1) !important;
 }
+
 .leaflet-popup-tip {
   background: var(--surface) !important;
   border: 1px solid var(--border) !important;
 }
+
 .leaflet-popup-close-button {
-  color: color-mix(in srgb, var(--foreground) 60%, transparent) !important;
+  color: var(--text-muted) !important;
 }
+
 .leaflet-popup-close-button:hover {
-  color: var(--foreground) !important;
+  color: var(--text) !important;
 }
+
 .leaflet-control-zoom a {
   background: var(--surface) !important;
-  color: var(--foreground) !important;
+  color: var(--text) !important;
   border: 1px solid var(--border) !important;
 }
+
 .leaflet-control-zoom a:hover {
   background: var(--surface-muted) !important;
 }
+
 .leaflet-control-attribution {
-  background: color-mix(in srgb, var(--surface) 85%, transparent) !important;
-  color: color-mix(in srgb, var(--foreground) 55%, transparent) !important;
+  background: color-mix(in srgb, var(--surface) 90%, transparent) !important;
+  color: var(--text-muted) !important;
 }
+
 .leaflet-control-attribution a {
-  color: color-mix(in srgb, var(--foreground) 70%, transparent) !important;
+  color: var(--primary-ink) !important;
 }

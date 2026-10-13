@@ -91,7 +91,7 @@ export function MapaCerros({ cerros }: MapaCerrosProps) {
       <button
         type="button"
         onClick={() => setCapa((prev) => (prev === "topo" ? "osm" : "topo"))}
-        className="absolute top-3 right-3 z-[1000] inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-surface/95 px-4 text-xs font-semibold tracking-wide uppercase text-foreground shadow-md transition duration-150 hover:border-foreground/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+        className="absolute top-3 right-3 z-[1000] inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-surface/95 px-4 text-xs font-semibold tracking-wide uppercase text-foreground shadow-md transition duration-150 hover:border-text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
       >
         {capa === "topo" ? CAPAS.osm.label : CAPAS.topo.label}
       </button>

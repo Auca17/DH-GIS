@@ -12,7 +12,7 @@ const MapaCerros = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-full w-full items-center justify-center bg-surface text-sm text-foreground/60">
+      <div className="flex h-full w-full items-center justify-center bg-surface text-sm text-text-muted">
         Cargando mapa…
       </div>
     ),
@@ -34,14 +34,14 @@ export default function MapaPage() {
           Mapa
         </p>
         <h1 className="text-lg font-bold tracking-tight">Elegí un sendero</h1>
-        <p className="text-sm text-foreground/60">Tocá un pin para ver los detalles.</p>
+        <p className="text-sm text-text-muted">Tocá un pin para ver los detalles.</p>
       </header>
       <div
         className="relative flex flex-col"
         style={{ height: `calc(100dvh - ${ALTO_HEADER})` }}
       >
         {loading ? (
-          <p className="flex flex-1 items-center justify-center p-6 text-center text-foreground/60">
+          <p className="flex flex-1 items-center justify-center p-6 text-center text-text-muted">
             Cargando senderos…
           </p>
         ) : dbStatus === "empty" ? (
@@ -55,7 +55,7 @@ export default function MapaPage() {
             </div>
           </>
         ) : (
-          <p className="flex flex-1 items-center justify-center p-6 text-center text-foreground/60">
+          <p className="flex flex-1 items-center justify-center p-6 text-center text-text-muted">
             No se pudieron cargar los senderos.
           </p>
         )}

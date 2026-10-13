@@ -10,13 +10,13 @@ export function Input({ label, id, className = "", ...props }: InputProps) {
   return (
     <div className="flex flex-col gap-1.5">
       {label ? (
-        <label htmlFor={id} className="text-sm font-medium text-foreground/80">
+        <label htmlFor={id} className="text-sm font-medium text-text">
           {label}
         </label>
       ) : null}
       <input
         id={id}
-        className={`min-h-11 rounded-lg border border-border bg-surface-muted px-4 py-3 text-base text-foreground outline-none transition-colors duration-150 placeholder:text-foreground/40 focus:border-brand focus:ring-2 focus:ring-brand/40 ${className}`}
+        className={`min-h-11 rounded-lg border border-border bg-surface-muted px-4 py-3 text-base text-text outline-none transition-colors duration-150 placeholder:text-text-muted focus:border-brand focus:ring-2 focus:ring-brand/40 ${className}`}
         {...props}
       />
     </div>

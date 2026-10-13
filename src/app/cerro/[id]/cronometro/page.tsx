@@ -19,7 +19,7 @@ const TrackMapPreview = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-full w-full items-center justify-center bg-surface text-sm text-foreground/60">
+      <div className="flex h-full w-full items-center justify-center bg-surface text-sm text-text-muted">
         Cargando mapa…
       </div>
     ),
@@ -77,7 +77,7 @@ export default function CronometroPage() {
       <DbStatusNotice dbStatus={dbStatus} />
       <main className="flex flex-1 flex-col">
         <div className="flex flex-col items-center gap-2 bg-surface px-4 py-6">
-          <p className="text-sm uppercase tracking-wide text-foreground/50">{cerro.nombre}</p>
+          <p className="text-sm uppercase tracking-wide text-text-muted">{cerro.nombre}</p>
           <p className="font-mono text-6xl font-bold tabular-nums">{formateado}</p>
           <div className="mt-2 flex gap-8 text-center">
             <Stat label="Velocidad" value={formatSpeed(velocidadKmh)} />
@@ -120,7 +120,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p className="font-mono text-2xl font-semibold tabular-nums">{value}</p>
-      <p className="text-xs uppercase tracking-wide text-foreground/50">{label}</p>
+      <p className="text-xs uppercase tracking-wide text-text-muted">{label}</p>
     </div>
   );
 }

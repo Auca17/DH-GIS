@@ -30,7 +30,7 @@ export default function ResultadoPage() {
   if (!resultado) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
-        <p className="text-foreground/60">No encontramos un descenso reciente en este sendero.</p>
+        <p className="text-text-muted">No encontramos un descenso reciente en este sendero.</p>
         <Button onClick={() => router.push(`/cerro/${id}`)}>Volver al sendero</Button>
       </main>
     );
@@ -72,14 +72,14 @@ export default function ResultadoPage() {
       </Card>
 
       {guardado?.outcome === "pending" ? (
-        <p className="text-xs text-foreground/50">Guardando descenso…</p>
+        <p className="text-xs text-text-muted">Guardando descenso…</p>
       ) : null}
       {guardado?.outcome === "saved" ? (
-        <p className="text-xs text-foreground/50">Descenso guardado.</p>
+        <p className="text-xs text-text-muted">Descenso guardado.</p>
       ) : null}
 
       <Card className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold text-foreground/80">Dejá tu opinión</h2>
+        <h2 className="text-sm font-semibold text-text">Dejá tu opinión</h2>
         {enviado ? (
           <p className="text-sm text-brand">¡Gracias por tu comentario!</p>
         ) : (
@@ -102,7 +102,7 @@ export default function ResultadoPage() {
               onChange={(event) => setTexto(event.target.value)}
               placeholder="¿Cómo estuvo el descenso?"
               rows={3}
-              className="rounded-xl border border-border bg-surface-muted px-4 py-3 text-sm text-foreground outline-none placeholder:text-foreground/40 focus:border-brand focus:ring-2 focus:ring-brand/30"
+              className="rounded-xl border border-border bg-surface-muted px-4 py-3 text-sm text-foreground outline-none placeholder:text-text-muted focus:border-brand focus:ring-2 focus:ring-brand/30"
             />
             <Button type="submit" variant="ghost" disabled={calificacion === 0}>
               Enviar opinión
@@ -122,7 +122,7 @@ function SummaryStat({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p className="font-mono text-lg font-bold tabular-nums">{value}</p>
-      <p className="text-xs uppercase tracking-wide text-foreground/50">{label}</p>
+      <p className="text-xs uppercase tracking-wide text-text-muted">{label}</p>
     </div>
   );
 }

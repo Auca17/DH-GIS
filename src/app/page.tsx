@@ -29,7 +29,7 @@ export default function LoginPage() {
             DH
           </div>
           <h1 className="text-xl font-bold tracking-tight">DH Leaderboard</h1>
-          <p className="text-sm text-foreground/60">
+          <p className="text-sm text-text-muted">
             Medí tus descensos y corré contra el cerro.
           </p>
         </div>

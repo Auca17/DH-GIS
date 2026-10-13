@@ -23,7 +23,7 @@ export default function CerroLayout({
   return (
     <Suspense
       fallback={
-        <main className="flex flex-1 items-center justify-center p-6 text-center text-foreground/60">
+        <main className="flex flex-1 items-center justify-center p-6 text-center text-text-muted">
           Cargando sendero…
         </main>
       }

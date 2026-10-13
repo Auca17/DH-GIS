@@ -22,7 +22,7 @@ const TrackMapPreview = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-full w-full items-center justify-center bg-surface text-sm text-foreground/60">
+      <div className="flex h-full w-full items-center justify-center bg-surface text-sm text-text-muted">
         Cargando trazado…
       </div>
     ),
@@ -64,13 +64,13 @@ export default function CerroPage() {
             </div>
           </div>
           {cerro.isPlaceholder ? (
-            <span className="shrink-0 rounded-full border border-border bg-surface px-2.5 py-1 text-[11px] font-medium text-foreground/60">
+            <span className="shrink-0 rounded-full border border-border bg-surface px-2.5 py-1 text-[11px] font-medium text-text-muted">
               Trazado provisorio
             </span>
           ) : null}
         </header>
 
-        <p className="text-sm leading-relaxed text-foreground/80">{cerro.descripcion}</p>
+        <p className="text-sm leading-relaxed text-text">{cerro.descripcion}</p>
 
         <div className="grid grid-cols-5 gap-2 rounded-2xl border border-border bg-surface p-3 text-center">
           <StatItem label="Distancia" value={formatDistance(cerro.largoM)} />
@@ -91,14 +91,14 @@ export default function CerroPage() {
           </button>
         </div>
 
-        <div className="flex gap-4 text-xs text-foreground/60">
+        <div className="flex gap-4 text-xs text-text-muted">
           <LegendItem colorClass="bg-difficulty-facil" label={getDifficulty("facil").label} />
           <LegendItem colorClass="bg-difficulty-intermedia" label={getDifficulty("intermedia").label} />
           <LegendItem colorClass="bg-difficulty-dificil" label={getDifficulty("dificil").label} />
         </div>
 
         {cerro.fuenteDatos ? (
-          <p className="text-xs text-foreground/40">
+          <p className="text-xs text-text-muted">
             Datos del sendero:{" "}
             <a
               href={cerro.fuenteDatos.url}
@@ -112,9 +112,9 @@ export default function CerroPage() {
         ) : null}
 
         <Card className="flex flex-col gap-3">
-          <h2 className="text-sm font-semibold text-foreground/80">Opiniones</h2>
+          <h2 className="text-sm font-semibold text-text">Opiniones</h2>
           {comentariosDelCerro.length === 0 ? (
-            <p className="text-sm text-foreground/50">Todavía no hay comentarios.</p>
+            <p className="text-sm text-text-muted">Todavía no hay comentarios.</p>
           ) : (
             <ul className="flex flex-col gap-3">
               {comentariosDelCerro.map((comentario) => (
@@ -123,8 +123,8 @@ export default function CerroPage() {
                   className="border-t border-border pt-3 first:border-none first:pt-0"
                 >
                   <p className="text-sm font-medium">{comentario.autor}</p>
-                  <p className="text-sm text-foreground/70">{comentario.texto}</p>
-                  <p className="mt-1 text-xs text-foreground/40">{comentario.fecha}</p>
+                  <p className="text-sm text-text">{comentario.texto}</p>
+                  <p className="mt-1 text-xs text-text-muted">{comentario.fecha}</p>
                 </li>
               ))}
             </ul>
@@ -196,7 +196,7 @@ function StatItem({ label, value }: { label: string; value: string }) {
       <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
         {value}
       </span>
-      <span className="text-[10px] uppercase tracking-wide text-foreground/50">{label}</span>
+      <span className="text-[10px] uppercase tracking-wide text-text-muted">{label}</span>
     </div>
   );
 }

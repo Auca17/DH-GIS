@@ -25,7 +25,7 @@ export function RatingStars({ rating, className = "" }: RatingStarsProps) {
           ★
         </span>
       ))}
-      <span className="ml-1 text-sm text-foreground/60">{rating.toFixed(1)}</span>
+      <span className="ml-1 text-sm text-text-muted">{rating.toFixed(1)}</span>
     </div>
   );
 }

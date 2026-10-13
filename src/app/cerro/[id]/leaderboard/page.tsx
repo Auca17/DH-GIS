@@ -59,7 +59,7 @@ export default function LeaderboardPage() {
 
   if (loading) {
     return (
-      <main className="flex flex-1 items-center justify-center p-6 text-center text-foreground/60">
+      <main className="flex flex-1 items-center justify-center p-6 text-center text-text-muted">
         Cargando leaderboard…
       </main>
     );
@@ -78,7 +78,7 @@ export default function LeaderboardPage() {
         <Card className="overflow-hidden p-0">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-foreground/50">
+              <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-muted">
                 <th className="px-3 py-3 sm:px-4">#</th>
                 <th className="px-3 py-3 sm:px-4">Usuario</th>
                 <th className="px-3 py-3 sm:px-4">Fecha</th>
@@ -102,26 +102,26 @@ export default function LeaderboardPage() {
                       {entrada.usuario}
                       {esPropia ? " (vos)" : ""}
                       {entrada.esDemo ? (
-                        <span className="ml-2 rounded border border-border px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground/50">
+                        <span className="ml-2 rounded border border-border px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
                           Demo
                         </span>
                       ) : null}
                     </td>
-                    <td className="px-3 py-3 text-foreground/60 sm:px-4">{entrada.fecha}</td>
+                    <td className="px-3 py-3 text-text-muted sm:px-4">{entrada.fecha}</td>
                     <td className="px-3 py-3 font-mono tabular-nums sm:px-4">
                       {formatDuration(entrada.tiempoMs)}
                     </td>
                     <td className="px-3 py-3 font-mono tabular-nums sm:px-4">
                       {formatSpeed(entrada.velocidadPromedioKmh)}
                     </td>
-                    <td className="px-3 py-3 text-foreground/60 sm:px-4">{entrada.bikeType ?? "—"}</td>
+                    <td className="px-3 py-3 text-text-muted sm:px-4">{entrada.bikeType ?? "—"}</td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
           {entradas.length === 0 ? (
-            <p className="p-4 text-sm text-foreground/50">Todavía no hay tiempos registrados.</p>
+            <p className="p-4 text-sm text-text-muted">Todavía no hay tiempos registrados.</p>
           ) : null}
         </Card>
 
