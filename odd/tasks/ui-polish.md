@@ -28,7 +28,7 @@ Implement comprehensive UI/UX polish for DH downhill MTB leaderboard according t
 - [x] P07 — Tokens (`globals.css`, light scheme, semantic color mappings)
 - [x] P08 — Fonts and document (Chakra Petch, es-AR, viewport zoom, metadata)
 - [x] P09 — Primitives (`Button`, `Card`, `Input`, `Textarea`, `Badge`, `Stat`, `Notice`, `Skeleton`)
-- [ ] P10 — Dialog primitive (a11y modal, focus trap, Esc, scroll lock) (Checkpoint 2)
+- [x] P10 — Dialog primitive (a11y modal, focus trap, Esc, scroll lock) (Checkpoint 2)
 - [ ] P11 — Leaflet light theme restyle and local marker assets
 - [ ] P12 — App shell (`AppHeader.tsx`, safe-area insets, container, remove 73px magic number)
 - [ ] P13 — Landmarks and DB status notice restyle
@@ -135,6 +135,12 @@ Implement comprehensive UI/UX polish for DH downhill MTB leaderboard according t
 - Touched: `src/components/ui/Button.tsx`, `src/components/ui/Card.tsx`, `src/components/ui/Input.tsx`, `src/components/ui/Textarea.tsx`, `src/components/ui/Badge.tsx`, `src/components/ui/Stat.tsx`, `src/components/ui/Notice.tsx`, `src/components/ui/Skeleton.tsx`, `tests/primitives.test.tsx`, `odd/tasks/ui-polish.md`
 - Checks: `npm run typecheck` (0), `npm run lint` (0), `npm test` (54 passed across 7 test files)
 - Notes: Implemented Button (variants primary with amber fill and dark text, secondary with burnt orange, danger, ghost; md/lg sizes; loading spinner; removed forced uppercase), Card (rounded-xl), Input (required label and id, error states), Textarea (required label, counter, error), Badge (difficulty, demo, success, warning, danger, neutral), Stat (technical typography with font-mono and tabular numbers), Notice (role status/alert, info/warning/error/success), Skeleton (accessible loading pulse). Added unit test coverage for all primitives.
+
+### P10 — Dialog primitive
+- Commit: `b19cac7`
+- Touched: `src/components/ui/Dialog.tsx`, `src/components/ui/dialog-utils.ts`, `tests/dialog.test.tsx`, `odd/tasks/ui-polish.md`
+- Checks: `npm run typecheck` (0), `npm run lint` (0), `npm test` (59 passed across 8 test files)
+- Notes: Created accessible Dialog component with role="dialog", aria-modal="true", and aria-labelledby. Extracted and tested pure focus trap utilities (handling Tab, Shift+Tab cycle, filtering disabled and aria-hidden elements). Handles Esc key to close, locks body scroll during open, and returns focus to the trigger on close.
 
 ### Checkpoint 1 (after P05)
 - Server started: `npx next start -p 3101`
