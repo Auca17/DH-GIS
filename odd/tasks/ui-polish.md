@@ -29,7 +29,7 @@ Implement comprehensive UI/UX polish for DH downhill MTB leaderboard according t
 - [x] P08 — Fonts and document (Chakra Petch, es-AR, viewport zoom, metadata)
 - [x] P09 — Primitives (`Button`, `Card`, `Input`, `Textarea`, `Badge`, `Stat`, `Notice`, `Skeleton`)
 - [x] P10 — Dialog primitive (a11y modal, focus trap, Esc, scroll lock) (Checkpoint 2)
-- [ ] P11 — Leaflet light theme restyle and local marker assets
+- [x] P11 — Leaflet light theme restyle and local marker assets
 - [ ] P12 — App shell (`AppHeader.tsx`, safe-area insets, container, remove 73px magic number)
 - [ ] P13 — Landmarks and DB status notice restyle
 
@@ -137,10 +137,16 @@ Implement comprehensive UI/UX polish for DH downhill MTB leaderboard according t
 - Notes: Implemented Button (variants primary with amber fill and dark text, secondary with burnt orange, danger, ghost; md/lg sizes; loading spinner; removed forced uppercase), Card (rounded-xl), Input (required label and id, error states), Textarea (required label, counter, error), Badge (difficulty, demo, success, warning, danger, neutral), Stat (technical typography with font-mono and tabular numbers), Notice (role status/alert, info/warning/error/success), Skeleton (accessible loading pulse). Added unit test coverage for all primitives.
 
 ### P10 — Dialog primitive
-- Commit: `b19cac7`
+- Commit: `9408778`
 - Touched: `src/components/ui/Dialog.tsx`, `src/components/ui/dialog-utils.ts`, `tests/dialog.test.tsx`, `odd/tasks/ui-polish.md`
 - Checks: `npm run typecheck` (0), `npm run lint` (0), `npm test` (59 passed across 8 test files)
 - Notes: Created accessible Dialog component with role="dialog", aria-modal="true", and aria-labelledby. Extracted and tested pure focus trap utilities (handling Tab, Shift+Tab cycle, filtering disabled and aria-hidden elements). Handles Esc key to close, locks body scroll during open, and returns focus to the trigger on close.
+
+### P11 — Leaflet theme and local assets
+- Commit: `5d20fa3`
+- Touched: `src/app/globals.css`, `public/leaflet/*`, `src/components/mapa/MapaCerros.tsx`, `src/components/track-preview/TrackMapPreview.tsx`, `odd/tasks/ui-polish.md`
+- Checks: `npm run typecheck` (0), `npm run lint` (0), `npm test` (59 passed across 8 test files)
+- Notes: Restyled Leaflet popups, tip, close buttons, zoom controls, and attribution for the light theme using scoped container selectors with zero !important. Copied marker images from leaflet package to public/leaflet/ and switched default icon options from unpkg CDN to local paths.
 
 ### Checkpoint 1 (after P05)
 - Server started: `npx next start -p 3101`
