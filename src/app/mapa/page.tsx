@@ -23,7 +23,13 @@ export default function MapaPage() {
   const { loading, dbStatus, data: cerros } = useTrailApi<Cerro[]>("/api/trails");
 
   return (
-    <main className="flex flex-1 flex-col min-h-0">
+    // Leaflet needs a container with a real height. body only has min-height, so a
+    // flex-grow chain resolves to 0px; we give <main> an explicit height instead
+    // (viewport minus the AppHeader) and let the map area fill the rest.
+    <main
+      className="flex flex-col min-h-0"
+      style={{ height: "calc(100dvh - var(--header-height) - env(safe-area-inset-top))" }}
+    >
       <header className="border-b border-border bg-surface px-4 py-4 shrink-0">
         <p className="font-mono text-xs font-semibold uppercase tracking-wider text-primary-ink">
           Mapa

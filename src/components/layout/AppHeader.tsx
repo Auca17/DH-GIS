@@ -27,8 +27,19 @@ function getServerRiderSnapshot(): string {
   return "Lucas R.";
 }
 
+// usePathname() is request data: under cacheComponents it must be read inside a
+// <Suspense> boundary (see src/app/layout.tsx), otherwise prerendering fails.
 export function AppHeader() {
   const pathname = usePathname();
+  return <HeaderFrame pathname={pathname} />;
+}
+
+// Static header shown while the pathname streams in. No link is marked active.
+export function AppHeaderFallback() {
+  return <HeaderFrame pathname={null} />;
+}
+
+function HeaderFrame({ pathname }: { pathname: string | null }) {
   const rider = useSyncExternalStore(
     subscribeStorage,
     getRiderSnapshot,
@@ -58,7 +69,8 @@ export function AppHeader() {
           <nav aria-label="Navegación principal" className="flex items-center gap-1 sm:gap-2">
             {NAV_LINKS.map(({ href, label }) => {
               const isActive =
-                pathname === href || (href !== "/mapa" && pathname.startsWith(href));
+                pathname !== null &&
+                (pathname === href || (href !== "/mapa" && pathname.startsWith(href)));
               return (
                 <Link
                   key={href}

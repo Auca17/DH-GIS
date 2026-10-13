@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Chakra_Petch, JetBrains_Mono } from "next/font/google";
-import { AppHeader } from "@/components/layout/AppHeader";
+import { Suspense } from "react";
+import { AppHeader, AppHeaderFallback } from "@/components/layout/AppHeader";
 import "./globals.css";
 
 const chakraPetch = Chakra_Petch({
@@ -36,7 +37,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${chakraPetch.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        <AppHeader />
+        <Suspense fallback={<AppHeaderFallback />}>
+          <AppHeader />
+        </Suspense>
         {children}
       </body>
     </html>
