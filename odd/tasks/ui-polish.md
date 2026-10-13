@@ -26,7 +26,7 @@ Implement comprehensive UI/UX polish for DH downhill MTB leaderboard according t
 
 ### Block 1: Impeccable foundation
 - [x] P07 — Tokens (`globals.css`, light scheme, semantic color mappings)
-- [ ] P08 — Fonts and document (Chakra Petch, es-AR, viewport zoom, metadata)
+- [x] P08 — Fonts and document (Chakra Petch, es-AR, viewport zoom, metadata)
 - [ ] P09 — Primitives (`Button`, `Card`, `Input`, `Textarea`, `Badge`, `Stat`, `Notice`, `Skeleton`)
 - [ ] P10 — Dialog primitive (a11y modal, focus trap, Esc, scroll lock) (Checkpoint 2)
 - [ ] P11 — Leaflet light theme restyle and local marker assets
@@ -119,10 +119,16 @@ Implement comprehensive UI/UX polish for DH downhill MTB leaderboard according t
 - Notes: Centralized difficulty metadata (label, hex, cssVar). Replaced duplicated hex definitions and replaced legacy Suave/Media/Fuerte with Fácil/Intermedia/Difícil.
 
 ### P07 — Light tokens
-- Commit: `9b5bc80`
+- Commit: `7b5e887`
 - Touched: `src/app/globals.css`, `src/components/ui/RatingStars.tsx`, `src/components/ui/Input.tsx`, `src/components/mapa/MapaCerros.tsx`, `src/components/db-status/DbStatusNotice.tsx`, `src/app/page.tsx`, `src/app/mapa/page.tsx`, `src/app/cerro/[id]/layout.tsx`, `src/app/cerro/[id]/cronometro/page.tsx`, `src/app/cerro/[id]/resultado/page.tsx`, `src/app/cerro/[id]/page.tsx`, `src/app/cerro/[id]/leaderboard/page.tsx`, `odd/tasks/ui-polish.md`
 - Checks: `npm run typecheck` (0), `npm run lint` (0), `npm test` (42 passed across 6 test files)
 - Notes: Replaced CSS variables in globals.css with D1 light theme palette (cream #FBF6EC, burnt-orange #C55221, amber #CC8800, dark text #1A1815) and D4 motion tokens. Removed all text-foreground/NN and placeholder:text-foreground/40 opacity fakes, replacing them with semantic tokens.
+
+### P08 — Fonts and document
+- Commit: `7cf8554`
+- Touched: `src/app/layout.tsx`, `src/app/globals.css`, `odd/tasks/ui-polish.md`
+- Checks: `npm run typecheck` (0), `npm run lint` (0), `npm test` (42 passed across 6 test files)
+- Notes: Loaded Chakra Petch (weights 400/500/600/700) and JetBrains Mono (500/700). Set <html lang="es-AR">. Removed maximumScale: 1 from viewport to enable accessible pinch zoom. Configured title template `{ default: "DH", template: "%s · DH" }` and Spanish description.
 
 ### Checkpoint 1 (after P05)
 - Server started: `npx next start -p 3101`
