@@ -54,7 +54,7 @@ export default function LoginPage() {
         </div>
 
         <div className="dh-ride-in relative mx-auto w-full max-w-md lg:mx-0">
-          <DownhillRider className="w-full drop-shadow-[0_12px_0_rgb(0_0_0_/_0.15)]" title="" />
+          <DownhillRider className="w-full drop-shadow-[0_12px_0_rgb(0_0_0_/_0.15)]" title="" accent="var(--bg)" />
           {/* Slope under the wheels */}
           <div
             aria-hidden="true"

@@ -8,6 +8,8 @@ interface DownhillRiderProps {
   animated?: boolean;
   /** Accessible name. Pass "" to mark it as decorative. */
   title?: string;
+  /** Frame and jersey color. Use a light color on burnt-orange backgrounds. */
+  accent?: string;
 }
 
 function Wheel({ cx, cy, animated }: { cx: number; cy: number; animated: boolean }) {
@@ -26,7 +28,12 @@ function Wheel({ cx, cy, animated }: { cx: number; cy: number; animated: boolean
   );
 }
 
-export function DownhillRider({ className = "", animated = true, title = "Rider de downhill" }: DownhillRiderProps) {
+export function DownhillRider({
+  className = "",
+  animated = true,
+  title = "Rider de downhill",
+  accent = "var(--secondary)",
+}: DownhillRiderProps) {
   const decorative = title === "";
   return (
     <svg
@@ -43,7 +50,7 @@ export function DownhillRider({ className = "", animated = true, title = "Rider 
 
         <g className={animated ? "dh-bob" : undefined}>
           {/* Frame */}
-          <g stroke="var(--secondary)" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" fill="none">
+          <g stroke={accent} strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" fill="none">
             <path d="M50 100 L96 103" />
             <path d="M50 100 L84 64" />
             <path d="M96 103 L84 64" />
@@ -62,7 +69,7 @@ export function DownhillRider({ className = "", animated = true, title = "Rider 
             <path d="M90 46 L106 72 L106 99" />
             <path d="M90 46 L92 76 L86 104" />
           </g>
-          <path d="M90 46 L116 28" stroke="var(--secondary)" strokeWidth="13" strokeLinecap="round" />
+          <path d="M90 46 L116 28" stroke={accent} strokeWidth="13" strokeLinecap="round" />
           <path d="M116 30 L128 41 L138 47" stroke="var(--text)" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
           {/* Full-face helmet with visor */}
           <circle cx="127" cy="19" r="10" fill="var(--primary)" stroke="var(--text)" strokeWidth="2" />

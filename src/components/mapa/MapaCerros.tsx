@@ -120,7 +120,7 @@ export function MapaCerros({ cerros }: MapaCerrosProps) {
                 <Popup minWidth={240}>
                   <div className="flex flex-col gap-3">
                     {/* Name with its rating to the right, Google Maps style. */}
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start justify-between gap-3 pr-5">
                       <p className="text-base font-bold leading-tight text-text">{cerro.nombre}</p>
                       <PopupRating rating={cerro.calificacion} />
                     </div>
