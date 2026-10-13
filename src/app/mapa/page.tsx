@@ -19,27 +19,19 @@ const MapaCerros = dynamic(
   },
 );
 
-// Header height is fixed by its padding/line-height (py-4 + text-lg + subtitle ≈ 73px).
-// The map gets an explicit height instead of relying on a multi-level flex-grow chain
-// (body -> main -> this div) to stay a 0-height-proof fix for Leaflet, per spec section 2.
-const ALTO_HEADER = "73px";
-
 export default function MapaPage() {
   const { loading, dbStatus, data: cerros } = useTrailApi<Cerro[]>("/api/trails");
 
   return (
-    <main className="flex flex-col">
-      <header className="border-b border-border bg-surface px-4 py-4">
-        <p className="font-mono text-[11px] font-semibold uppercase tracking-wider text-brand">
+    <main className="flex flex-1 flex-col min-h-0">
+      <header className="border-b border-border bg-surface px-4 py-4 shrink-0">
+        <p className="font-mono text-xs font-semibold uppercase tracking-wider text-primary-ink">
           Mapa
         </p>
-        <h1 className="text-lg font-bold tracking-tight">Elegí un sendero</h1>
+        <h1 className="text-lg font-bold tracking-tight text-text">Elegí un sendero</h1>
         <p className="text-sm text-text-muted">Tocá un pin para ver los detalles.</p>
       </header>
-      <div
-        className="relative flex flex-col"
-        style={{ height: `calc(100dvh - ${ALTO_HEADER})` }}
-      >
+      <div className="relative flex-1 min-h-0 flex flex-col">
         {loading ? (
           <p className="flex flex-1 items-center justify-center p-6 text-center text-text-muted">
             Cargando senderos…

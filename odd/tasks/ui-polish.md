@@ -30,7 +30,7 @@ Implement comprehensive UI/UX polish for DH downhill MTB leaderboard according t
 - [x] P09 — Primitives (`Button`, `Card`, `Input`, `Textarea`, `Badge`, `Stat`, `Notice`, `Skeleton`)
 - [x] P10 — Dialog primitive (a11y modal, focus trap, Esc, scroll lock) (Checkpoint 2)
 - [x] P11 — Leaflet light theme restyle and local marker assets
-- [ ] P12 — App shell (`AppHeader.tsx`, safe-area insets, container, remove 73px magic number)
+- [x] P12 — App shell (`AppHeader.tsx`, safe-area insets, container, remove 73px magic number)
 - [ ] P13 — Landmarks and DB status notice restyle
 
 ### Block 2: Routing states and connectivity
@@ -143,10 +143,16 @@ Implement comprehensive UI/UX polish for DH downhill MTB leaderboard according t
 - Notes: Created accessible Dialog component with role="dialog", aria-modal="true", and aria-labelledby. Extracted and tested pure focus trap utilities (handling Tab, Shift+Tab cycle, filtering disabled and aria-hidden elements). Handles Esc key to close, locks body scroll during open, and returns focus to the trigger on close.
 
 ### P11 — Leaflet theme and local assets
-- Commit: `5d20fa3`
+- Commit: `0657bca`
 - Touched: `src/app/globals.css`, `public/leaflet/*`, `src/components/mapa/MapaCerros.tsx`, `src/components/track-preview/TrackMapPreview.tsx`, `odd/tasks/ui-polish.md`
 - Checks: `npm run typecheck` (0), `npm run lint` (0), `npm test` (59 passed across 8 test files)
 - Notes: Restyled Leaflet popups, tip, close buttons, zoom controls, and attribution for the light theme using scoped container selectors with zero !important. Copied marker images from leaflet package to public/leaflet/ and switched default icon options from unpkg CDN to local paths.
+
+### P12 — App shell and responsive navigation
+- Commit: `39d9f7d`
+- Touched: `src/components/layout/AppHeader.tsx`, `src/app/layout.tsx`, `src/app/globals.css`, `src/app/mapa/page.tsx`, `tests/header.test.tsx`, `odd/tasks/ui-polish.md`
+- Checks: `npm run typecheck` (0), `npm run lint` (0), `npm test` (60 passed across 9 test files)
+- Notes: Implemented AppHeader with DH wordmark, responsive navigation (Mapa, Consultas, Acerca with aria-current="page"), rider status indicator using useSyncExternalStore, safe-area insets, and max-w-6xl container. Added --header-height token to globals.css and removed the calc(100dvh - 73px) magic number from mapa/page.tsx in favor of flex-1 min-h-0 layout.
 
 ### Checkpoint 1 (after P05)
 - Server started: `npx next start -p 3101`
