@@ -158,4 +158,22 @@ Implement comprehensive UI/UX polish for DH downhill MTB leaderboard according t
   - `/api/trails/nearby?lat=-32.8959&lng=-68.89533` -> 200
 - Server stopped: Port 3101 confirmed clean and free.
 
+### Checkpoint 2 (after P10)
+- Server started: `npx next start -p 3101`
+- Build: `npm run build` completed successfully with Partial Prerendering and Turbopack.
+- Pages:
+  - `/` -> 200
+  - `/mapa` -> 200
+  - `/cerro/circuito-dh-pequia` -> 200
+  - `/cerro/circuito-dh-pequia/leaderboard` -> 200
+- API:
+  - `/api/health` -> 200
+  - `/api/trails` -> 200
+  - `/api/trails/circuito-dh-pequia` -> 200
+  - `/api/trails/circuito-dh-pequia/leaderboard` -> 200
+  - `/api/trails/circuito-dh-pequia/reviews` -> 200
+  - `/api/trails/nearby?lat=-32.8959&lng=-68.89533` -> 200
+- Server stopped: Port 3101 confirmed clean and free.
+
+
 
