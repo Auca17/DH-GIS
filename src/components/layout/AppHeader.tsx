@@ -3,12 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSyncExternalStore } from "react";
+import { DhLogo } from "@/components/brand/DhLogo";
 
+// "Consultas" (the MongoDB query panel) is added back when /consultas exists.
 const NAV_LINKS = [
   { href: "/mapa", label: "Mapa" },
-  { href: "/consultas", label: "Consultas" },
-  { href: "/acerca", label: "Acerca" },
+  { href: "/acerca", label: "Nosotros" },
 ];
+
+// Shown until the rider types a name on the login screen.
+const DEFAULT_RIDER = "Vos";
 
 function subscribeStorage(callback: () => void) {
   window.addEventListener("storage", callback);
@@ -17,14 +21,14 @@ function subscribeStorage(callback: () => void) {
 
 function getRiderSnapshot(): string {
   try {
-    return localStorage.getItem("dh_rider")?.trim() || "Lucas R.";
+    return localStorage.getItem("dh_rider")?.trim() || DEFAULT_RIDER;
   } catch {
-    return "Lucas R.";
+    return DEFAULT_RIDER;
   }
 }
 
 function getServerRiderSnapshot(): string {
-  return "Lucas R.";
+  return DEFAULT_RIDER;
 }
 
 // usePathname() is request data: under cacheComponents it must be read inside a
@@ -51,16 +55,14 @@ function HeaderFrame({ pathname }: { pathname: string | null }) {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-surface/95 backdrop-blur-xs pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] transition-colors">
       <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
-        {/* Wordmark placeholder (finished in M1) */}
         <Link
           href={isLogin ? "/" : "/mapa"}
           className="group flex items-center gap-2 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded border-b border-black/20 bg-primary font-mono text-sm font-bold text-text shadow-sm transition-transform duration-150 group-hover:scale-105 active:scale-95">
-            DH
-          </span>
-          <span className="hidden font-display text-base font-bold tracking-tight text-text sm:inline-block">
-            DH Leaderboard
+          <DhLogo size={32} title="" className="transition-transform duration-150 group-hover:-rotate-6 group-active:scale-95" />
+          <span className="font-display text-lg font-bold tracking-tight text-text">DH</span>
+          <span className="hidden text-xs font-medium text-text-muted sm:inline-block">
+            Descensos medidos
           </span>
         </Link>
 

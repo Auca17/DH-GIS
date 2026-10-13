@@ -11,11 +11,12 @@ describe("AppHeader", () => {
   it("renders DH wordmark and navigation links with active aria-current", () => {
     const html = renderToString(<AppHeader />);
     expect(html).toContain("DH");
-    expect(html).toContain("DH Leaderboard");
     expect(html).toContain("Mapa");
-    expect(html).toContain("Consultas");
-    expect(html).toContain("Acerca");
+    expect(html).toContain("Nosotros");
+    // The query panel link stays hidden until /consultas exists.
+    expect(html).not.toContain("Consultas");
     expect(html).toContain('aria-current="page"');
-    expect(html).toContain("Lucas R.");
+    // No name typed yet: the default rider label.
+    expect(html).toContain("Vos");
   });
 });

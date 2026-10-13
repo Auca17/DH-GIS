@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="10" fill="#CC8800"/>
+  <path d="M4 18 L60 54" stroke="#C55221" stroke-width="7" stroke-linecap="round" opacity="0.9"/>
+  <text x="32" y="41" text-anchor="middle" font-family="system-ui, sans-serif" font-size="28" font-weight="700" fill="#111827" letter-spacing="-1">DH</text>
+</svg>
