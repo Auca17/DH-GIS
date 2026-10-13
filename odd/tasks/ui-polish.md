@@ -27,7 +27,7 @@ Implement comprehensive UI/UX polish for DH downhill MTB leaderboard according t
 ### Block 1: Impeccable foundation
 - [x] P07 — Tokens (`globals.css`, light scheme, semantic color mappings)
 - [x] P08 — Fonts and document (Chakra Petch, es-AR, viewport zoom, metadata)
-- [ ] P09 — Primitives (`Button`, `Card`, `Input`, `Textarea`, `Badge`, `Stat`, `Notice`, `Skeleton`)
+- [x] P09 — Primitives (`Button`, `Card`, `Input`, `Textarea`, `Badge`, `Stat`, `Notice`, `Skeleton`)
 - [ ] P10 — Dialog primitive (a11y modal, focus trap, Esc, scroll lock) (Checkpoint 2)
 - [ ] P11 — Leaflet light theme restyle and local marker assets
 - [ ] P12 — App shell (`AppHeader.tsx`, safe-area insets, container, remove 73px magic number)
@@ -125,10 +125,16 @@ Implement comprehensive UI/UX polish for DH downhill MTB leaderboard according t
 - Notes: Replaced CSS variables in globals.css with D1 light theme palette (cream #FBF6EC, burnt-orange #C55221, amber #CC8800, dark text #1A1815) and D4 motion tokens. Removed all text-foreground/NN and placeholder:text-foreground/40 opacity fakes, replacing them with semantic tokens.
 
 ### P08 — Fonts and document
-- Commit: `7cf8554`
+- Commit: `ccbaf4c`
 - Touched: `src/app/layout.tsx`, `src/app/globals.css`, `odd/tasks/ui-polish.md`
 - Checks: `npm run typecheck` (0), `npm run lint` (0), `npm test` (42 passed across 6 test files)
 - Notes: Loaded Chakra Petch (weights 400/500/600/700) and JetBrains Mono (500/700). Set <html lang="es-AR">. Removed maximumScale: 1 from viewport to enable accessible pinch zoom. Configured title template `{ default: "DH", template: "%s · DH" }` and Spanish description.
+
+### P09 — Primitives
+- Commit: `2e269aa`
+- Touched: `src/components/ui/Button.tsx`, `src/components/ui/Card.tsx`, `src/components/ui/Input.tsx`, `src/components/ui/Textarea.tsx`, `src/components/ui/Badge.tsx`, `src/components/ui/Stat.tsx`, `src/components/ui/Notice.tsx`, `src/components/ui/Skeleton.tsx`, `tests/primitives.test.tsx`, `odd/tasks/ui-polish.md`
+- Checks: `npm run typecheck` (0), `npm run lint` (0), `npm test` (54 passed across 7 test files)
+- Notes: Implemented Button (variants primary with amber fill and dark text, secondary with burnt orange, danger, ghost; md/lg sizes; loading spinner; removed forced uppercase), Card (rounded-xl), Input (required label and id, error states), Textarea (required label, counter, error), Badge (difficulty, demo, success, warning, danger, neutral), Stat (technical typography with font-mono and tabular numbers), Notice (role status/alert, info/warning/error/success), Skeleton (accessible loading pulse). Added unit test coverage for all primitives.
 
 ### Checkpoint 1 (after P05)
 - Server started: `npx next start -p 3101`
