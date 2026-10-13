@@ -23,9 +23,9 @@ export default function CerroLayout({
   return (
     <Suspense
       fallback={
-        <main className="flex flex-1 items-center justify-center p-6 text-center text-text-muted">
+        <div className="flex flex-1 items-center justify-center p-6 text-center text-text-muted">
           Cargando sendero…
-        </main>
+        </div>
       }
     >
       <CerroContent params={params}>{children}</CerroContent>

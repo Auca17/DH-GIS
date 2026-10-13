@@ -31,7 +31,7 @@ Implement comprehensive UI/UX polish for DH downhill MTB leaderboard according t
 - [x] P10 — Dialog primitive (a11y modal, focus trap, Esc, scroll lock) (Checkpoint 2)
 - [x] P11 — Leaflet light theme restyle and local marker assets
 - [x] P12 — App shell (`AppHeader.tsx`, safe-area insets, container, remove 73px magic number)
-- [ ] P13 — Landmarks and DB status notice restyle
+- [x] P13 — Landmarks and DB status notice restyle
 
 ### Block 2: Routing states and connectivity
 - [ ] P14 — Route states (`not-found.tsx`, `error.tsx`, loading skeletons)
@@ -149,10 +149,16 @@ Implement comprehensive UI/UX polish for DH downhill MTB leaderboard according t
 - Notes: Restyled Leaflet popups, tip, close buttons, zoom controls, and attribution for the light theme using scoped container selectors with zero !important. Copied marker images from leaflet package to public/leaflet/ and switched default icon options from unpkg CDN to local paths.
 
 ### P12 — App shell and responsive navigation
-- Commit: `39d9f7d`
+- Commit: `628703d`
 - Touched: `src/components/layout/AppHeader.tsx`, `src/app/layout.tsx`, `src/app/globals.css`, `src/app/mapa/page.tsx`, `tests/header.test.tsx`, `odd/tasks/ui-polish.md`
 - Checks: `npm run typecheck` (0), `npm run lint` (0), `npm test` (60 passed across 9 test files)
 - Notes: Implemented AppHeader with DH wordmark, responsive navigation (Mapa, Consultas, Acerca with aria-current="page"), rider status indicator using useSyncExternalStore, safe-area insets, and max-w-6xl container. Added --header-height token to globals.css and removed the calc(100dvh - 73px) magic number from mapa/page.tsx in favor of flex-1 min-h-0 layout.
+
+### P13 — Landmarks and DB notice restyle
+- Commit: `65f297a`
+- Touched: `src/components/db-status/DbStatusNotice.tsx`, `src/app/cerro/[id]/layout.tsx`, `tests/db-status-notice.test.tsx`, `odd/tasks/ui-polish.md`
+- Checks: `npm run typecheck` (0), `npm run lint` (0), `npm test` (63 passed across 10 test files)
+- Notes: Enforced single <main> landmark rule across pages; converted DbStatusNotice and CerroLayout Suspense fallback to <div>/Notice. Restyled DbStatusNotice with Notice primitive (warning for offline, error for empty DB with npm run seed instructions preserved). Added unit tests confirming zero <main> in notice states.
 
 ### Checkpoint 1 (after P05)
 - Server started: `npx next start -p 3101`
