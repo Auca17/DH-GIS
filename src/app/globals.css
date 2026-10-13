@@ -271,3 +271,14 @@ body {
     offset-distance: 55%;
   }
 }
+
+/* Difficulty map pins (L.divIcon in MapaCerros.tsx). */
+.leaflet-marker-icon.dh-pin {
+  background: none;
+  border: none;
+  filter: drop-shadow(0 3px 2px rgb(17 24 39 / 0.3));
+}
+
+.leaflet-marker-icon.dh-pin:hover {
+  filter: drop-shadow(0 6px 4px rgb(17 24 39 / 0.3)) brightness(1.08);
+}

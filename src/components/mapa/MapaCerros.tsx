@@ -6,7 +6,10 @@ import Link from "next/link";
 import { useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import { useIsVisible } from "@/hooks/use-is-visible";
+import { Badge } from "@/components/ui/Badge";
+import { buttonClassName } from "@/components/ui/button-styles";
 import { getDifficulty } from "@/lib/difficulty";
+import { formatDistance } from "@/lib/format";
 import type { Cerro } from "@/lib/types";
 
 // Leaflet's default marker icon paths are relative to its own package and break once
@@ -18,6 +21,46 @@ L.Icon.Default.mergeOptions({
   iconUrl: "/leaflet/marker-icon.png",
   shadowUrl: "/leaflet/marker-shadow.png",
 });
+
+// Teardrop pin colored by difficulty. A divIcon is plain HTML, so the color
+// comes from difficulty.ts (the map cannot read Tailwind classes here).
+function pinIcon(color: string) {
+  return L.divIcon({
+    className: "dh-pin",
+    html: `<svg width="34" height="44" viewBox="0 0 34 44" aria-hidden="true"><path d="M17 43C17 43 32 26.5 32 16.5C32 8 25.3 1.5 17 1.5S2 8 2 16.5C2 26.5 17 43 17 43Z" fill="${color}" stroke="#111827" stroke-width="2"/><circle cx="17" cy="16.5" r="6" fill="#FFFFFF"/></svg>`,
+    iconSize: [34, 44],
+    iconAnchor: [17, 43],
+    popupAnchor: [0, -38],
+  });
+}
+
+// Compact rating for the popup: number + 5 stars that pop in one by one.
+function PopupRating({ rating }: { rating: number }) {
+  if (rating <= 0) {
+    return <span className="shrink-0 text-xs text-text-muted">Sin opiniones</span>;
+  }
+  const llenas = Math.round(rating);
+  return (
+    <span
+      role="img"
+      aria-label={`${rating.toFixed(1)} de 5 estrellas`}
+      className="flex shrink-0 items-center gap-1"
+    >
+      <span className="font-mono text-sm font-bold text-text">{rating.toFixed(1)}</span>
+      <span aria-hidden="true" className="text-base leading-none">
+        {Array.from({ length: 5 }, (_, i) => (
+          <span
+            key={i}
+            className={`dh-pop ${i < llenas ? "text-primary" : "text-border"}`}
+            style={{ "--i": i } as React.CSSProperties}
+          >
+            ★
+          </span>
+        ))}
+      </span>
+    </span>
+  );
+}
 
 interface MapaCerrosProps {
   cerros: Cerro[];
@@ -64,27 +107,40 @@ export function MapaCerros({ cerros }: MapaCerrosProps) {
             url={CAPAS[capa].url}
             maxZoom={CAPAS[capa].maxZoom}
           />
-          {cerros.map((cerro) => (
-            <Marker key={cerro.id} position={[cerro.ubicacion.lat, cerro.ubicacion.lng]}>
-              <Popup>
-                <div className="flex flex-col gap-2 p-1">
-                  <p className="font-semibold text-foreground">{cerro.nombre}</p>
-                  <span
-                    className="text-xs font-semibold"
-                    style={{ color: getDifficulty(cerro.dificultadGeneral).hex }}
-                  >
-                    {getDifficulty(cerro.dificultadGeneral).label}
-                  </span>
-                  <Link
-                    href={`/cerro/${cerro.slug}`}
-                    className="text-sm font-semibold text-brand transition-colors duration-150 hover:brightness-110"
-                  >
-                    Ver sendero →
-                  </Link>
-                </div>
-              </Popup>
-            </Marker>
-          ))}
+          {cerros.map((cerro) => {
+            const dificultad = getDifficulty(cerro.dificultadGeneral);
+            return (
+              <Marker
+                key={cerro.id}
+                position={[cerro.ubicacion.lat, cerro.ubicacion.lng]}
+                icon={pinIcon(dificultad.hex)}
+                title={cerro.nombre}
+                alt={`${cerro.nombre}, dificultad ${dificultad.label}`}
+              >
+                <Popup minWidth={240}>
+                  <div className="flex flex-col gap-3">
+                    {/* Name with its rating to the right, Google Maps style. */}
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-base font-bold leading-tight text-text">{cerro.nombre}</p>
+                      <PopupRating rating={cerro.calificacion} />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-text-muted">
+                      <Badge variant="difficulty" difficulty={cerro.dificultadGeneral} />
+                      <span className="font-mono">{formatDistance(cerro.largoM)}</span>
+                      <span aria-hidden="true">·</span>
+                      <span className="font-mono">{cerro.desnivelM} m desnivel</span>
+                    </div>
+                    <Link
+                      href={`/cerro/${cerro.slug}`}
+                      className={buttonClassName("primary", "md", "w-full !text-text no-underline")}
+                    >
+                      Ver sendero →
+                    </Link>
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
         </MapContainer>
       ) : null}
 
