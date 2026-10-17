@@ -30,12 +30,18 @@ export default function MapaPage() {
       className="flex flex-col min-h-0"
       style={{ height: "calc(100dvh - var(--header-height) - env(safe-area-inset-top))" }}
     >
-      <header className="border-b border-border bg-surface px-4 py-4 shrink-0">
-        <p className="font-mono text-xs font-semibold uppercase tracking-wider text-primary-ink">
-          Mapa
-        </p>
-        <h1 className="text-lg font-bold tracking-tight text-text">Elegí un sendero</h1>
-        <p className="text-sm text-text-muted">Tocá un pin para ver los detalles.</p>
+      <header className="border-b border-border bg-surface px-4 py-3 shrink-0 shadow-md">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="font-mono text-[10px] font-extrabold uppercase tracking-[0.25em] text-primary">
+              Cartografía DH · Mendoza
+            </p>
+            <h1 className="text-lg font-bold tracking-tight text-text">Elegí tu Desafío</h1>
+          </div>
+          <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary font-mono">
+            3 Pistas Activas
+          </span>
+        </div>
       </header>
       <div className="relative flex-1 min-h-0 flex flex-col">
         {loading ? (

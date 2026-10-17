@@ -2,20 +2,31 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Flag,
+  Ghost,
+  MapPin,
+  ShieldCheck,
+  Star,
+  Trophy,
+} from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { formatDistance, formatDuration, formatSpeed } from "@/lib/format";
 import { useGuardarDescenso } from "@/hooks/use-guardar-descenso";
 import { useUltimoResultado } from "@/hooks/use-ultimo-resultado";
+import { useTrail } from "@/providers/trail-provider";
 
 export default function ResultadoPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { cerro } = useTrail();
   const resultado = useUltimoResultado(id);
-  // Sends the run to the server once and tells us how the save went.
   const guardado = useGuardarDescenso(id, resultado);
-  // Too fast for this trail: the server saved it as invalid. We do not show it as a normal time.
-  const demasiadoRapido = guardado?.outcome === "invalid" && guardado.invalidReason === "too fast";
+  const demasiadoRapido =
+    guardado?.outcome === "invalid" && guardado.invalidReason === "too fast";
 
   const [texto, setTexto] = useState("");
   const [calificacion, setCalificacion] = useState(0);
@@ -23,106 +34,200 @@ export default function ResultadoPage() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    // Mock-only: no persistence into mock-data, just a local confirmation.
     setEnviado(true);
   }
 
   if (!resultado) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
-        <p className="text-text-muted">No encontramos un descenso reciente en este sendero.</p>
-        <Button onClick={() => router.push(`/cerro/${id}`)}>Volver al sendero</Button>
+        <p className="text-text-muted">
+          No encontramos un descenso reciente en este sendero.
+        </p>
+        <Button onClick={() => router.push(`/cerro/${id}`)}>
+          Volver al sendero
+        </Button>
       </main>
     );
   }
 
+  const criatura = cerro.criatura;
+  const escapo = criatura
+    ? resultado.tiempoMs / 1000 <= criatura.tiempoLimiteS
+    : true;
+
   return (
-    <main className="flex flex-1 flex-col gap-5 p-4">
-      <h1 className="text-xl font-bold">Resultado del descenso</h1>
+    <main className="flex flex-1 flex-col gap-5 p-4 max-w-2xl mx-auto w-full pb-16">
+      {/* Banner de victoria (Light Theme) */}
+      <div className="rounded-2xl border border-border bg-surface p-6 text-center shadow-sm">
+        <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+          <Flag className="h-6 w-6" />
+        </div>
+        <h1 className="text-2xl font-extrabold text-text tracking-tight sm:text-3xl">
+          ¡Descenso Finalizado!
+        </h1>
+        <p className="font-mono text-5xl font-extrabold text-primary my-2.5 tracking-tighter">
+          {formatDuration(resultado.tiempoMs)}
+        </p>
+        <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">
+          Tiempo cronometrado oficial · {cerro.nombre}
+        </p>
+      </div>
+
+      {/* Resultado de la criatura (Goofy / Fantasy outcome) */}
+      {criatura && !resultado.interrumpidoPorSos ? (
+        escapo ? (
+          <div className="flex items-start gap-3.5 rounded-2xl border border-emerald-300 bg-emerald-50/90 p-4 shadow-xs">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-800">
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-emerald-950">
+                ¡Escapaste de {criatura.nombre}!
+              </p>
+              <p className="mt-0.5 text-xs text-emerald-800 leading-relaxed">
+                Bajaste antes de los {Math.floor(criatura.tiempoLimiteS / 60)} min reglamentarios. El bicho se quedó comiendo tierra en la ladera.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-start gap-3.5 rounded-2xl border border-amber-300 bg-amber-50/90 p-4 shadow-xs">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800">
+              <Ghost className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-amber-950">
+                ¡Atrapado por {criatura.nombre}!
+              </p>
+              <p className="mt-0.5 text-xs text-amber-800 leading-relaxed">
+                Superaste el límite de {Math.floor(criatura.tiempoLimiteS / 60)} min. La criatura te pisó los talones en la meta, pero tu tiempo entra igual al leaderboard.
+              </p>
+            </div>
+          </div>
+        )
+      ) : null}
 
       {resultado.interrumpidoPorSos ? (
-        <div className="rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm font-medium text-danger">
-          ⚠ Interrumpido por SOS — no cuenta para el leaderboard
+        <div className="flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm font-semibold text-danger">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>Interrumpido por SOS — no cuenta para el leaderboard</span>
         </div>
       ) : null}
 
       {demasiadoRapido ? (
-        <div className="rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm font-medium text-danger">
-          Descenso interrumpido: el tiempo es demasiado corto para este sendero. No cuenta para el
-          ranking.
+        <div className="flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm font-semibold text-danger">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>Descenso no válido: el tiempo es inverosímil para este sendero (anti-cheat).</span>
         </div>
       ) : null}
 
       {guardado?.outcome === "failed" ? (
-        <div className="rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm font-medium text-danger">
-          {guardado.message ?? "No se pudo guardar el descenso (sin conexión a la base)"}
+        <div className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm font-medium text-danger">
+          {guardado.message ?? "No se pudo sincronizar el descenso con la base de datos."}
         </div>
       ) : null}
 
-      <Card className={`grid grid-cols-3 gap-3 text-center ${demasiadoRapido ? "opacity-40" : ""}`}>
-        <SummaryStat label="Tiempo" value={formatDuration(resultado.tiempoMs)} />
-        <SummaryStat
-          label="Vel. promedio"
-          value={formatSpeed(resultado.velocidadPromedioKmh)}
-        />
-        <SummaryStat
-          label="Desnivel"
-          value={formatDistance(resultado.cambioElevacionM)}
-        />
-      </Card>
+      {/* Grid de telemetría resumen */}
+      <div className={`grid grid-cols-3 gap-3 text-center ${demasiadoRapido ? "opacity-40" : ""}`}>
+        <div className="rounded-xl border border-border bg-surface p-3.5 shadow-xs">
+          <p className="font-mono text-xl font-extrabold text-text tabular-nums">
+            {formatDuration(resultado.tiempoMs)}
+          </p>
+          <p className="text-[10px] uppercase font-bold tracking-wider text-text-muted mt-1">
+            Tiempo
+          </p>
+        </div>
+        <div className="rounded-xl border border-border bg-surface p-3.5 shadow-xs">
+          <p className="font-mono text-xl font-extrabold text-text tabular-nums">
+            {formatSpeed(resultado.velocidadPromedioKmh)}
+          </p>
+          <p className="text-[10px] uppercase font-bold tracking-wider text-text-muted mt-1">
+            Vel. Promedio
+          </p>
+        </div>
+        <div className="rounded-xl border border-border bg-surface p-3.5 shadow-xs">
+          <p className="font-mono text-xl font-extrabold text-text tabular-nums">
+            -{formatDistance(resultado.cambioElevacionM)}
+          </p>
+          <p className="text-[10px] uppercase font-bold tracking-wider text-text-muted mt-1">
+            Desnivel
+          </p>
+        </div>
+      </div>
 
       {guardado?.outcome === "pending" ? (
-        <p className="text-xs text-text-muted">Guardando descenso…</p>
+        <p className="text-xs text-text-muted text-center animate-pulse">
+          Sincronizando con base de datos…
+        </p>
       ) : null}
       {guardado?.outcome === "saved" ? (
-        <p className="text-xs text-text-muted">Descenso guardado.</p>
+        <p className="text-xs text-emerald-700 font-semibold text-center flex items-center justify-center gap-1.5">
+          <CheckCircle2 className="h-4 w-4" /> Descenso registrado en el Leaderboard oficial.
+        </p>
       ) : null}
 
-      <Card className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold text-text">Dejá tu opinión</h2>
+      {/* Botón de acceso directo al Leaderboard */}
+      <Button
+        onClick={() => router.push(`/cerro/${id}/leaderboard`)}
+        size="lg"
+        className="w-full bg-primary hover:bg-primary-ink text-text font-bold text-base py-3.5 shadow-sm flex items-center justify-center gap-2"
+      >
+        <Trophy className="h-5 w-5" /> Ver mi Posición en el Ranking
+      </Button>
+
+      {/* Dejá tu opinión */}
+      <Card className="flex flex-col gap-3 border-border bg-surface">
+        <h2 className="text-sm font-bold uppercase tracking-wider text-text">
+          Calificá el sendero
+        </h2>
         {enviado ? (
-          <p className="text-sm text-brand">¡Gracias por tu comentario!</p>
+          <p className="text-sm text-emerald-700 font-semibold">
+            ¡Muchas gracias por tu reseña y puntuación!
+          </p>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-            <div className="flex gap-1">
+            <div className="flex gap-2">
               {[1, 2, 3, 4, 5].map((n) => (
                 <button
                   key={n}
                   type="button"
                   onClick={() => setCalificacion(n)}
                   aria-label={`Calificar ${n} de 5`}
-                  className={`text-2xl leading-none ${n <= calificacion ? "text-brand" : "text-border"}`}
+                  className="p-1 transition-transform hover:scale-125 focus:outline-none"
                 >
-                  ★
+                  <Star
+                    className={`h-6 w-6 ${
+                      n <= calificacion
+                        ? "fill-primary text-primary"
+                        : "text-border"
+                    }`}
+                  />
                 </button>
               ))}
             </div>
             <textarea
               value={texto}
-              onChange={(event) => setTexto(event.target.value)}
-              placeholder="¿Cómo estuvo el descenso?"
-              rows={3}
-              className="rounded-xl border border-border bg-surface-muted px-4 py-3 text-sm text-foreground outline-none placeholder:text-text-muted focus:border-brand focus:ring-2 focus:ring-brand/30"
+              onChange={(e) => setTexto(e.target.value)}
+              placeholder="¿Cómo estaba el terreno? Saltos, barro, piedras…"
+              className="min-h-20 w-full rounded-xl border border-border bg-surface-muted/60 p-3 text-sm text-text outline-none placeholder:text-text-muted focus:border-primary focus:ring-1 focus:ring-primary"
             />
-            <Button type="submit" variant="ghost" disabled={calificacion === 0}>
-              Enviar opinión
+            <Button
+              type="submit"
+              variant="secondary"
+              disabled={calificacion === 0}
+            >
+              Enviar reseña
             </Button>
           </form>
         )}
       </Card>
 
-      <Button onClick={() => router.push(`/cerro/${id}/leaderboard`)} className="w-full">
-        Ver leaderboard
+      <Button
+        variant="ghost"
+        onClick={() => router.push("/mapa")}
+        className="w-full text-text-muted hover:text-text flex items-center justify-center gap-2"
+      >
+        <MapPin className="h-4 w-4" /> Volver al Mapa de Senderos
       </Button>
     </main>
-  );
-}
-
-function SummaryStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="font-mono text-lg font-bold tabular-nums">{value}</p>
-      <p className="text-xs uppercase tracking-wide text-text-muted">{label}</p>
-    </div>
   );
 }

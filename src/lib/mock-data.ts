@@ -35,6 +35,11 @@ export const cerros: Cerro[] = [
     isPlaceholder: false,
     visibleEnMapa: true,
     fuenteDatos: { nombre: "Trailforks", url: "https://www.trailforks.com/trails/circuito-dh-pequia/" },
+    criatura: {
+      nombre: "El Ogro de la Cantera",
+      tiempoLimiteS: 180,
+      descripcion: "Guardián de tierra seca. Tenés 3 minutos de ritmo antes de que salga a perseguir tu rueda trasera.",
+    },
     pista: pistaPequia,
   },
   {
@@ -56,6 +61,11 @@ export const cerros: Cerro[] = [
     isPlaceholder: false,
     visibleEnMapa: true,
     fuenteDatos: { nombre: "Trailforks", url: "https://www.trailforks.com/trails/circuito-dh-el-lloron/" },
+    criatura: {
+      nombre: "La Sombra de El Llorón",
+      tiempoLimiteS: 300,
+      descripcion: "Aparece entre las piedras si tu descenso supera los 5 minutos. ¡Acelerá en las curvas cerradas!",
+    },
     pista: pistaElLloron,
   },
   {
@@ -77,6 +87,11 @@ export const cerros: Cerro[] = [
     isPlaceholder: false,
     visibleEnMapa: true,
     fuenteDatos: { nombre: "Trailforks", url: "https://www.trailforks.com/trails/escarpado-cerro-de-la-gloria/" },
+    criatura: {
+      nombre: "La Bestia de la Gloria",
+      tiempoLimiteS: 240,
+      descripcion: "Baja veloz por la ladera escarpada si te dormís en el descenso. Tenés 4 minutos para llegar a la base.",
+    },
     pista: pistaEscarpadoGloria,
   },
 ];

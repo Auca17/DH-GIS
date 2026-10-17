@@ -1,8 +1,18 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
+import {
+  ArrowRight,
+  Ghost,
+  Maximize2,
+  MessageSquare,
+  Play,
+  Swords,
+  Trophy,
+} from "lucide-react";
 import { DbStatusNotice } from "@/components/db-status/DbStatusNotice";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -35,8 +45,6 @@ export default function CerroPage() {
   const { start } = useDescent();
   const [mapaCompleto, setMapaCompleto] = useState(false);
 
-  // The trail comes from the layout (already loaded on the server). Only the
-  // reviews are fetched here. `id` in the URL is the trail slug.
   const { cerro, dbStatus } = useTrail();
   const reviews = useTrailApi<Comentario[]>(`/api/trails/${id}/reviews`);
   const comentariosDelCerro = reviews.data ?? [];
@@ -48,104 +56,172 @@ export default function CerroPage() {
     router.push(`/cerro/${cerroId}/cronometro`);
   }
 
+  const criatura = cerro.criatura;
+
   return (
     <>
       <DbStatusNotice dbStatus={dbStatus} />
-      {/* Jerarquía (prompt.md paso 3): título, datos clave en una fila, mini-mapa, play
-          grande (fijo abajo), opiniones. pb-32 deja lugar de sobra para que el Play fijo
-          no tape el último comentario. */}
-      <main className="flex flex-1 flex-col gap-4 p-4 pb-32">
-        <header className="flex items-start justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold">{cerro.nombre}</h1>
-            <div className="mt-1 flex items-center gap-2">
-              <DifficultyBadge dificultad={cerro.dificultadGeneral} />
-              <RatingStars rating={cerro.calificacion} />
-            </div>
-          </div>
-          {cerro.isPlaceholder ? (
-            <span className="shrink-0 rounded-full border border-border bg-surface px-2.5 py-1 text-[11px] font-medium text-text-muted">
-              Trazado provisorio
+      <main className="flex flex-1 flex-col gap-4 p-4 pb-32 max-w-3xl mx-auto w-full">
+        {/* Encabezado estilo Quest / Misión */}
+        <header className="rounded-2xl border border-border bg-surface p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-mono text-[11px] font-extrabold uppercase tracking-[0.2em] text-primary flex items-center gap-1.5">
+              <Swords className="h-4 w-4" /> Misión de Descenso
             </span>
-          ) : null}
+            {cerro.isPlaceholder ? (
+              <span className="rounded-full border border-border bg-surface-muted px-2.5 py-0.5 text-[10px] font-medium text-text-muted">
+                Trazado provisorio
+              </span>
+            ) : null}
+          </div>
+
+          <h1 className="mt-1 text-2xl sm:text-3xl font-extrabold tracking-tight text-text">
+            {cerro.nombre}
+          </h1>
+
+          <div className="mt-2.5 flex items-center gap-3">
+            <DifficultyBadge dificultad={cerro.dificultadGeneral} />
+            <RatingStars rating={cerro.calificacion} />
+          </div>
+
+          <p className="mt-3 text-sm leading-relaxed text-text-muted">
+            {cerro.descripcion}
+          </p>
         </header>
 
-        <p className="text-sm leading-relaxed text-text">{cerro.descripcion}</p>
+        {/* Alerta Goofy / Criatura del Sendero */}
+        {criatura ? (
+          <div className="flex items-start gap-3.5 rounded-2xl border border-amber-300 bg-amber-50/90 p-4 shadow-sm">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800">
+              <Ghost className="h-5 w-5" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-bold uppercase tracking-wider text-amber-900">
+                  Guardián del Sendero: {criatura.nombre}
+                </p>
+                <span className="rounded-full bg-amber-200/80 px-2 py-0.5 font-mono text-[10px] font-extrabold text-amber-900">
+                  Límite: {Math.floor(criatura.tiempoLimiteS / 60)} min
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-amber-800/90 leading-relaxed">
+                {criatura.descripcion}
+              </p>
+            </div>
+          </div>
+        ) : null}
 
-        <div className="grid grid-cols-5 gap-2 rounded-2xl border border-border bg-surface p-3 text-center">
+        {/* Atributos / Stats Grid */}
+        <div className="grid grid-cols-5 gap-2 rounded-2xl border border-border bg-surface p-3.5 text-center shadow-sm">
           <StatItem label="Distancia" value={formatDistance(cerro.largoM)} />
           <StatItem label="Desnivel" value={formatDistance(cerro.desnivelM)} />
           <StatItem label="Pendiente" value={`${cerro.pendientePromedioPct}%`} />
-          <StatItem label="T. promedio" value={`${cerro.tiempoPromedioS}s`} />
+          <StatItem label="T. Prom." value={`${cerro.tiempoPromedioS}s`} />
           <StatItem label="Terreno" value={cerro.terreno} />
         </div>
 
-        <div className="relative h-56 overflow-hidden rounded-2xl border border-border sm:h-72">
+        {/* Acceso Directo al Leaderboard / Hall of Fame */}
+        <Link
+          href={`/cerro/${cerro.slug}/leaderboard`}
+          className="group flex items-center justify-between rounded-2xl border border-primary/40 bg-surface p-4 transition-all hover:bg-surface-muted hover:border-primary shadow-sm"
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15 text-primary">
+              <Trophy className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-text group-hover:text-primary transition-colors">
+                Hall of Fame & Leaderboard
+              </p>
+              <p className="text-xs text-text-muted">
+                Ver los mejores tiempos speedrun y el podio
+              </p>
+            </div>
+          </div>
+          <span className="font-mono text-xs font-bold text-primary flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+            Ver ranking <ArrowRight className="h-3.5 w-3.5" />
+          </span>
+        </Link>
+
+        {/* Mini-mapa del trazado */}
+        <div className="relative h-60 sm:h-72 overflow-hidden rounded-2xl border border-border shadow-sm">
           <TrackMapPreview pista={cerro.pista} />
           <button
             type="button"
             onClick={() => setMapaCompleto(true)}
-            className="absolute bottom-3 right-3 z-[500] rounded-full border border-border bg-surface/90 px-3 py-1.5 text-xs font-medium text-foreground shadow-md"
+            className="absolute bottom-3 right-3 z-[500] inline-flex items-center gap-1.5 rounded-full border border-border bg-surface/95 px-3 py-1.5 text-xs font-semibold text-text shadow-sm hover:bg-surface transition-colors"
           >
+            <Maximize2 className="h-3.5 w-3.5" />
             Ver mapa completo
           </button>
         </div>
 
-        <div className="flex gap-4 text-xs text-text-muted">
+        <div className="flex gap-4 text-xs text-text-muted px-1">
           <LegendItem colorClass="bg-difficulty-facil" label={getDifficulty("facil").label} />
           <LegendItem colorClass="bg-difficulty-intermedia" label={getDifficulty("intermedia").label} />
           <LegendItem colorClass="bg-difficulty-dificil" label={getDifficulty("dificil").label} />
         </div>
 
         {cerro.fuenteDatos ? (
-          <p className="text-xs text-text-muted">
-            Datos del sendero:{" "}
+          <p className="text-xs text-text-muted px-1">
+            Datos verificados:{" "}
             <a
               href={cerro.fuenteDatos.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="underline"
+              className="text-primary hover:underline font-medium"
             >
               {cerro.fuenteDatos.nombre}
             </a>
           </p>
         ) : null}
 
-        <Card className="flex flex-col gap-3">
-          <h2 className="text-sm font-semibold text-text">Opiniones</h2>
+        {/* Sección de Comentarios y Reseñas */}
+        <Card className="flex flex-col gap-3 border-border bg-surface">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-text flex items-center gap-2">
+            <MessageSquare className="h-4 w-4 text-primary" /> Reseñas de la Comunidad
+          </h2>
           {comentariosDelCerro.length === 0 ? (
-            <p className="text-sm text-text-muted">Todavía no hay comentarios.</p>
+            <p className="text-sm text-text-muted">Todavía no hay comentarios para este sendero.</p>
           ) : (
             <ul className="flex flex-col gap-3">
               {comentariosDelCerro.map((comentario) => (
                 <li
                   key={comentario.id}
-                  className="border-t border-border pt-3 first:border-none first:pt-0"
+                  className="border-t border-border/60 pt-3 first:border-none first:pt-0"
                 >
-                  <p className="text-sm font-medium">{comentario.autor}</p>
-                  <p className="text-sm text-text">{comentario.texto}</p>
-                  <p className="mt-1 text-xs text-text-muted">{comentario.fecha}</p>
+                  <p className="text-sm font-bold text-text">{comentario.autor}</p>
+                  <p className="text-sm text-text-muted mt-0.5">{comentario.texto}</p>
+                  <p className="mt-1 text-[11px] text-text-muted">{comentario.fecha}</p>
                 </li>
               ))}
             </ul>
           )}
         </Card>
 
-        <div className="fixed inset-x-0 bottom-0 border-t border-border bg-background p-4">
-          <Button onClick={handlePlay} className="w-full">
-            ▶ Jugar
-          </Button>
+        {/* Botón flotante Play grande */}
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 backdrop-blur-md p-4">
+          <div className="mx-auto max-w-md">
+            <Button
+              onClick={handlePlay}
+              size="lg"
+              className="w-full bg-primary hover:bg-primary-ink text-text font-bold text-base py-3.5 shadow-md flex items-center justify-center gap-2"
+            >
+              <Play className="h-5 w-5 fill-current" />
+              Iniciar Descenso
+            </Button>
+          </div>
         </div>
       </main>
 
       {mapaCompleto ? (
         <div className="fixed inset-0 z-[2000] flex flex-col bg-background">
           <div className="flex items-center justify-between border-b border-border bg-surface px-4 py-3">
-            <h2 className="text-sm font-semibold">{cerro.nombre}</h2>
+            <h2 className="text-sm font-bold text-text">{cerro.nombre}</h2>
             <button
               type="button"
               onClick={() => setMapaCompleto(false)}
-              className="rounded-full border border-border px-3 py-1 text-xs font-medium"
+              className="rounded-full border border-border bg-surface-muted px-3 py-1 text-xs font-semibold text-text hover:bg-surface"
             >
               Cerrar ✕
             </button>
@@ -161,29 +237,23 @@ export default function CerroPage() {
 
 function LegendItem({ colorClass, label }: { colorClass: string; label: string }) {
   return (
-    <span className="flex items-center gap-1.5">
+    <span className="flex items-center gap-1.5 font-medium">
       <span className={`h-2.5 w-2.5 rounded-full ${colorClass}`} />
       {label}
     </span>
   );
 }
 
-// ETIQUETA_DIFICULTAD removed in favor of @/lib/difficulty
-//
-//
-//
-//
-
 const COLOR_BADGE_DIFICULTAD: Record<Dificultad, string> = {
-  facil: "bg-difficulty-facil/15 text-difficulty-facil",
-  intermedia: "bg-difficulty-intermedia/15 text-difficulty-intermedia",
-  dificil: "bg-difficulty-dificil/15 text-difficulty-dificil",
+  facil: "bg-blue-50 text-blue-800 border border-blue-200",
+  intermedia: "bg-amber-50 text-amber-900 border border-amber-200",
+  dificil: "bg-red-50 text-red-800 border border-red-200",
 };
 
 function DifficultyBadge({ dificultad }: { dificultad: Dificultad }) {
   return (
     <span
-      className={`rounded-full px-2 py-0.5 text-xs font-semibold ${COLOR_BADGE_DIFICULTAD[dificultad]}`}
+      className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${COLOR_BADGE_DIFICULTAD[dificultad]}`}
     >
       {getDifficulty(dificultad).label}
     </span>
@@ -193,10 +263,10 @@ function DifficultyBadge({ dificultad }: { dificultad: Dificultad }) {
 function StatItem({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+      <span className="font-mono text-sm font-bold tabular-nums text-text">
         {value}
       </span>
-      <span className="text-[10px] uppercase tracking-wide text-text-muted">{label}</span>
+      <span className="text-[10px] uppercase font-semibold tracking-wider text-text-muted">{label}</span>
     </div>
   );
 }

@@ -15,6 +15,12 @@ export interface TramoPista {
   puntos: PuntoPista[];
 }
 
+export interface CriaturaSendero {
+  nombre: string;
+  tiempoLimiteS: number;
+  descripcion: string;
+}
+
 export interface Cerro {
   id: string;
   slug: string;
@@ -39,6 +45,8 @@ export interface Cerro {
   visibleEnMapa: boolean;
   /** Optional attribution link shown on the trail screen when the track comes from an external source. */
   fuenteDatos?: { nombre: string; url: string };
+  /** Criatura mítica/guardián del sendero que persigue al ciclista si se excede del tiempo límite */
+  criatura?: CriaturaSendero;
 }
 
 export interface Comentario {

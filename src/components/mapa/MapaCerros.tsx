@@ -27,10 +27,10 @@ L.Icon.Default.mergeOptions({
 function pinIcon(color: string) {
   return L.divIcon({
     className: "dh-pin",
-    html: `<svg width="34" height="44" viewBox="0 0 34 44" aria-hidden="true"><path d="M17 43C17 43 32 26.5 32 16.5C32 8 25.3 1.5 17 1.5S2 8 2 16.5C2 26.5 17 43 17 43Z" fill="${color}" stroke="#111827" stroke-width="2"/><circle cx="17" cy="16.5" r="6" fill="#FFFFFF"/></svg>`,
+    html: `<svg width="34" height="44" viewBox="0 0 34 44" aria-hidden="true" style="filter: drop-shadow(0 2px 4px rgba(17,24,39,0.3));"><path d="M17 43C17 43 32 26.5 32 16.5C32 8 25.3 1.5 17 1.5S2 8 2 16.5C2 26.5 17 43 17 43Z" fill="${color}" stroke="#FFFFFF" stroke-width="2.5"/><circle cx="17" cy="16.5" r="6" fill="#FFFFFF"/><circle cx="17" cy="16.5" r="3.5" fill="${color}"/></svg>`,
     iconSize: [34, 44],
     iconAnchor: [17, 43],
-    popupAnchor: [0, -38],
+    popupAnchor: [0, -40],
   });
 }
 
@@ -132,7 +132,7 @@ export function MapaCerros({ cerros }: MapaCerrosProps) {
                     </div>
                     <Link
                       href={`/cerro/${cerro.slug}`}
-                      className={buttonClassName("primary", "md", "w-full !text-text no-underline")}
+                      className={buttonClassName("primary", "md", "w-full font-bold no-underline")}
                     >
                       Ver sendero →
                     </Link>

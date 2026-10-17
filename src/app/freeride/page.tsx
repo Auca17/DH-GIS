@@ -192,7 +192,7 @@ export default function FreeridePage() {
               type="button"
               size="lg"
               onClick={iniciar}
-              className="w-full bg-primary hover:bg-primary-hover text-black font-bold text-base py-3 shadow-md"
+              className="w-full bg-primary hover:bg-primary-ink text-text font-bold text-base py-3 shadow-md"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"

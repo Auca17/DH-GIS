@@ -8,9 +8,10 @@
   --border: #E2D5BF;
   --text: #111827;
   --text-muted: #4B5563;
-  --primary: #CC8800;
+
+  --primary: #CC8800; /* Oro Downhill / Amber Gold */
   --primary-ink: #7A5200;
-  --secondary: #C55221;
+  --secondary: #C55221; /* Terracotta / Burnt Orange */
   --success: #16A34A;
   --warning: #D97706;
   --danger: #DC2626;
@@ -74,9 +75,29 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans), system-ui, sans-serif;
+  min-height: 100vh;
 }
 
-/* Leaflet light theme restyle */
+/* Efectos de Fantasía y Brillo Gamificado (Light mode) */
+.dh-glow-gold {
+  box-shadow: 0 4px 16px rgba(204, 136, 0, 0.22), 0 1px 3px rgba(204, 136, 0, 0.12);
+}
+
+.dh-glow-blue {
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.22), 0 1px 3px rgba(37, 99, 235, 0.12);
+}
+
+.dh-glow-red {
+  box-shadow: 0 4px 16px rgba(220, 38, 38, 0.22), 0 1px 3px rgba(220, 38, 38, 0.12);
+}
+
+.dh-card-quest {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 16px rgb(17 24 39 / 0.05);
+}
+
+/* Leaflet Light Theme Restyle */
 .leaflet-container {
   width: 100%;
   height: 100%;
@@ -157,11 +178,7 @@ body {
   text-decoration-line: underline;
 }
 
-/* ---------- Motion (D4) ----------
-   Keyframes + utility classes. Only transform, opacity and stroke-dashoffset are
-   animated (cheap for the browser). `--i` staggers lists: style={{ "--i": n }}.
-   Everything is switched off for people who ask for reduced motion. */
-
+/* Animations */
 @keyframes dh-fade-up {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
@@ -173,7 +190,7 @@ body {
 
 @keyframes dh-bob {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(1.5px); }
+  50% { transform: translateY(2px); }
 }
 
 @keyframes dh-ride-in {
@@ -192,8 +209,13 @@ body {
   100% { transform: scale(1); }
 }
 
-@keyframes dh-draw {
-  to { stroke-dashoffset: 0; }
+@keyframes dh-glow-pulse {
+  0%, 100% { box-shadow: 0 0 10px rgba(204, 136, 0, 0.2); }
+  50% { box-shadow: 0 0 20px rgba(204, 136, 0, 0.45); }
+}
+
+.dh-glow-pulse {
+  animation: dh-glow-pulse 2s infinite ease-in-out;
 }
 
 .dh-fade-up {
@@ -227,30 +249,11 @@ body {
   animation-delay: calc(var(--i, 0) * 60ms);
 }
 
-.dh-draw {
-  stroke-dasharray: var(--len, 1000);
-  stroke-dashoffset: var(--len, 1000);
-  animation: dh-draw 2.4s var(--ease-in-out) forwards;
-}
-
-/* Rider travelling along an SVG path (about page). */
-.dh-follow {
-  offset-rotate: auto;
-  animation: dh-follow 7s var(--ease-in-out) infinite;
-}
-
-@keyframes dh-follow {
-  0% { offset-distance: 0%; opacity: 0; }
-  8% { opacity: 1; }
-  88% { opacity: 1; }
-  100% { offset-distance: 100%; opacity: 0; }
-}
-
-/* Topographic contour texture for poster bands (pure CSS, no image file). */
+/* Textura Topográfica / Impeccable Poster */
 .dh-contours {
   background-image:
-    repeating-radial-gradient(circle at 20% 120%, transparent 0 22px, rgb(255 255 255 / 0.10) 22px 24px),
-    repeating-radial-gradient(circle at 85% -20%, transparent 0 30px, rgb(255 255 255 / 0.08) 30px 32px);
+    repeating-radial-gradient(circle at 20% 120%, transparent 0 22px, rgba(204, 136, 0, 0.05) 22px 24px),
+    repeating-radial-gradient(circle at 85% -20%, transparent 0 30px, rgba(197, 82, 33, 0.04) 30px 32px);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -260,19 +263,11 @@ body {
   .dh-ride-in,
   .dh-rise,
   .dh-pop,
-  .dh-follow {
+  .dh-glow-pulse {
     animation: none;
-  }
-  .dh-draw {
-    animation: none;
-    stroke-dashoffset: 0;
-  }
-  .dh-follow {
-    offset-distance: 55%;
   }
 }
 
-/* Difficulty map pins (L.divIcon in MapaCerros.tsx). */
 .leaflet-marker-icon.dh-pin {
   background: none;
   border: none;

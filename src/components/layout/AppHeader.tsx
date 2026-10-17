@@ -80,7 +80,7 @@ function HeaderFrame({ pathname }: { pathname: string | null }) {
                   aria-current={isActive ? "page" : undefined}
                   className={`rounded px-3 py-1.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
                     isActive
-                      ? "border-b-2 border-primary text-text font-bold"
+                      ? "border-b-2 border-primary text-primary font-bold"
                       : "text-text-muted hover:bg-surface-muted hover:text-text"
                   }`}
                 >
@@ -94,9 +94,9 @@ function HeaderFrame({ pathname }: { pathname: string | null }) {
         {/* Rider profile / name */}
         <div className="flex items-center gap-2">
           {!isLogin ? (
-            <div className="flex items-center gap-2 rounded-full border border-border bg-surface-muted px-3 py-1 text-xs font-semibold text-text">
-              <span className="h-2 w-2 rounded-full bg-success" aria-hidden="true" />
-              <span className="font-mono text-xs">{rider}</span>
+            <div className="flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-bold text-primary shadow-xs">
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
+              <span className="font-mono text-xs text-text">{rider}</span>
             </div>
           ) : null}
         </div>
