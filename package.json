@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "tsx --env-file=.env.local scripts/seed.ts",
+    "seed:prod": "tsx --env-file=.env.production scripts/seed.ts",
     "queries": "tsx --env-file=.env.local scripts/queries.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
