@@ -87,10 +87,10 @@ async function createIndexes() {
 const ratingByCommentId: Record<string, number> = {
   "c-pequia-1": 4,
   "c-pequia-2": 5,
-  "c-cantera-1": 4,
-  "c-cantera-2": 4,
-  "c-zampal-1": 4,
-  "c-quebrada-1": 5,
+  "c-lloron-1": 4,
+  "c-lloron-2": 5,
+  "c-gloria-1": 4,
+  "c-gloria-2": 5,
 };
 
 async function seedUsers(): Promise<Map<string, ObjectId>> {
@@ -124,6 +124,10 @@ async function seedUsers(): Promise<Map<string, ObjectId>> {
 async function seedTrails(): Promise<Map<string, ObjectId>> {
   const trails = client.db().collection("trails");
 
+  // Clean out any seed trails that are no longer in the active dataset
+  const activeSlugs = cerros.map((c) => c.slug);
+  await trails.deleteMany({ source: "seed", slug: { $nin: activeSlugs } });
+
   // Key: the mock id ("pequia"), value: the Mongo _id.
   const idByMockId = new Map<string, ObjectId>();
 
@@ -150,8 +154,7 @@ async function seedTrails(): Promise<Map<string, ObjectId>> {
           elevationM: p.elevacionM,
         })),
       })),
-      // Fastest time the server accepts as valid (anti-cheat). Only Pequia's value is
-      // real; the other trails use placeholder values (see mock-data.ts).
+      // Fastest time the server accepts as valid (anti-cheat).
       minValidTimeS: cerro.tiempoMinimoValidoS,
       startRadiusM: 30, // play is enabled within this distance of `start`
       endRadiusM: 15, // the timer stops within this distance of `end`
@@ -200,7 +203,8 @@ const extraDescents: SeedDescent[] = [
   { trailMockId: "pequia", user: "Facu T.", durationMs: 56_000, avgSpeedKmh: 23.3, day: "2026-09-14", bikeType: "DH", status: "completed", validated: true },
   { trailMockId: "pequia", user: "Mica V.", durationMs: 21_000, avgSpeedKmh: 0, day: "2026-09-27", bikeType: "Enduro", status: "interrupted", validated: false, invalidReason: "SOS" },
   { trailMockId: "pequia", user: "Dieguito", durationMs: 31_000, avgSpeedKmh: 42.1, day: "2026-09-30", bikeType: "Enduro", status: "completed", validated: false, invalidReason: "max speed not plausible" },
-  { trailMockId: "cantera", user: "Romi S.", durationMs: 93_800, avgSpeedKmh: 20.8, day: "2026-09-11", bikeType: "Enduro", status: "completed", validated: true },
+  { trailMockId: "el-lloron", user: "Romi S.", durationMs: 79_800, avgSpeedKmh: 23.8, day: "2026-09-11", bikeType: "Enduro", status: "completed", validated: true },
+  { trailMockId: "escarpado-gloria", user: "Sol M.", durationMs: 64_200, avgSpeedKmh: 27.1, day: "2026-09-08", bikeType: "DH", status: "completed", validated: true },
 ];
 
 async function seedDescents(trailIds: Map<string, ObjectId>, userIds: Map<string, ObjectId>) {

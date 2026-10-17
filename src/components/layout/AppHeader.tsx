@@ -5,9 +5,9 @@ import { usePathname } from "next/navigation";
 import { useSyncExternalStore } from "react";
 import { DhLogo } from "@/components/brand/DhLogo";
 
-// "Consultas" (the MongoDB query panel) is added back when /consultas exists.
 const NAV_LINKS = [
   { href: "/mapa", label: "Mapa" },
+  { href: "/freeride", label: "Freeride" },
   { href: "/acerca", label: "Nosotros" },
 ];
 

@@ -15,7 +15,7 @@ function toRadians(deg: number): number {
 }
 
 /** Great-circle distance between two lat/lng points, in meters. */
-function haversineDistanceM(
+export function haversineDistanceM(
   a: { lat: number; lng: number },
   b: { lat: number; lng: number },
 ): number {
