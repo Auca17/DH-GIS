@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { Moon, Sun } from "lucide-react";
 import { DhLogo } from "@/components/brand/DhLogo";
 
 const NAV_LINKS = [
@@ -91,16 +92,60 @@ function HeaderFrame({ pathname }: { pathname: string | null }) {
           </nav>
         ) : null}
 
-        {/* Rider profile / name */}
+        {/* Rider profile / name + Theme Toggle */}
         <div className="flex items-center gap-2">
           {!isLogin ? (
             <div className="flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-bold text-primary shadow-xs">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
               <span className="font-mono text-xs text-text">{rider}</span>
             </div>
           ) : null}
+          <ThemeToggle />
         </div>
       </div>
     </header>
+  );
+}
+
+function ThemeToggle() {
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("dh_theme");
+    if (saved === "dark") {
+      document.documentElement.classList.add("dark");
+      setIsDark(true);
+    } else {
+      document.documentElement.classList.remove("dark");
+      setIsDark(false);
+    }
+  }, []);
+
+  function toggleTheme() {
+    const next = !isDark;
+    setIsDark(next);
+    if (next) {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("dh_theme", "dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("dh_theme", "light");
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={toggleTheme}
+      title={isDark ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+      aria-label="Alternar tema claro/oscuro"
+      className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-surface text-text hover:bg-surface-muted transition-colors cursor-pointer"
+    >
+      {isDark ? (
+        <Sun className="h-4 w-4 text-primary" />
+      ) : (
+        <Moon className="h-4 w-4 text-text-muted" />
+      )}
+    </button>
   );
 }

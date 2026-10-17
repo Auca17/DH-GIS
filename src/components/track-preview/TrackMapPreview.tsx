@@ -27,6 +27,8 @@ interface TrackMapPreviewProps {
   className?: string;
   /** Optional live rider position, used by the cronometro screen. */
   puntoActual?: { lat: number; lng: number } | null;
+  /** Optional live chaser position (El Pomberito), used by the cronometro screen. */
+  puntoChaser?: { lat: number; lng: number } | null;
   /** True (default): small locked preview. False: free pan/zoom, used by "Ver mapa completo". */
   bloqueado?: boolean;
 }
@@ -37,6 +39,24 @@ function iconoFlecha(rumboDeg: number) {
     html: `<div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid #f8fafc;filter:drop-shadow(0 1px 1px rgba(0,0,0,.6));transform:rotate(${rumboDeg}deg);"></div>`,
     iconSize: [12, 12],
     iconAnchor: [6, 6],
+  });
+}
+
+function iconoPomberito() {
+  return L.divIcon({
+    className: "dh-pomberito-pin",
+    html: `<div style="position:relative;display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-50%);pointer-events:none;"><span style="font-size:9px;font-weight:800;background:#C55221;color:#ffffff;padding:1px 5px;border-radius:9999px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.4);margin-bottom:2px;letter-spacing:0.04em;">Pomberito</span><div style="width:24px;height:24px;border-radius:50%;background:#7A2706;border:2px solid #ffffff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 5px rgba(0,0,0,0.35);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18v3s1 1 4 1 5-2 8-2 4 1 4 1v-3"/><path d="M2 10s3-3 10-3 10 3 10 3"/><circle cx="12" cy="11" r="3.5"/></svg></div></div>`,
+    iconSize: [28, 40],
+    iconAnchor: [14, 30],
+  });
+}
+
+function iconoRider() {
+  return L.divIcon({
+    className: "dh-rider-pin",
+    html: `<div style="position:relative;display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-50%);pointer-events:none;"><span style="font-size:9px;font-weight:800;background:#16A34A;color:#ffffff;padding:1px 5px;border-radius:9999px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.4);margin-bottom:2px;letter-spacing:0.04em;">Vos</span><div style="width:24px;height:24px;border-radius:50%;background:#15803D;border:2px solid #ffffff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 5px rgba(0,0,0,0.35);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/></svg></div></div>`,
+    iconSize: [28, 40],
+    iconAnchor: [14, 30],
   });
 }
 
@@ -67,6 +87,7 @@ export function TrackMapPreview({
   pista,
   className = "",
   puntoActual = null,
+  puntoChaser = null,
   bloqueado = true,
 }: TrackMapPreviewProps) {
   const bounds = getBounds(pista);
@@ -131,11 +152,18 @@ export function TrackMapPreview({
           interactive={false}
         />
       ))}
+      {puntoChaser ? (
+        <Marker
+          position={[puntoChaser.lat, puntoChaser.lng]}
+          icon={iconoPomberito()}
+          interactive={false}
+        />
+      ) : null}
       {puntoActual ? (
-        <CircleMarker
-          center={[puntoActual.lat, puntoActual.lng]}
-          radius={8}
-          pathOptions={{ color: "#f97316", fillColor: "#f97316", fillOpacity: 1 }}
+        <Marker
+          position={[puntoActual.lat, puntoActual.lng]}
+          icon={iconoRider()}
+          interactive={false}
         />
       ) : null}
       <FitBoundsAlMontar pista={pista} />

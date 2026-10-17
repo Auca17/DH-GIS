@@ -180,10 +180,10 @@ export default function LeaderboardPage() {
                               ) : null}
                               {escapoBestia ? (
                                 <span
-                                  className="inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800 border border-emerald-200"
-                                  title={`Escapó de ${criatura?.nombre}`}
+                                  className="inline-flex items-center gap-1 rounded bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+                                  title={`Escapó del ${criatura?.nombre ?? "Pomberito"}`}
                                 >
-                                  <ShieldCheck className="h-3 w-3 text-emerald-600" /> Escapó
+                                  <ShieldCheck className="h-3 w-3 text-emerald-600 dark:text-emerald-400" /> Escapó
                                 </span>
                               ) : null}
                             </span>

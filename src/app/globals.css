@@ -71,11 +71,73 @@ html {
   color-scheme: light;
 }
 
+html.dark {
+  color-scheme: dark;
+  --bg: #090D16;
+  --surface: #111827;
+  --surface-muted: #1F293D;
+  --border: #2D3A54;
+  --text: #F8FAFC;
+  --text-muted: #94A3B8;
+
+  --primary: #FDC800;
+  --primary-ink: #B45309;
+  --secondary: #38BDF8;
+  --success: #10B981;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+
+  --diff-facil: #38BDF8;
+  --diff-intermedia: #FDC800;
+  --diff-dificil: #EF4444;
+}
+
 body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans), system-ui, sans-serif;
   min-height: 100vh;
+}
+
+/* Dark mode leaflet overrides */
+html.dark .leaflet-container {
+  background: #090D16;
+}
+
+html.dark .leaflet-container .leaflet-popup-content-wrapper {
+  background: #111827;
+  color: #F8FAFC;
+  border: 1px solid #2D3A54;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+html.dark .leaflet-container .leaflet-popup-tip {
+  background: #111827;
+  border: 1px solid #2D3A54;
+}
+
+html.dark .leaflet-container a.leaflet-popup-close-button {
+  color: #94A3B8;
+}
+
+html.dark .leaflet-container .leaflet-bar {
+  border: 1px solid #2D3A54;
+}
+
+html.dark .leaflet-container .leaflet-bar a {
+  background: #111827;
+  color: #F8FAFC;
+  border-bottom: 1px solid #2D3A54;
+}
+
+html.dark .leaflet-container .leaflet-bar a:hover {
+  background: #1F293D;
+  color: var(--primary);
+}
+
+html.dark .leaflet-container .leaflet-control-attribution {
+  background: rgba(17, 24, 39, 0.85);
+  color: #94A3B8;
 }
 
 /* Efectos de Fantasía y Brillo Gamificado (Light mode) */

@@ -82,7 +82,9 @@ function calcularRumboDeg(a: { lat: number; lng: number }, b: { lat: number; lng
   return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
 }
 
-function puntoEnDistancia(flat: PuntoPlano[], distanceM: number): PuntoPlano {
+export function puntoEnDistancia(flat: PuntoPlano[], distanceM: number): PuntoPlano {
+  if (flat.length === 0) return { lat: 0, lng: 0, elevacionM: 0, dificultad: "facil", distanciaAcumuladaM: 0 };
+  if (distanceM <= 0) return flat[0];
   for (let i = 0; i < flat.length - 1; i += 1) {
     if (distanceM <= flat[i + 1].distanciaAcumuladaM) return flat[i];
   }

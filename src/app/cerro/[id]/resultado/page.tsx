@@ -6,7 +6,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Flag,
-  Ghost,
+  Footprints,
   MapPin,
   ShieldCheck,
   Star,
@@ -73,33 +73,33 @@ export default function ResultadoPage() {
         </p>
       </div>
 
-      {/* Resultado de la criatura (Goofy / Fantasy outcome) */}
+      {/* Resultado de la criatura (El Pomberito) */}
       {criatura && !resultado.interrumpidoPorSos ? (
         escapo ? (
-          <div className="flex items-start gap-3.5 rounded-2xl border border-emerald-300 bg-emerald-50/90 p-4 shadow-xs">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-800">
+          <div className="flex items-start gap-3.5 rounded-2xl border border-emerald-300 bg-emerald-50/90 dark:bg-emerald-950/20 dark:border-emerald-700/40 p-4 shadow-xs">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300">
               <ShieldCheck className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-sm font-bold text-emerald-950">
-                ¡Escapaste de {criatura.nombre}!
+              <p className="text-sm font-bold text-emerald-950 dark:text-emerald-200">
+                ¡Le ganaste al {criatura.nombre}!
               </p>
-              <p className="mt-0.5 text-xs text-emerald-800 leading-relaxed">
-                Bajaste antes de los {Math.floor(criatura.tiempoLimiteS / 60)} min reglamentarios. El bicho se quedó comiendo tierra en la ladera.
+              <p className="mt-0.5 text-xs text-emerald-800 dark:text-emerald-300/90 leading-relaxed">
+                Completaste el sendero antes de los {Math.floor(criatura.tiempoLimiteS / 60)} min. El Pomberito se quedó silbando solo entre las piedras.
               </p>
             </div>
           </div>
         ) : (
-          <div className="flex items-start gap-3.5 rounded-2xl border border-amber-300 bg-amber-50/90 p-4 shadow-xs">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800">
-              <Ghost className="h-5 w-5" />
+          <div className="flex items-start gap-3.5 rounded-2xl border border-amber-300 bg-amber-50/90 dark:bg-amber-950/20 dark:border-amber-700/40 p-4 shadow-xs">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300">
+              <Footprints className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-sm font-bold text-amber-950">
-                ¡Atrapado por {criatura.nombre}!
+              <p className="text-sm font-bold text-amber-950 dark:text-amber-200">
+                ¡Te alcanzó el {criatura.nombre}!
               </p>
-              <p className="mt-0.5 text-xs text-amber-800 leading-relaxed">
-                Superaste el límite de {Math.floor(criatura.tiempoLimiteS / 60)} min. La criatura te pisó los talones en la meta, pero tu tiempo entra igual al leaderboard.
+              <p className="mt-0.5 text-xs text-amber-800 dark:text-amber-300/90 leading-relaxed">
+                Superaste el límite de {Math.floor(criatura.tiempoLimiteS / 60)} min. El Pomberito te sopló la nuca en la meta, pero tu tiempo clasifica igual en el Leaderboard.
               </p>
             </div>
           </div>

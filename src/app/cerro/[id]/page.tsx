@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   ArrowRight,
-  Ghost,
+  Footprints,
   Maximize2,
   MessageSquare,
   Play,
@@ -61,7 +61,7 @@ export default function CerroPage() {
   return (
     <>
       <DbStatusNotice dbStatus={dbStatus} />
-      <main className="flex flex-1 flex-col gap-4 p-4 pb-32 max-w-3xl mx-auto w-full">
+      <main className="flex flex-1 flex-col gap-4 p-4 pb-44 max-w-3xl mx-auto w-full">
         {/* Encabezado estilo Quest / Misión */}
         <header className="rounded-2xl border border-border bg-surface p-5 shadow-sm">
           <div className="flex items-center justify-between gap-2">
@@ -87,24 +87,36 @@ export default function CerroPage() {
           <p className="mt-3 text-sm leading-relaxed text-text-muted">
             {cerro.descripcion}
           </p>
+
+          {/* Botón Iniciar en el header para que nunca se tape */}
+          <div className="mt-4 pt-3 border-t border-border/60">
+            <Button
+              onClick={handlePlay}
+              size="lg"
+              className="w-full bg-primary hover:bg-primary-ink text-text font-bold text-base py-3 shadow-sm flex items-center justify-center gap-2"
+            >
+              <Play className="h-5 w-5 fill-current" />
+              Iniciar Descenso
+            </Button>
+          </div>
         </header>
 
-        {/* Alerta Goofy / Criatura del Sendero */}
+        {/* Alerta del Pomberito */}
         {criatura ? (
-          <div className="flex items-start gap-3.5 rounded-2xl border border-amber-300 bg-amber-50/90 p-4 shadow-sm">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800">
-              <Ghost className="h-5 w-5" />
+          <div className="flex items-start gap-3.5 rounded-2xl border border-amber-300 bg-amber-50/90 dark:bg-amber-950/20 dark:border-amber-700/40 p-4 shadow-sm">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300">
+              <Footprints className="h-5 w-5" />
             </div>
             <div className="flex-1">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-bold uppercase tracking-wider text-amber-900">
-                  Guardián del Sendero: {criatura.nombre}
+                <p className="text-xs font-bold uppercase tracking-wider text-amber-900 dark:text-amber-200">
+                  Persecución: {criatura.nombre}
                 </p>
-                <span className="rounded-full bg-amber-200/80 px-2 py-0.5 font-mono text-[10px] font-extrabold text-amber-900">
+                <span className="rounded-full bg-amber-200/80 dark:bg-amber-800/40 px-2 py-0.5 font-mono text-[10px] font-extrabold text-amber-900 dark:text-amber-200">
                   Límite: {Math.floor(criatura.tiempoLimiteS / 60)} min
                 </span>
               </div>
-              <p className="mt-1 text-xs text-amber-800/90 leading-relaxed">
+              <p className="mt-1 text-xs text-amber-800/90 dark:text-amber-300/90 leading-relaxed">
                 {criatura.descripcion}
               </p>
             </div>
@@ -199,13 +211,13 @@ export default function CerroPage() {
           )}
         </Card>
 
-        {/* Botón flotante Play grande */}
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 backdrop-blur-md p-4">
+        {/* Barra flotante inferior fija con alto z-index y safe-area */}
+        <div className="fixed inset-x-0 bottom-0 z-[1000] border-t border-border bg-surface/95 backdrop-blur-md p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-xl">
           <div className="mx-auto max-w-md">
             <Button
               onClick={handlePlay}
               size="lg"
-              className="w-full bg-primary hover:bg-primary-ink text-text font-bold text-base py-3.5 shadow-md flex items-center justify-center gap-2"
+              className="w-full bg-primary hover:bg-primary-ink text-text font-bold text-base py-3 shadow-md flex items-center justify-center gap-2"
             >
               <Play className="h-5 w-5 fill-current" />
               Iniciar Descenso
@@ -245,9 +257,9 @@ function LegendItem({ colorClass, label }: { colorClass: string; label: string }
 }
 
 const COLOR_BADGE_DIFICULTAD: Record<Dificultad, string> = {
-  facil: "bg-blue-50 text-blue-800 border border-blue-200",
-  intermedia: "bg-amber-50 text-amber-900 border border-amber-200",
-  dificil: "bg-red-50 text-red-800 border border-red-200",
+  facil: "bg-blue-50 text-blue-800 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800",
+  intermedia: "bg-amber-50 text-amber-900 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800",
+  dificil: "bg-red-50 text-red-800 border border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800",
 };
 
 function DifficultyBadge({ dificultad }: { dificultad: Dificultad }) {
