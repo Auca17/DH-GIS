@@ -79,6 +79,118 @@ async function createIndexes() {
 
   // Reviews of one trail, newest first: filter by trailId, sort by createdAt desc.
   await db.collection("reviews").createIndex({ trailId: 1, createdAt: -1 });
+
+  // Unique email: two accounts can never share one. Seed riders have no email,
+  // so the index only covers documents that have one (partial index).
+  await db
+    .collection("users")
+    .createIndex({ email: 1 }, { unique: true, partialFilterExpression: { email: { $type: "string" } } });
+
+  // A rider's bikes, main bike first (C13 rider profile, the bike picker).
+  await db.collection("bikes").createIndex({ userId: 1, isPrimary: -1 });
+
+  // At most ONE main bike per rider, enforced by the database: unique on userId,
+  // but only among the bikes with isPrimary: true (partial unique index).
+  await db
+    .collection("bikes")
+    .createIndex(
+      { userId: 1 },
+      { unique: true, partialFilterExpression: { isPrimary: true }, name: "one_primary_bike_per_user" },
+    );
+
+  // Sessions are looked up by the hash of the cookie token on every request.
+  await db.collection("sessions").createIndex({ tokenHash: 1 }, { unique: true });
+
+  // TTL index: MongoDB deletes each session by itself once expiresAt has passed
+  // (expireAfterSeconds: 0 = "at the date stored in the field").
+  await db.collection("sessions").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+}
+
+// ---------- Validation ($jsonSchema) ----------
+
+// The database itself rejects documents with a wrong shape, even if a bug in the app
+// (or someone in Compass) tries to save them. The API validates too, with friendly
+// messages; this is the last line of defense.
+// "number" accepts int, long and double (the driver saves 2019 as an int).
+const VALIDATORS: Record<string, object> = {
+  users: {
+    bsonType: "object",
+    required: ["displayName", "createdAt"],
+    properties: {
+      displayName: { bsonType: "string", minLength: 1, maxLength: 30 },
+      email: { bsonType: "string", pattern: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$" },
+      passwordHash: { bsonType: "string" },
+      passwordSalt: { bsonType: "string" },
+      level: { enum: ["principiante", "intermedio", "avanzado"] },
+      city: { bsonType: "string", minLength: 2, maxLength: 60 },
+      ridingSinceYear: { bsonType: "number", minimum: 1950, maximum: 2100 },
+      createdAt: { bsonType: "date" },
+      source: { enum: ["seed", "app"] },
+    },
+  },
+  bikes: {
+    bsonType: "object",
+    required: [
+      "userId",
+      "type",
+      "brand",
+      "model",
+      "year",
+      "wheelSize",
+      "travelFrontMm",
+      "travelRearMm",
+      "isPrimary",
+      "createdAt",
+    ],
+    properties: {
+      userId: { bsonType: "objectId" },
+      type: { enum: ["DH", "Enduro", "Trail"] },
+      brand: { bsonType: "string", minLength: 1, maxLength: 40 },
+      model: { bsonType: "string", minLength: 1, maxLength: 60 },
+      year: { bsonType: "number", minimum: 1990, maximum: 2100 },
+      wheelSize: { enum: ["27.5", "29", "mullet"] },
+      travelFrontMm: { bsonType: "number", minimum: 80, maximum: 220 },
+      travelRearMm: { bsonType: "number", minimum: 0, maximum: 220 },
+      isPrimary: { bsonType: "bool" },
+      createdAt: { bsonType: "date" },
+      source: { enum: ["seed", "app"] },
+    },
+  },
+  sessions: {
+    bsonType: "object",
+    required: ["tokenHash", "userId", "createdAt", "expiresAt"],
+    properties: {
+      tokenHash: { bsonType: "string", minLength: 64, maxLength: 64 },
+      userId: { bsonType: "objectId" },
+      createdAt: { bsonType: "date" },
+      expiresAt: { bsonType: "date" },
+    },
+  },
+};
+
+async function applyValidators() {
+  const db = client.db();
+  for (const [name, schema] of Object.entries(VALIDATORS)) {
+    const exists = (await db.listCollections({ name }).toArray()).length > 0;
+    try {
+      if (exists) {
+        // collMod changes the rules of a collection that already has data.
+        await db.command({ collMod: name, validator: { $jsonSchema: schema }, validationLevel: "strict" });
+      } else {
+        await db.createCollection(name, { validator: { $jsonSchema: schema } });
+      }
+    } catch (error) {
+      // Code 13 = Unauthorized. In Atlas, a user with only "read and write" cannot run
+      // collMod: the data still loads, only the validation is skipped.
+      if ((error as { code?: number }).code === 13) {
+        console.warn(
+          `[seed] No permission to add the validator to "${name}". In Atlas, give the database user the "Atlas admin" role and run the seed again.`,
+        );
+        continue;
+      }
+      throw error;
+    }
+  }
 }
 
 // ---------- Users ----------
@@ -93,6 +205,19 @@ const ratingByCommentId: Record<string, number> = {
   "c-gloria-2": 5,
 };
 
+// Profile of each seed rider (they cannot sign in: no email, no password).
+const SEED_PROFILES: Record<string, { level: string; city: string; ridingSinceYear: number }> = {
+  "Lucas R.": { level: "avanzado", city: "Mendoza", ridingSinceYear: 2012 },
+  "Mica V.": { level: "intermedio", city: "Godoy Cruz", ridingSinceYear: 2018 },
+  "Facu T.": { level: "avanzado", city: "Luján de Cuyo", ridingSinceYear: 2014 },
+  "Romi S.": { level: "intermedio", city: "Mendoza", ridingSinceYear: 2017 },
+  Dieguito: { level: "principiante", city: "Las Heras", ridingSinceYear: 2023 },
+  "Ignacio P.": { level: "avanzado", city: "Godoy Cruz", ridingSinceYear: 2010 },
+  "Bruno K.": { level: "intermedio", city: "Maipú", ridingSinceYear: 2016 },
+  "Jime L.": { level: "principiante", city: "Luján de Cuyo", ridingSinceYear: 2022 },
+  "Sol M.": { level: "intermedio", city: "Mendoza", ridingSinceYear: 2019 },
+};
+
 async function seedUsers(): Promise<Map<string, ObjectId>> {
   const users = client.db().collection("users");
 
@@ -102,16 +227,18 @@ async function seedUsers(): Promise<Map<string, ObjectId>> {
     for (const entry of entries) names.add(entry.usuario);
   }
   for (const comment of comentarios) names.add(comment.autor);
-  // The user that POST /api/descents saves runs under (there is no login yet).
+  // The user that POST /api/descents saves demo runs under when nobody is signed in.
   names.add("Demo rider");
 
   const idByName = new Map<string, ObjectId>();
   for (const displayName of names) {
     // upsert: update if it exists, insert if it doesn't.
     // $setOnInsert only writes when the document is new.
+    // $set the profile (level, city...) so queries C10 and C11 have data to group.
+    const profile = SEED_PROFILES[displayName] ?? {};
     const result = await users.findOneAndUpdate(
       { displayName },
-      { $setOnInsert: { displayName, createdAt: new Date(), source: "seed" } },
+      { $set: profile, $setOnInsert: { displayName, createdAt: new Date(), source: "seed" } },
       { upsert: true, returnDocument: "after" },
     );
     idByName.set(displayName, result!._id);
@@ -180,6 +307,57 @@ async function seedTrails(): Promise<Map<string, ObjectId>> {
   return idByMockId;
 }
 
+// ---------- Bikes ----------
+
+// One typical build per bike type. Two seed riders with the same type get the same
+// build: each one is still a separate document (a bike is a rider's own bike, not a model).
+const SEED_BIKE_BY_TYPE: Record<TipoBici, object> = {
+  DH: { brand: "Specialized", model: "Demo", year: 2024, wheelSize: "29", travelFrontMm: 200, travelRearMm: 200 },
+  Enduro: { brand: "Santa Cruz", model: "Megatower", year: 2023, wheelSize: "29", travelFrontMm: 170, travelRearMm: 165 },
+  Trail: { brand: "Trek", model: "Fuel EX", year: 2022, wheelSize: "29", travelFrontMm: 140, travelRearMm: 130 },
+};
+
+/** Key of the bike map: rider name + bike type ("Romi S.|Enduro"). */
+function bikeKey(user: string, type: TipoBici): string {
+  return `${user}|${type}`;
+}
+
+// Each seed rider gets one bike per bike type they rode in the seed descents,
+// so "Romi S." (Trail and Enduro) has TWO bikes. The first one is the main bike.
+async function seedBikes(
+  userIds: Map<string, ObjectId>,
+  descents: SeedDescent[],
+): Promise<Map<string, ObjectId>> {
+  const bikes = client.db().collection("bikes");
+  const now = new Date();
+
+  const documents: Array<Record<string, unknown>> = [];
+  const keys: string[] = [];
+  const hasPrimary = new Set<string>();
+  for (const d of descents) {
+    const key = bikeKey(d.user, d.bikeType);
+    if (keys.includes(key)) continue;
+    keys.push(key);
+    documents.push({
+      userId: userIds.get(d.user)!,
+      type: d.bikeType,
+      ...SEED_BIKE_BY_TYPE[d.bikeType],
+      isPrimary: !hasPrimary.has(d.user),
+      createdAt: now,
+      source: "seed",
+    });
+    hasPrimary.add(d.user);
+  }
+
+  // Same idea as descents: only seed bikes are deleted and inserted again.
+  await bikes.deleteMany({ source: "seed" });
+  const result = await bikes.insertMany(documents);
+
+  const idByKey = new Map<string, ObjectId>();
+  keys.forEach((key, i) => idByKey.set(key, result.insertedIds[i]));
+  return idByKey;
+}
+
 // ---------- Descents ----------
 
 interface SeedDescent {
@@ -207,9 +385,8 @@ const extraDescents: SeedDescent[] = [
   { trailMockId: "escarpado-gloria", user: "Sol M.", durationMs: 64_200, avgSpeedKmh: 27.1, day: "2026-09-08", bikeType: "DH", status: "completed", validated: true },
 ];
 
-async function seedDescents(trailIds: Map<string, ObjectId>, userIds: Map<string, ObjectId>) {
-  const descents = client.db().collection("descents");
-
+/** Every seed descent: the mock leaderboard entries plus the extra ones. */
+function allSeedDescents(): SeedDescent[] {
   // Leaderboard entries from the mock: all completed and valid.
   const all: SeedDescent[] = [];
   for (const entries of Object.values(leaderboardPorCerro)) {
@@ -227,6 +404,16 @@ async function seedDescents(trailIds: Map<string, ObjectId>, userIds: Map<string
     }
   }
   all.push(...extraDescents);
+  return all;
+}
+
+async function seedDescents(
+  trailIds: Map<string, ObjectId>,
+  userIds: Map<string, ObjectId>,
+  bikeIds: Map<string, ObjectId>,
+) {
+  const descents = client.db().collection("descents");
+  const all = allSeedDescents();
 
   const dropByMockId = new Map(cerros.map((c) => [c.id, c.desnivelM]));
 
@@ -234,6 +421,7 @@ async function seedDescents(trailIds: Map<string, ObjectId>, userIds: Map<string
     // Referenced, not embedded: descents grow without limit.
     trailId: trailIds.get(d.trailMockId)!,
     userId: userIds.get(d.user)!,
+    bikeId: bikeIds.get(bikeKey(d.user, d.bikeType))!,
     startedAt: toDate(d.day),
     durationMs: d.durationMs,
     avgSpeedKmh: d.avgSpeedKmh,
@@ -279,15 +467,19 @@ async function main() {
     process.exit(1);
   }
 
+  // Validators first: the documents inserted below must already follow them.
+  await applyValidators();
   await createIndexes();
   const userIds = await seedUsers();
   const trailIds = await seedTrails();
-  const descentCount = await seedDescents(trailIds, userIds);
+  const bikeIds = await seedBikes(userIds, allSeedDescents());
+  const descentCount = await seedDescents(trailIds, userIds, bikeIds);
   const reviewCount = await seedReviews(trailIds, userIds);
 
   console.log(`Database: ${client.db().databaseName}`);
   console.log(`users:    ${userIds.size}`);
   console.log(`trails:   ${trailIds.size}`);
+  console.log(`bikes:    ${bikeIds.size} (seed)`);
   console.log(`descents: ${descentCount} (seed)`);
   console.log(`reviews:  ${reviewCount} (seed)`);
 }
