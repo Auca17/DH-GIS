@@ -19,14 +19,29 @@ import { useGuardarDescenso } from "@/hooks/use-guardar-descenso";
 import { useUltimoResultado } from "@/hooks/use-ultimo-resultado";
 import { useTrail } from "@/providers/trail-provider";
 
+// Spanish message for each invalidReason the server can answer (lib/descents/descent-rules.ts).
+// "sos" (older runs, there is no SOS button now) has its own box below.
+const MENSAJES_INVALIDO: Record<string, string> = {
+  "too fast": "Descenso no válido: el tiempo es inverosímil para este sendero (anti-cheat).",
+  "empty track": "Descenso no válido: no hay suficiente rastro GPS.",
+  "did not start at the start": "Descenso no válido: no arrancó desde la salida del sendero.",
+  "did not reach the finish": "Descenso no válido: no llegó a la meta.",
+  "implausible speed": "Descenso no válido: el GPS marcó una velocidad imposible.",
+  "gps signal lost": "Descenso no válido: se perdió la señal GPS durante el descenso.",
+  "track does not match the time": "Descenso no válido: el rastro no coincide con el tiempo medido.",
+};
+
 export default function ResultadoPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { cerro } = useTrail();
   const resultado = useUltimoResultado(id);
   const guardado = useGuardarDescenso(id, resultado);
-  const demasiadoRapido =
-    guardado?.outcome === "invalid" && guardado.invalidReason === "too fast";
+  // Invalid for any reason except SOS (SOS has its own message).
+  const mensajeInvalido =
+    guardado?.outcome === "invalid" && guardado.invalidReason !== "sos"
+      ? (MENSAJES_INVALIDO[guardado.invalidReason ?? ""] ?? "Descenso no válido.")
+      : null;
 
   const [texto, setTexto] = useState("");
   const [calificacion, setCalificacion] = useState(0);
@@ -113,10 +128,10 @@ export default function ResultadoPage() {
         </div>
       ) : null}
 
-      {demasiadoRapido ? (
+      {mensajeInvalido ? (
         <div className="flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm font-semibold text-danger">
           <AlertTriangle className="h-4 w-4 shrink-0" />
-          <span>Descenso no válido: el tiempo es inverosímil para este sendero (anti-cheat).</span>
+          <span>{mensajeInvalido}</span>
         </div>
       ) : null}
 
@@ -127,7 +142,7 @@ export default function ResultadoPage() {
       ) : null}
 
       {/* Grid de telemetría resumen */}
-      <div className={`grid grid-cols-3 gap-3 text-center ${demasiadoRapido ? "opacity-40" : ""}`}>
+      <div className={`grid grid-cols-3 gap-3 text-center ${mensajeInvalido ? "opacity-40" : ""}`}>
         <div className="rounded-xl border border-border bg-surface p-3.5 shadow-xs">
           <p className="font-mono text-xl font-extrabold text-text tabular-nums">
             {formatDuration(resultado.tiempoMs)}
