@@ -272,4 +272,20 @@ describe("validateDescentBody", () => {
       expect(validateDescentBody({ ...validBasePayload, track: [] }).ok).toBe(true);
     });
   });
+  describe("bikeId", () => {
+    it("accepts a missing bikeId as null", () => {
+      const result = validateDescentBody(validBasePayload);
+      expect(result.ok && result.value.bikeId).toBe(null);
+    });
+
+    it("accepts a 24-character hex id", () => {
+      const result = validateDescentBody({ ...validBasePayload, bikeId: "6ad40945e800c0b6c7b75f76" });
+      expect(result.ok && result.value.bikeId).toBe("6ad40945e800c0b6c7b75f76");
+    });
+
+    it("rejects anything else (short id, operator)", () => {
+      expect(validateDescentBody({ ...validBasePayload, bikeId: "123" }).ok).toBe(false);
+      expect(validateDescentBody({ ...validBasePayload, bikeId: { $ne: null } }).ok).toBe(false);
+    });
+  });
 });

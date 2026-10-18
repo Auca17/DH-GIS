@@ -22,6 +22,8 @@ export interface DescentInput {
   endedBySos: boolean;
   isDemo: boolean;
   track: PuntoRastro[];
+  /** Bike chosen before the run (24-character hex id), or null. */
+  bikeId: string | null;
 }
 
 export type DescentCheck = { ok: true; value: DescentInput } | { ok: false; message: string };
@@ -33,6 +35,8 @@ function isFiniteNumber(value: unknown): value is number {
 // Lowercase letters, digits and dashes only: "circuito-dh-pequia", "circuito-dh-pequia-1760000000000".
 const SLUG_PATTERN = /^[a-z0-9-]{1,80}$/;
 const RUN_ID_PATTERN = /^[a-z0-9-]{1,120}$/;
+// The text form of an ObjectId: exactly 24 hexadecimal characters.
+const OBJECT_ID_PATTERN = /^[a-f0-9]{24}$/;
 
 /**
  * Checks the track: an array of [lng, lat, t] with finite numbers, valid coordinates
@@ -97,6 +101,11 @@ export function validateDescentBody(body: unknown): DescentCheck {
   if (trackError) {
     return { ok: false, message: trackError };
   }
+  // Missing or null = no bike (signed out, or an older client).
+  const bikeId = b.bikeId ?? null;
+  if (bikeId !== null && (typeof bikeId !== "string" || !OBJECT_ID_PATTERN.test(bikeId))) {
+    return { ok: false, message: "bikeId must be a 24-character hex id or null." };
+  }
 
   return {
     ok: true,
@@ -110,6 +119,7 @@ export function validateDescentBody(body: unknown): DescentCheck {
       endedBySos: b.endedBySos,
       isDemo: b.isDemo,
       track: b.track as PuntoRastro[],
+      bikeId,
     },
   };
 }
