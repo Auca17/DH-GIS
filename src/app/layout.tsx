@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Chakra_Petch, JetBrains_Mono } from "next/font/google";
 import { Suspense } from "react";
 import { AppHeader, AppHeaderFallback } from "@/components/layout/AppHeader";
+import { SessionProvider } from "@/providers/session-provider";
 import "./globals.css";
 
 const chakraPetch = Chakra_Petch({
@@ -37,10 +38,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${chakraPetch.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        <Suspense fallback={<AppHeaderFallback />}>
-          <AppHeader />
-        </Suspense>
-        {children}
+        {/* Who is signed in, for every screen (asks GET /api/me once). */}
+        <SessionProvider>
+          <Suspense fallback={<AppHeaderFallback />}>
+            <AppHeader />
+          </Suspense>
+          {children}
+        </SessionProvider>
       </body>
     </html>
   );
