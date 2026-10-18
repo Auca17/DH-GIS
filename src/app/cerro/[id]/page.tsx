@@ -42,7 +42,7 @@ const TrackMapPreview = dynamic(
 export default function CerroPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { start } = useDescent();
+  const { startDemo } = useDescent();
   const [mapaCompleto, setMapaCompleto] = useState(false);
 
   const { cerro, dbStatus } = useTrail();
@@ -52,7 +52,7 @@ export default function CerroPage() {
   const cerroId = cerro.id;
 
   function handlePlay() {
-    start();
+    startDemo();
     router.push(`/cerro/${cerroId}/cronometro`);
   }
 

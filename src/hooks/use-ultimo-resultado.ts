@@ -1,6 +1,7 @@
 "use client";
 
 import { useContext, useMemo, useSyncExternalStore } from "react";
+import { crearResultado } from "@/lib/descents/descent-machine";
 import { leerResultadoCrudo, parsearResultado } from "@/lib/resultado-storage";
 import type { ResultadoDescenso } from "@/lib/types";
 import { DescentContext } from "@/providers/descent-provider";
@@ -32,29 +33,10 @@ export function useUltimoResultado(cerroId: string): ResultadoDescenso | null {
   );
   const snapshot = useMemo(() => parsearResultado(raw), [raw]);
 
-  if (ctx && ctx.state.cerroId === cerroId && ctx.state.estado === "detenido") {
-    const { state } = ctx;
-    const distanciaRecorridaM = state.path.at(-1)?.distanciaRecorridaM ?? 0;
-    const velocidadPromedioKmh =
-      state.elapsedMs > 0
-        ? distanciaRecorridaM / (state.elapsedMs / 3_600_000) / 1000
-        : 0;
-    const primero = state.path[0];
-    const ultimo = state.path.at(-1);
-    const cambioElevacionM =
-      primero && ultimo ? primero.elevacionM - ultimo.elevacionM : 0;
-
-    return {
-      cerroId: state.cerroId,
-      tiempoMs: state.elapsedMs,
-      velocidadPromedioKmh,
-      cambioElevacionM,
-      interrumpidoPorSos: state.interrumpidoPorSos,
-      path: state.path,
-      // Derived purely from state (start + elapsed), not wall-clock-at-render: this
-      // approximates the stop timestamp and keeps the hook's render body pure.
-      guardadoEn: (state.startedAt ?? 0) + state.elapsedMs,
-    };
+  // Same function the provider uses, so both give the same guardadoEn (and runId).
+  if (ctx && ctx.state.cerroId === cerroId) {
+    const enVivo = crearResultado(ctx.state);
+    if (enVivo) return enVivo;
   }
 
   return snapshot;
