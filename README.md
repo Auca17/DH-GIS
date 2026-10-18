@@ -26,6 +26,21 @@ npm run dev
 
 Abrí [http://localhost:3000](http://localhost:3000).
 
+## Base local o MongoDB Atlas
+
+El código es el mismo para las dos bases: lo único que cambia es `MONGODB_URI`.
+
+| Dónde | Archivo / lugar | Valor de `MONGODB_URI` |
+| --- | --- | --- |
+| Desarrollo y plan B de la presentación | `.env.local` | `mongodb://127.0.0.1:27017/dh` |
+| Producción (Vercel) | variable de entorno en Vercel | dirección `mongodb+srv://…` de Atlas |
+| Cargar el seed en Atlas | `.env.production` | la misma dirección de Atlas |
+
+- La dirección de Atlas **tiene que terminar en `/dh`** (antes del `?`). Sin eso, el driver usa la base `test`.
+- `npm run seed` carga la base local; `npm run seed:prod` carga Atlas. Es el mismo script con los mismos datos de partida (`src/lib/mock-data.ts`). Solo borra y vuelve a insertar los descensos y reseñas con `source: "seed"`; lo que guarda la app (`source: "app"`) no se toca.
+- `/api/health` muestra a qué base está conectada la app.
+- Los archivos `.env*` no se suben a git (salvo `.env.example`).
+
 ## Equipo
 
 Augustus Rufino, Nicolas Beltran, Ariel Cohen, Josefina Porolli.

@@ -1,7 +1,7 @@
-# Contexto de sesión: DH Leaderboard (MongoDB local)
+# Contexto de sesión: DH Leaderboard (MongoDB local + Atlas para el deploy)
 
 > Archivo para retomar el trabajo en otra sesión. Leelo entero antes de seguir.
-> Última actualización: 2026-10-07. Rama de trabajo: `feat/mongodb` (pusheada a `origin`).
+> Última actualización: 2026-10-17. Rama de trabajo: `feat/mongodb` (pusheada a `origin`).
 
 ## 1. Qué es el proyecto
 
@@ -16,7 +16,7 @@ Documentos de referencia en el repo:
 
 ## 2. Reglas (resumen de CLAUDE.md y del usuario)
 
-- MongoDB **LOCAL** + Compass. Nada de servicios en la nube (código, README, comentarios).
+- MongoDB **LOCAL** + Compass para desarrollo y evaluación. Única excepción: Atlas para el deploy en Vercel, solo por `MONGODB_URI` (ver CLAUDE.md).
 - Se evalúa: consultas, aggregations, relaciones, `$lookup`, índices, índices geoespaciales.
 - Driver oficial `mongodb`, **sin Mongoose**. Cada consulta tiene que poder pegarse en Compass.
 - Código simple y explicable (son estudiantes).
@@ -92,6 +92,17 @@ Documentos de referencia en el repo:
 GET a `/api`: dev 12 → 8, producción 6 → 4. Flujo completo sin errores de consola en dev y producción, con datos y con Mongo apagado.
 
 ## 5. En qué quedamos
+
+### 2026-10-17: preparando el deploy (Vercel + Atlas)
+
+- Estrategia doble (`a38cdc5`): local para desarrollo y evaluación; Atlas para Vercel. `npm run seed:prod` carga Atlas leyendo `.env.production` (ignorado por `.env*` en `.gitignore`).
+- Plan de deploy en pasos (0 a 9): primero arreglar, después `npm run build` + `npm start`, push, Atlas `0.0.0.0/0`, importar en Vercel, `MONGODB_URI`, región `gru1`, `/api/health`, prueba con celular y, después de la presentación, sacar `0.0.0.0/0` y rotar la contraseña.
+- Paso 0, arreglado (sin commit): el mapa en vivo del cronómetro tenía 0 px de alto (`h-full` dentro de un item flex sin altura definida). Ahora va dentro de un `absolute inset-0`.
+- Paso 0, arreglado (sin commit): los pines "Vos" y "Pomberito" quedaban corridos del sendero (`translate(-50%,-50%)` sumado a `iconAnchor [14,30]`). Ahora el centro del círculo es el punto GPS (`iconAnchor [14,14]`) y la etiqueta flota con `position:absolute`. "Vos" se dibuja encima (`zIndexOffset`).
+- Falta del Paso 0: recorrer el flujo sin errores de consola y `/api/health` contra Atlas.
+- No hay `sd` en el entorno (la regla global lo pide); usar Edit.
+
+### 2026-10-07
 
 Cerramos el día con todo pusheado. El usuario todavía no probó a mano en su navegador los últimos arreglos.
 

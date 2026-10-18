@@ -15,6 +15,8 @@ Contexto de la última sesión (qué se hizo, en qué paso estamos y qué falta)
 ### Reglas de trabajo
 
 1. Conexión: `MONGODB_URI=mongodb://127.0.0.1:27017/dh` en `.env.local` (y `.env.example` sin secretos). Cliente singleton en `src/lib/mongodb.ts`. Ninguna base en la nube en código, README ni comentarios.
+   - Excepción (2026-10-17): para publicar en Vercel se usa MongoDB Atlas, **solo** por variable de entorno (`MONGODB_URI` en Vercel y en `.env.production`, ambos fuera de git). El código no cambia: es el mismo driver y las mismas consultas. Desarrollo y evaluación de la cátedra siguen en local.
+   - Cambiar de base = cambiar solo `MONGODB_URI` (tabla en `README.md`, sección "Base local o MongoDB Atlas"). Presentación: app en Vercel + Compass conectado a Atlas; plan B: `npm start` contra la base local. `npm run seed:prod` (lee `.env.production`) carga Atlas con el mismo script y los mismos datos que `npm run seed`. La URI de Atlas tiene que terminar en `/dh`.
 2. Driver oficial `mongodb`, sin Mongoose, así las consultas quedan visibles y se parecen a lo que escribimos en Compass.
 3. Colecciones: `users`, `trails`, `descents`, `reviews`. Embebemos lo que se lee junto (tramos dentro de `trails`) y referenciamos lo que crece (`descents`, `reviews` apuntan a `trailId`/`userId`).
 4. Índices (con comentario de por qué cada uno): `trails` 2dsphere en `start`, único en `slug`; `descents` `{trailId, status, validated, durationMs}`; `reviews` `{trailId, createdAt: -1}`.
