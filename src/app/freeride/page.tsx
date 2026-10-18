@@ -2,12 +2,14 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
+import { BikePicker } from "@/components/bikes/BikePicker";
 import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { Input } from "@/components/ui/Input";
 import { Notice } from "@/components/ui/Notice";
 import { Stat } from "@/components/ui/Stat";
 import { useFreerideTracker } from "@/hooks/use-freeride-tracker";
+import { biciPorDefecto, etiquetaBici } from "@/lib/bikes/bike-label";
 import { formatDistance, formatDuration, formatSpeed } from "@/lib/format";
 import {
   eliminarSesionFreeride,
@@ -15,6 +17,7 @@ import {
   obtenerSesionesFreeride,
 } from "@/lib/freeride-storage";
 import type { SesionFreeride } from "@/lib/types";
+import { useSesion } from "@/providers/session-provider";
 
 const FreerideMap = dynamic(
   () => import("@/components/freeride/FreerideMap").then((m) => m.FreerideMap),
@@ -49,6 +52,12 @@ export default function FreeridePage() {
     descartar,
   } = useFreerideTracker();
 
+  // Bike of this ride: picked before starting (only asked with 2 or more bikes).
+  // Freeride sessions stay in this browser, so we keep the bike's label, not its id.
+  const { bicis } = useSesion();
+  const [biciElegida, setBiciElegida] = useState<string | null>(null);
+  const biciUsada = bicis.find((b) => b.id === biciElegida) ?? biciPorDefecto(bicis);
+
   const [sesionTerminada, setSesionTerminada] = useState<SesionFreeride | null>(null);
   const [nombreSesion, setNombreSesion] = useState("");
   const [mostrarHistorial, setMostrarHistorial] = useState(false);
@@ -71,6 +80,7 @@ export default function FreeridePage() {
     const final: SesionFreeride = {
       ...sesionTerminada,
       titulo: nombreSesion.trim() || sesionTerminada.titulo,
+      bici: biciUsada ? etiquetaBici(biciUsada) : undefined,
     };
     guardarSesionFreeride(final);
     setSesionTerminada(null);
@@ -186,6 +196,16 @@ export default function FreeridePage() {
 
       {/* Barra de Control Inferior */}
       <div className="border-t border-border bg-surface p-4 shrink-0 shadow-lg">
+        {estado === "idle" ? (
+          <div className="mx-auto mb-3 max-w-md">
+            <BikePicker
+              id="bici-freeride"
+              bicis={bicis}
+              value={biciUsada?.id ?? ""}
+              onChange={setBiciElegida}
+            />
+          </div>
+        ) : null}
         <div className="mx-auto flex max-w-md items-center justify-center gap-3">
           {estado === "idle" && (
             <Button
@@ -337,6 +357,7 @@ export default function FreeridePage() {
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <h3 className="font-bold text-text text-sm">{s.titulo}</h3>
+                    {s.bici ? <p className="text-xs text-text-muted">{s.bici}</p> : null}
                     <p className="text-xs text-text-muted">
                       {new Date(s.startedAt).toLocaleDateString("es-AR", {
                         day: "numeric",
