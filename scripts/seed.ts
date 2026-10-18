@@ -10,6 +10,7 @@
 import { MongoClient, type ObjectId } from "mongodb";
 import { cerros, comentarios, leaderboardPorCerro } from "@/lib/mock-data";
 import type { TipoBici, TramoPista } from "@/lib/types";
+import { generateVolume, type VolumeDescent, type VolumeReview, type VolumeRider } from "./seed-volume";
 
 const uri = process.env.MONGODB_URI;
 if (!uri) {
@@ -218,10 +219,8 @@ const SEED_PROFILES: Record<string, { level: string; city: string; ridingSinceYe
   "Sol M.": { level: "intermedio", city: "Mendoza", ridingSinceYear: 2019 },
 };
 
-async function seedUsers(): Promise<Map<string, ObjectId>> {
-  const users = client.db().collection("users");
-
-  // Every name that appears in the leaderboard or in a comment.
+/** Every rider name of the mock data (leaderboard and comments), plus "Demo rider". */
+function mockRiderNames(): Set<string> {
   const names = new Set<string>();
   for (const entries of Object.values(leaderboardPorCerro)) {
     for (const entry of entries) names.add(entry.usuario);
@@ -229,6 +228,12 @@ async function seedUsers(): Promise<Map<string, ObjectId>> {
   for (const comment of comentarios) names.add(comment.autor);
   // The user that POST /api/descents saves demo runs under when nobody is signed in.
   names.add("Demo rider");
+  return names;
+}
+
+async function seedUsers(volumeRiders: VolumeRider[]): Promise<Map<string, ObjectId>> {
+  const users = client.db().collection("users");
+  const names = mockRiderNames();
 
   const idByName = new Map<string, ObjectId>();
   for (const displayName of names) {
@@ -243,6 +248,27 @@ async function seedUsers(): Promise<Map<string, ObjectId>> {
     );
     idByName.set(displayName, result!._id);
   }
+
+  // Volume riders: the same upsert, but all in ONE bulkWrite (one trip to the
+  // database instead of 60, which matters a lot against Atlas).
+  const now = new Date();
+  await users.bulkWrite(
+    volumeRiders.map((r) => ({
+      updateOne: {
+        filter: { displayName: r.displayName },
+        update: {
+          $set: { level: r.level, city: r.city, ridingSinceYear: r.ridingSinceYear },
+          $setOnInsert: { displayName: r.displayName, createdAt: now, source: "seed" },
+        },
+        upsert: true,
+      },
+    })),
+  );
+  const volumeDocs = await users
+    .find({ displayName: { $in: volumeRiders.map((r) => r.displayName) } }, { projection: { displayName: 1 } })
+    .toArray();
+  for (const doc of volumeDocs) idByName.set(doc.displayName as string, doc._id);
+
   return idByName;
 }
 
@@ -324,9 +350,15 @@ function bikeKey(user: string, type: TipoBici): string {
 
 // Each seed rider gets one bike per bike type they rode in the seed descents,
 // so "Romi S." (Trail and Enduro) has TWO bikes. The first one is the main bike.
+/** Key of a volume rider's bike: name + position ("Agus P.|#1"). */
+function volumeBikeKey(rider: string, index: number): string {
+  return `${rider}|#${index}`;
+}
+
 async function seedBikes(
   userIds: Map<string, ObjectId>,
   descents: SeedDescent[],
+  volumeRiders: VolumeRider[],
 ): Promise<Map<string, ObjectId>> {
   const bikes = client.db().collection("bikes");
   const now = new Date();
@@ -347,6 +379,14 @@ async function seedBikes(
       source: "seed",
     });
     hasPrimary.add(d.user);
+  }
+
+  // Volume riders bring their bikes already built (1 to 3, the first is the main one).
+  for (const rider of volumeRiders) {
+    rider.bikes.forEach((bike, index) => {
+      keys.push(volumeBikeKey(rider.displayName, index));
+      documents.push({ userId: userIds.get(rider.displayName)!, ...bike, createdAt: now, source: "seed" });
+    });
   }
 
   // Same idea as descents: only seed bikes are deleted and inserted again.
@@ -411,11 +451,15 @@ async function seedDescents(
   trailIds: Map<string, ObjectId>,
   userIds: Map<string, ObjectId>,
   bikeIds: Map<string, ObjectId>,
+  volumeDescents: VolumeDescent[],
+  volumeRiders: VolumeRider[],
 ) {
   const descents = client.db().collection("descents");
   const all = allSeedDescents();
 
   const dropByMockId = new Map(cerros.map((c) => [c.id, c.desnivelM]));
+  const mockIdBySlug = new Map(cerros.map((c) => [c.slug, c.id]));
+  const bikeTypeOf = new Map(volumeRiders.map((r) => [r.displayName, r.bikes.map((b) => b.type)]));
 
   const documents = all.map((d) => ({
     // Referenced, not embedded: descents grow without limit.
@@ -433,15 +477,40 @@ async function seedDescents(
     source: "seed",
   }));
 
+  // Volume descents: same shape. bikeType is a copy of the bike's type (like the app does).
+  for (const d of volumeDescents) {
+    const mockId = mockIdBySlug.get(d.trailSlug)!;
+    documents.push({
+      trailId: trailIds.get(mockId)!,
+      userId: userIds.get(d.rider)!,
+      bikeId: bikeIds.get(volumeBikeKey(d.rider, d.bikeIndex))!,
+      startedAt: d.startedAt,
+      durationMs: d.durationMs,
+      avgSpeedKmh: d.avgSpeedKmh,
+      elevationChangeM: dropByMockId.get(mockId)!,
+      bikeType: bikeTypeOf.get(d.rider)![d.bikeIndex],
+      status: d.status,
+      validated: d.validated,
+      invalidReason: d.invalidReason,
+      source: "seed",
+    });
+  }
+
   await descents.deleteMany({ source: "seed" });
-  await descents.insertMany(documents);
+  // ordered: false lets the server insert the batches without stopping at the first one.
+  await descents.insertMany(documents, { ordered: false });
   return documents.length;
 }
 
 // ---------- Reviews ----------
 
-async function seedReviews(trailIds: Map<string, ObjectId>, userIds: Map<string, ObjectId>) {
+async function seedReviews(
+  trailIds: Map<string, ObjectId>,
+  userIds: Map<string, ObjectId>,
+  volumeReviews: VolumeReview[],
+) {
   const reviews = client.db().collection("reviews");
+  const mockIdBySlug = new Map(cerros.map((c) => [c.slug, c.id]));
 
   const documents = comentarios.map((c) => ({
     trailId: trailIds.get(c.cerroId)!,
@@ -451,6 +520,16 @@ async function seedReviews(trailIds: Map<string, ObjectId>, userIds: Map<string,
     createdAt: toDate(c.fecha),
     source: "seed",
   }));
+  for (const r of volumeReviews) {
+    documents.push({
+      trailId: trailIds.get(mockIdBySlug.get(r.trailSlug)!)!,
+      userId: userIds.get(r.rider)!,
+      rating: r.rating,
+      comment: r.comment,
+      createdAt: r.createdAt,
+      source: "seed",
+    });
+  }
 
   await reviews.deleteMany({ source: "seed" });
   await reviews.insertMany(documents);
@@ -470,11 +549,23 @@ async function main() {
   // Validators first: the documents inserted below must already follow them.
   await applyValidators();
   await createIndexes();
-  const userIds = await seedUsers();
+
+  // Volume data (scripts/seed-volume.ts): always the same, so local and Atlas match.
+  const volume = generateVolume(
+    cerros.map((c) => ({
+      slug: c.slug,
+      avgTimeS: c.tiempoPromedioS,
+      minValidTimeS: c.tiempoMinimoValidoS,
+      lengthM: c.largoM,
+    })),
+    mockRiderNames(),
+  );
+
+  const userIds = await seedUsers(volume.riders);
   const trailIds = await seedTrails();
-  const bikeIds = await seedBikes(userIds, allSeedDescents());
-  const descentCount = await seedDescents(trailIds, userIds, bikeIds);
-  const reviewCount = await seedReviews(trailIds, userIds);
+  const bikeIds = await seedBikes(userIds, allSeedDescents(), volume.riders);
+  const descentCount = await seedDescents(trailIds, userIds, bikeIds, volume.descents, volume.riders);
+  const reviewCount = await seedReviews(trailIds, userIds, volume.reviews);
 
   console.log(`Database: ${client.db().databaseName}`);
   console.log(`users:    ${userIds.size}`);
