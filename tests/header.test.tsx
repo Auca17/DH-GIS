@@ -16,7 +16,7 @@ describe("AppHeader", () => {
     // The query panel link stays hidden until /consultas exists.
     expect(html).not.toContain("Consultas");
     expect(html).toContain('aria-current="page"');
-    // No name typed yet: the default rider label.
-    expect(html).toContain("Vos");
+    // Signed out (no SessionProvider in this test): the sign-in link.
+    expect(html).toContain("Ingresar");
   });
 });

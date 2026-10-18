@@ -2,35 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, useSyncExternalStore } from "react";
-import { Moon, Sun } from "lucide-react";
+import { useEffect, useState } from "react";
+import { LogIn, Moon, Sun, UserRound } from "lucide-react";
 import { DhLogo } from "@/components/brand/DhLogo";
+import { useSesion } from "@/providers/session-provider";
 
 const NAV_LINKS = [
   { href: "/mapa", label: "Mapa" },
   { href: "/freeride", label: "Freeride" },
   { href: "/acerca", label: "Nosotros" },
 ];
-
-// Shown until the rider types a name on the login screen.
-const DEFAULT_RIDER = "Vos";
-
-function subscribeStorage(callback: () => void) {
-  window.addEventListener("storage", callback);
-  return () => window.removeEventListener("storage", callback);
-}
-
-function getRiderSnapshot(): string {
-  try {
-    return localStorage.getItem("dh_rider")?.trim() || DEFAULT_RIDER;
-  } catch {
-    return DEFAULT_RIDER;
-  }
-}
-
-function getServerRiderSnapshot(): string {
-  return DEFAULT_RIDER;
-}
 
 // usePathname() is request data: under cacheComponents it must be read inside a
 // <Suspense> boundary (see src/app/layout.tsx), otherwise prerendering fails.
@@ -45,11 +26,8 @@ export function AppHeaderFallback() {
 }
 
 function HeaderFrame({ pathname }: { pathname: string | null }) {
-  const rider = useSyncExternalStore(
-    subscribeStorage,
-    getRiderSnapshot,
-    getServerRiderSnapshot,
-  );
+  // Signed in: link to "Mi perfil". Signed out: link to the sign-in screen.
+  const { usuario } = useSesion();
 
   const isLogin = pathname === "/";
 
@@ -94,13 +72,28 @@ function HeaderFrame({ pathname }: { pathname: string | null }) {
 
         {/* Rider profile / name + Theme Toggle */}
         <div className="flex items-center gap-2">
-          {!isLogin ? (
-            // Hidden on phones: with the name (often an email) the header did not fit in 390 px.
-            <div className="hidden max-w-56 items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-bold text-primary shadow-xs sm:flex">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
-              <span className="truncate font-mono text-xs text-text">{rider}</span>
-            </div>
-          ) : null}
+          {isLogin ? null : usuario ? (
+            // On phones only the icon shows: with the name the header did not fit in 390 px.
+            <Link
+              href="/perfil"
+              title="Mi perfil"
+              className="flex max-w-56 items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-bold text-primary shadow-xs sm:px-3"
+            >
+              <UserRound className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span className="hidden truncate font-mono text-xs text-text sm:inline">{usuario.nombre}</span>
+              <span className="sr-only sm:hidden">Mi perfil</span>
+            </Link>
+          ) : (
+            <Link
+              href="/"
+              title="Ingresar"
+              className="flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-bold text-primary shadow-xs sm:px-3"
+            >
+              <LogIn className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span className="hidden sm:inline">Ingresar</span>
+              <span className="sr-only sm:hidden">Ingresar</span>
+            </Link>
+          )}
           <ThemeToggle />
         </div>
       </div>
