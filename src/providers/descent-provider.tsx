@@ -35,10 +35,10 @@ export interface DescentContextValue {
   /** GPS of the current run (only on while a real run is armed or running). */
   gps: InfoGps;
   wakeLock: EstadoWakeLock;
-  /** Starts the simulated run (demo mode). */
-  startDemo: () => void;
+  /** Starts the simulated run (demo mode). bikeId: chosen bike, or null without an account. */
+  startDemo: (bikeId: string | null) => void;
   /** Real run: "Jugar" was pressed at this point; the clock starts 3 m away. */
-  armar: (puntoJugar: { lat: number; lng: number }) => void;
+  armar: (puntoJugar: { lat: number; lng: number }, bikeId: string | null) => void;
   stop: () => void;
   /** Leaves the armed state without running. */
   cancelar: () => void;
@@ -100,9 +100,13 @@ export function DescentProvider({
     guardarResultado(resultado);
   }, [state]);
 
-  const startDemo = useCallback(() => dispatch({ type: "START_DEMO", ahora: Date.now() }), []);
+  const startDemo = useCallback(
+    (bikeId: string | null) => dispatch({ type: "START_DEMO", ahora: Date.now(), bikeId }),
+    [],
+  );
   const armar = useCallback(
-    (puntoJugar: { lat: number; lng: number }) => dispatch({ type: "ARMAR", puntoJugar }),
+    (puntoJugar: { lat: number; lng: number }, bikeId: string | null) =>
+      dispatch({ type: "ARMAR", puntoJugar, bikeId }),
     [],
   );
   const stop = useCallback(() => dispatch({ type: "STOP", ahora: Date.now() }), []);

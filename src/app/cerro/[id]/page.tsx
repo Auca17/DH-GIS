@@ -50,13 +50,13 @@ export default function CerroPage() {
 
   const cerroId = cerro.id;
 
-  function handleDemo() {
-    startDemo();
+  function handleDemo(bikeId: string | null) {
+    startDemo(bikeId);
     router.push(`/cerro/${cerroId}/cronometro`);
   }
 
-  function handleJugar(puntoJugar: { lat: number; lng: number }) {
-    armar(puntoJugar);
+  function handleJugar(puntoJugar: { lat: number; lng: number }, bikeId: string | null) {
+    armar(puntoJugar, bikeId);
     router.push(`/cerro/${cerroId}/cronometro`);
   }
 
