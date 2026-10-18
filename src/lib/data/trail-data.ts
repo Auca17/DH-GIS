@@ -8,6 +8,7 @@ import { listTrails, type TrailDoc } from "@/lib/queries/c7-trail-list";
 import { getTrailBySlug } from "@/lib/queries/c8-trail-by-slug";
 import { getTrailReviews } from "@/lib/queries/c9-trail-reviews";
 import type { Cerro, Comentario, EntradaLeaderboard, TipoBici } from "@/lib/types";
+import { diaEnMendoza } from "@/lib/format";
 
 // Data layer for the screens. It decides in which state the database is and
 // returns the data in the shapes the UI already uses (Cerro, Comentario, ...).
@@ -59,7 +60,7 @@ async function load<T>(
 
 // "2026-09-12" (the format the screens show)
 function toDay(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  return diaEnMendoza(date);
 }
 
 function toCerro(doc: TrailDoc, rating: number): Cerro {

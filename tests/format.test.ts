@@ -5,6 +5,7 @@ import {
   formatSpeed,
   formatDistance,
   formatDate,
+  diaEnMendoza,
 } from "@/lib/format";
 
 describe("format", () => {
@@ -72,6 +73,19 @@ describe("format", () => {
 
     it("handles invalid date gracefully", () => {
       expect(formatDate("invalid")).toBe("");
+    });
+  });
+  describe("diaEnMendoza", () => {
+    it("keeps the local day for a run at 23:47 in Mendoza (02:47 UTC of the next day)", () => {
+      expect(diaEnMendoza(new Date("2026-10-18T02:47:19Z"))).toBe("2026-10-17");
+    });
+
+    it("changes the day at local midnight (03:00 UTC)", () => {
+      expect(diaEnMendoza(new Date("2026-10-18T03:00:00Z"))).toBe("2026-10-18");
+    });
+
+    it("accepts milliseconds", () => {
+      expect(diaEnMendoza(Date.UTC(2026, 9, 17, 15, 0, 0))).toBe("2026-10-17");
     });
   });
 });

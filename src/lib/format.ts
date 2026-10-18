@@ -44,6 +44,24 @@ export function formatDistance(m: number): string {
   return `${Math.round(m)} m`;
 }
 
+// "en-CA" writes dates as YYYY-MM-DD. The time zone is fixed to Mendoza so the day
+// does not depend on where the code runs (a Vercel server runs in UTC).
+const DIA_EN_MENDOZA = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Argentina/Mendoza",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+/**
+ * Day of a moment in Mendoza time, as "YYYY-MM-DD".
+ * MongoDB stores dates in UTC: a run at 23:47 in Mendoza is 02:47 UTC of the NEXT day,
+ * so `toISOString().slice(0, 10)` would show tomorrow. This shows the real local day.
+ */
+export function diaEnMendoza(date: Date | number): string {
+  return DIA_EN_MENDOZA.format(date);
+}
+
 // A bare "YYYY-MM-DD" string is read by `new Date()` as midnight UTC, which in
 // Mendoza (UTC-3) is still the previous day. Build it as a local date instead.
 function parseDate(value: string | number): Date {

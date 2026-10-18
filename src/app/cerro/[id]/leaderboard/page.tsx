@@ -14,7 +14,7 @@ import { Card } from "@/components/ui/Card";
 import { crearRunId, useGuardadoDescenso } from "@/hooks/use-guardar-descenso";
 import { useTrailApi } from "@/hooks/use-trail-api";
 import { useUltimoResultado } from "@/hooks/use-ultimo-resultado";
-import { formatDate, formatDuration, formatSpeed } from "@/lib/format";
+import { diaEnMendoza, formatDate, formatDuration, formatSpeed } from "@/lib/format";
 import type { EntradaLeaderboard, TipoBici } from "@/lib/types";
 import { useDescent } from "@/providers/descent-provider";
 import { useTrail } from "@/providers/trail-provider";
@@ -49,7 +49,7 @@ export default function LeaderboardPage() {
           usuario: "Vos",
           tiempoMs: resultado.tiempoMs,
           velocidadPromedioKmh: resultado.velocidadPromedioKmh,
-          fecha: new Date(resultado.guardadoEn).toISOString().slice(0, 10),
+          fecha: diaEnMendoza(resultado.guardadoEn),
           bikeType: "—",
         }
       : null;
