@@ -1,15 +1,18 @@
 import { connection } from "next/server";
 import { getDb, isDbAvailable } from "@/lib/mongodb";
+import { evaluarDescenso } from "@/lib/descents/descent-rules";
 import { validateDescentBody } from "@/lib/descents/validate-descent";
+import { START_RADIUS_M, START_TOLERANCE_M } from "@/lib/gps/config";
+import { isInsideStartRadius } from "@/lib/queries/c2-inside-start-radius";
 
 /*
  * POST /api/descents — saves a finished descent
  *
  * What it does: receives a run from the client, validates it ON THE SERVER and
- * saves it in `descents`. The server (not the client) decides if the run counts:
- *  - ended by SOS            -> interrupted, not validated ("sos")
- *  - faster than the trail's minValidTimeS -> interrupted, not validated ("too fast")
- *  - otherwise               -> completed and validated
+ * saves it in `descents`, with its track ([lng, lat, ms] points). The server (not the
+ * client) decides if the run counts, with the rules of lib/descents/descent-rules.ts:
+ * SOS, too fast, did not start at the start (checked with C2, $geoWithin on the
+ * 2dsphere index), did not reach the finish, implausible speed, GPS lost, time mismatch.
  * Runs that are not validated stay in the database but never reach the leaderboard (C3).
  *
  * Course concept: server-side validation (never trust the client) and references
@@ -33,7 +36,8 @@ import { validateDescentBody } from "@/lib/descents/validate-descent";
  *       status: "completed",
  *       validated: true,
  *       invalidReason: null,
- *       isDemo: true,
+ *       isDemo: false,
+ *       track: [[-68.89533, -32.8959, 0], [-68.89357, -32.89347, 45000]],
  *       source: "app",
  *       runId: "circuito-dh-pequia-1760000000000",
  *       createdAt: new Date()
@@ -94,20 +98,26 @@ export async function POST(request: Request) {
     }
 
     // 4. The server decides if the run counts.
+    // Did the first track point start inside the start circle? C2 asks MongoDB
+    // ($geoWithin + $centerSphere), with START_TOLERANCE_M extra for GPS error.
+    const primero = input.track[0];
+    const empiezaEnLaSalida =
+      primero !== undefined &&
+      (await isInsideStartRadius(
+        input.trailSlug,
+        primero[1], // lat
+        primero[0], // lng
+        START_RADIUS_M + START_TOLERANCE_M,
+      ));
     // An older trail document may have no minValidTimeS: we treat it as 0 (no minimum).
-    const minValidMs = ((trail.minValidTimeS as number | undefined) ?? 0) * 1000;
-    let status: "completed" | "interrupted" = "completed";
-    let validated = true;
-    let invalidReason: string | null = null;
-    if (input.endedBySos) {
-      status = "interrupted";
-      validated = false;
-      invalidReason = "sos";
-    } else if (input.durationMs < minValidMs) {
-      status = "interrupted";
-      validated = false;
-      invalidReason = "too fast";
-    }
+    const { status, validated, invalidReason } = evaluarDescenso(
+      input,
+      {
+        fin: (trail.end as { coordinates: [number, number] }).coordinates,
+        minValidTimeS: (trail.minValidTimeS as number | undefined) ?? 0,
+      },
+      empiezaEnLaSalida,
+    );
 
     // 5. Save. $setOnInsert only writes when the runId is new, so sending the
     // same run twice does not create a second descent.
@@ -123,6 +133,7 @@ export async function POST(request: Request) {
       validated,
       invalidReason,
       isDemo: input.isDemo,
+      track: input.track,
       source: "app",
       runId: input.runId,
       createdAt: new Date(),
