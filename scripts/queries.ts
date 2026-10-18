@@ -1,4 +1,4 @@
-// Runs the key queries (C1 to C6) against the seed data and prints the results.
+// Runs the key queries (C1 to C6, C10 to C12) against the seed data and prints the results.
 // Run with: npm run queries   (load the data first with: npm run seed)
 import { closeDb, isDbAvailable } from "@/lib/mongodb";
 import { findNearbyTrails } from "@/lib/queries/c1-nearby-trails";
@@ -7,6 +7,9 @@ import { getLeaderboard } from "@/lib/queries/c3-leaderboard";
 import { getPersonalBest } from "@/lib/queries/c4-personal-best";
 import { getAverageRatings } from "@/lib/queries/c5-average-rating";
 import { getDescentsPerTrail } from "@/lib/queries/c6-descents-per-trail";
+import { getBestTimePerLevel } from "@/lib/queries/c10-best-time-per-level";
+import { getDescentsPerCity } from "@/lib/queries/c11-descents-per-city";
+import { getStatsPerBikeType } from "@/lib/queries/c12-stats-per-bike-type";
 
 // Circuito DH Pequia (from the seed).
 const PEQUIA_SLUG = "circuito-dh-pequia";
@@ -43,6 +46,15 @@ async function main() {
 
   title("C6 Descents per trail (total vs valid)");
   console.table(await getDescentsPerTrail());
+
+  title("C10 Best time per rider level on Pequia");
+  console.table(await getBestTimePerLevel(PEQUIA_SLUG));
+
+  title("C11 Descents per city");
+  console.table(await getDescentsPerCity());
+
+  title("C12 Valid descents per bike type (joins the bikes collection)");
+  console.table(await getStatsPerBikeType());
 }
 
 main()
