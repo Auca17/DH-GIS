@@ -36,7 +36,9 @@ interface StartPanelProps {
 }
 
 export function StartPanel({ salida, onJugar, onDemo }: StartPanelProps) {
-  const { usuario, bicis } = useSesion();
+  const { usuario, bicis, cargando } = useSesion();
+  // Until /api/me answers we do not know yet: never show "Ingresá" to a signed-in rider.
+  const sinCuenta = !cargando && !usuario;
   // null = nothing picked yet: the main bike is used.
   const [biciElegida, setBiciElegida] = useState<string | null>(null);
   const bikeId = biciElegida ?? biciPorDefecto(bicis)?.id ?? null;
@@ -50,7 +52,9 @@ export function StartPanel({ salida, onJugar, onDemo }: StartPanelProps) {
 
   let mensaje: string;
   let esError = false;
-  if (!usuario) {
+  if (cargando) {
+    mensaje = "Cargando tu cuenta…";
+  } else if (!usuario) {
     mensaje = "Para medir con GPS real necesitás una cuenta. El modo demo anda sin cuenta.";
   } else if (!gpsEncendido) {
     mensaje = "Activá el GPS para jugar en el sendero.";
@@ -89,7 +93,7 @@ export function StartPanel({ salida, onJugar, onDemo }: StartPanelProps) {
       {usuario ? (
         <BikePicker id="bici-sendero" bicis={bicis} value={bikeId ?? ""} onChange={setBiciElegida} />
       ) : null}
-      {!usuario ? (
+      {sinCuenta ? (
         <Link
           href="/"
           className="flex w-full items-center justify-center gap-2 rounded bg-primary py-3 text-base font-bold text-text shadow-sm hover:bg-primary-ink"
@@ -110,6 +114,7 @@ export function StartPanel({ salida, onJugar, onDemo }: StartPanelProps) {
       ) : (
         <Button
           onClick={() => setGpsEncendido(true)}
+          disabled={cargando}
           size="lg"
           className="w-full bg-primary hover:bg-primary-ink text-text font-bold text-base py-3 shadow-sm flex items-center justify-center gap-2"
         >

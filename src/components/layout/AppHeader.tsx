@@ -27,7 +27,9 @@ export function AppHeaderFallback() {
 
 function HeaderFrame({ pathname }: { pathname: string | null }) {
   // Signed in: link to "Mi perfil". Signed out: link to the sign-in screen.
-  const { usuario } = useSesion();
+  // While /api/me has not answered (cargando) we show neither, so a signed-in
+  // rider never sees "Ingresar" flash on every page load.
+  const { usuario, cargando } = useSesion();
 
   const isLogin = pathname === "/";
 
@@ -72,7 +74,7 @@ function HeaderFrame({ pathname }: { pathname: string | null }) {
 
         {/* Rider profile / name + Theme Toggle */}
         <div className="flex items-center gap-2">
-          {isLogin ? null : usuario ? (
+          {isLogin || cargando ? null : usuario ? (
             // On phones only the icon shows: with the name the header did not fit in 390 px.
             <Link
               href="/perfil"
