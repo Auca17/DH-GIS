@@ -93,6 +93,7 @@ export function useGuardarDescenso(
   // Older results (before the real GPS) have no mode: they were all simulated.
   const isDemo = (resultado?.modo ?? "demo") === "demo";
   const track = resultado?.track ?? null;
+  const bikeId = resultado?.bikeId ?? null;
 
   const runId = guardadoEn === null ? null : crearRunId(slug, guardadoEn);
   const guardado = useGuardadoDescenso(slug, runId);
@@ -118,6 +119,8 @@ export function useGuardarDescenso(
       isDemo,
       // [lng, lat, ms since the start], at most one point per second. The server checks it.
       track: track ?? [],
+      // The server checks that this bike belongs to the signed-in rider.
+      bikeId,
     };
 
     fetch("/api/descents", {
@@ -148,6 +151,7 @@ export function useGuardarDescenso(
     interrumpidoPorSos,
     isDemo,
     track,
+    bikeId,
   ]);
 
   return guardado;
