@@ -2,7 +2,15 @@
 // is checked here before anything is written to the database.
 //
 // This function only checks that the data is well formed (types, numbers, dates).
-// Deciding if the time is VALID for the ranking (too fast, SOS) is done in the route.
+// Deciding if the run is VALID for the ranking (too fast, SOS, track rules) is done
+// in descent-rules.ts and the route.
+//
+// NoSQL injection: every field must have the exact type we expect. An object such as
+// { "$ne": null } is never a string or a number, so it is rejected here and never
+// reaches a MongoDB filter. The client sends no ObjectId: the server looks the trail
+// up by slug and the user by name.
+import { MAX_DURATION_MS, MAX_TRACK_POINTS } from "@/lib/gps/config";
+import type { PuntoRastro } from "@/lib/types";
 
 export interface DescentInput {
   runId: string;
@@ -13,6 +21,7 @@ export interface DescentInput {
   elevationChangeM: number;
   endedBySos: boolean;
   isDemo: boolean;
+  track: PuntoRastro[];
 }
 
 export type DescentCheck = { ok: true; value: DescentInput } | { ok: false; message: string };
@@ -21,8 +30,32 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === "string" && value.trim() !== "";
+// Lowercase letters, digits and dashes only: "circuito-dh-pequia", "circuito-dh-pequia-1760000000000".
+const SLUG_PATTERN = /^[a-z0-9-]{1,80}$/;
+const RUN_ID_PATTERN = /^[a-z0-9-]{1,120}$/;
+
+/**
+ * Checks the track: an array of [lng, lat, t] with finite numbers, valid coordinates
+ * and times that never go back. Returns an error message, or null when it is fine.
+ */
+function checkTrack(track: unknown): string | null {
+  if (!Array.isArray(track)) return "track must be an array.";
+  if (track.length > MAX_TRACK_POINTS) {
+    return `track can have at most ${MAX_TRACK_POINTS} points.`;
+  }
+  let lastT = -1;
+  for (const point of track) {
+    if (!Array.isArray(point) || point.length !== 3 || !point.every(isFiniteNumber)) {
+      return "every track point must be [lng, lat, t] with numbers.";
+    }
+    const [lng, lat, t] = point as number[];
+    if (lng < -180 || lng > 180 || lat < -90 || lat > 90) {
+      return "track has a point with invalid coordinates.";
+    }
+    if (t < 0 || t < lastT) return "track times must start at 0 or more and never go back.";
+    lastT = t;
+  }
+  return null;
 }
 
 export function validateDescentBody(body: unknown): DescentCheck {
@@ -31,11 +64,11 @@ export function validateDescentBody(body: unknown): DescentCheck {
   }
   const b = body as Record<string, unknown>;
 
-  if (!isNonEmptyString(b.runId)) {
-    return { ok: false, message: "runId must be a non-empty string." };
+  if (typeof b.runId !== "string" || !RUN_ID_PATTERN.test(b.runId)) {
+    return { ok: false, message: "runId must use only lowercase letters, digits and dashes." };
   }
-  if (!isNonEmptyString(b.trailSlug)) {
-    return { ok: false, message: "trailSlug must be a non-empty string." };
+  if (typeof b.trailSlug !== "string" || !SLUG_PATTERN.test(b.trailSlug)) {
+    return { ok: false, message: "trailSlug must use only lowercase letters, digits and dashes." };
   }
   // startedAt may be an ISO string or milliseconds since 1970.
   if (typeof b.startedAt !== "string" && typeof b.startedAt !== "number") {
@@ -45,8 +78,8 @@ export function validateDescentBody(body: unknown): DescentCheck {
   if (Number.isNaN(startedAt.getTime())) {
     return { ok: false, message: "startedAt is not a valid date." };
   }
-  if (!isFiniteNumber(b.durationMs) || b.durationMs <= 0) {
-    return { ok: false, message: "durationMs must be a number greater than 0." };
+  if (!isFiniteNumber(b.durationMs) || b.durationMs <= 0 || b.durationMs > MAX_DURATION_MS) {
+    return { ok: false, message: "durationMs must be a number between 1 and 7200000 (2 hours)." };
   }
   if (!isFiniteNumber(b.avgSpeedKmh) || b.avgSpeedKmh < 0) {
     return { ok: false, message: "avgSpeedKmh must be a number greater than or equal to 0." };
@@ -60,6 +93,10 @@ export function validateDescentBody(body: unknown): DescentCheck {
   if (typeof b.isDemo !== "boolean") {
     return { ok: false, message: "isDemo must be true or false." };
   }
+  const trackError = checkTrack(b.track);
+  if (trackError) {
+    return { ok: false, message: trackError };
+  }
 
   return {
     ok: true,
@@ -72,6 +109,7 @@ export function validateDescentBody(body: unknown): DescentCheck {
       elevationChangeM: b.elevationChangeM,
       endedBySos: b.endedBySos,
       isDemo: b.isDemo,
+      track: b.track as PuntoRastro[],
     },
   };
 }

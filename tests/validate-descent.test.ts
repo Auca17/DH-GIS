@@ -11,6 +11,11 @@ describe("validateDescentBody", () => {
     elevationChangeM: -70,
     endedBySos: false,
     isDemo: true,
+    // [lng, lat, ms since the start]
+    track: [
+      [-68.89533, -32.8959, 0],
+      [-68.89357, -32.89347, 45000],
+    ],
   };
 
   describe("valid payloads", () => {
@@ -79,17 +84,17 @@ describe("validateDescentBody", () => {
     it("fails when runId is missing, empty, or whitespace", () => {
       expect(validateDescentBody({ ...validBasePayload, runId: "" })).toEqual({
         ok: false,
-        message: "runId must be a non-empty string.",
+        message: "runId must use only lowercase letters, digits and dashes.",
       });
       expect(validateDescentBody({ ...validBasePayload, runId: "   " })).toEqual({
         ok: false,
-        message: "runId must be a non-empty string.",
+        message: "runId must use only lowercase letters, digits and dashes.",
       });
       expect(
         validateDescentBody({ ...validBasePayload, runId: undefined }),
       ).toEqual({
         ok: false,
-        message: "runId must be a non-empty string.",
+        message: "runId must use only lowercase letters, digits and dashes.",
       });
     });
 
@@ -98,13 +103,13 @@ describe("validateDescentBody", () => {
         validateDescentBody({ ...validBasePayload, trailSlug: "" }),
       ).toEqual({
         ok: false,
-        message: "trailSlug must be a non-empty string.",
+        message: "trailSlug must use only lowercase letters, digits and dashes.",
       });
       expect(
         validateDescentBody({ ...validBasePayload, trailSlug: null }),
       ).toEqual({
         ok: false,
-        message: "trailSlug must be a non-empty string.",
+        message: "trailSlug must use only lowercase letters, digits and dashes.",
       });
     });
 
@@ -131,25 +136,25 @@ describe("validateDescentBody", () => {
         validateDescentBody({ ...validBasePayload, durationMs: 0 }),
       ).toEqual({
         ok: false,
-        message: "durationMs must be a number greater than 0.",
+        message: "durationMs must be a number between 1 and 7200000 (2 hours).",
       });
       expect(
         validateDescentBody({ ...validBasePayload, durationMs: -500 }),
       ).toEqual({
         ok: false,
-        message: "durationMs must be a number greater than 0.",
+        message: "durationMs must be a number between 1 and 7200000 (2 hours).",
       });
       expect(
         validateDescentBody({ ...validBasePayload, durationMs: "45000" }),
       ).toEqual({
         ok: false,
-        message: "durationMs must be a number greater than 0.",
+        message: "durationMs must be a number between 1 and 7200000 (2 hours).",
       });
       expect(
         validateDescentBody({ ...validBasePayload, durationMs: NaN }),
       ).toEqual({
         ok: false,
-        message: "durationMs must be a number greater than 0.",
+        message: "durationMs must be a number between 1 and 7200000 (2 hours).",
       });
     });
 
@@ -211,6 +216,60 @@ describe("validateDescentBody", () => {
         ok: false,
         message: "isDemo must be true or false.",
       });
+    });
+  });
+
+  describe("injection and track checks", () => {
+    it("rejects a MongoDB operator instead of a slug (NoSQL injection)", () => {
+      const result = validateDescentBody({ ...validBasePayload, trailSlug: { $ne: null } });
+      expect(result.ok).toBe(false);
+    });
+
+    it("rejects a slug with uppercase letters or symbols", () => {
+      expect(validateDescentBody({ ...validBasePayload, trailSlug: "Pequia$" }).ok).toBe(false);
+    });
+
+    it("rejects a missing track", () => {
+      expect(validateDescentBody({ ...validBasePayload, track: undefined })).toEqual({
+        ok: false,
+        message: "track must be an array.",
+      });
+    });
+
+    it("rejects a track point with a string inside", () => {
+      const result = validateDescentBody({ ...validBasePayload, track: [[-68.89, "-32.89", 0]] });
+      expect(result).toEqual({
+        ok: false,
+        message: "every track point must be [lng, lat, t] with numbers.",
+      });
+    });
+
+    it("rejects coordinates out of range (lat 200)", () => {
+      const result = validateDescentBody({ ...validBasePayload, track: [[-68.89, 200, 0]] });
+      expect(result.ok).toBe(false);
+    });
+
+    it("rejects times that go back", () => {
+      const result = validateDescentBody({
+        ...validBasePayload,
+        track: [
+          [-68.89, -32.89, 2000],
+          [-68.89, -32.89, 1000],
+        ],
+      });
+      expect(result.ok).toBe(false);
+    });
+
+    it("rejects more than 3600 points", () => {
+      const track = Array.from({ length: 3601 }, (_, i) => [-68.89, -32.89, i * 1000]);
+      expect(validateDescentBody({ ...validBasePayload, track })).toEqual({
+        ok: false,
+        message: "track can have at most 3600 points.",
+      });
+    });
+
+    it("accepts an empty track (the route decides it is not valid for the ranking)", () => {
+      expect(validateDescentBody({ ...validBasePayload, track: [] }).ok).toBe(true);
     });
   });
 });
