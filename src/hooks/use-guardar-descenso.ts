@@ -90,6 +90,9 @@ export function useGuardarDescenso(
   const velocidadPromedioKmh = resultado?.velocidadPromedioKmh ?? 0;
   const cambioElevacionM = resultado?.cambioElevacionM ?? 0;
   const interrumpidoPorSos = resultado?.interrumpidoPorSos ?? false;
+  // Older results (before the real GPS) have no mode: they were all simulated.
+  const isDemo = (resultado?.modo ?? "demo") === "demo";
+  const track = resultado?.track ?? null;
 
   const runId = guardadoEn === null ? null : crearRunId(slug, guardadoEn);
   const guardado = useGuardadoDescenso(slug, runId);
@@ -111,8 +114,10 @@ export function useGuardarDescenso(
       avgSpeedKmh: velocidadPromedioKmh,
       elevationChangeM: cambioElevacionM,
       endedBySos: interrumpidoPorSos,
-      // Every run is simulated for now (there is no real GPS yet).
-      isDemo: true,
+      // Real GPS -> false, simulated route -> true. The ranking shows "DEMO" when true.
+      isDemo,
+      // [lng, lat, ms since the start], at most one point per second. The server checks it.
+      track: track ?? [],
     };
 
     fetch("/api/descents", {
@@ -141,6 +146,8 @@ export function useGuardarDescenso(
     velocidadPromedioKmh,
     cambioElevacionM,
     interrumpidoPorSos,
+    isDemo,
+    track,
   ]);
 
   return guardado;
