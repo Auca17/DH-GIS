@@ -9,12 +9,11 @@ import {
   Footprints,
   Maximize2,
   MessageSquare,
-  Play,
   Swords,
   Trophy,
 } from "lucide-react";
 import { DbStatusNotice } from "@/components/db-status/DbStatusNotice";
-import { Button } from "@/components/ui/Button";
+import { StartPanel } from "@/components/descent/StartPanel";
 import { Card } from "@/components/ui/Card";
 import { RatingStars } from "@/components/ui/RatingStars";
 import { formatDistance } from "@/lib/format";
@@ -42,7 +41,7 @@ const TrackMapPreview = dynamic(
 export default function CerroPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { startDemo } = useDescent();
+  const { startDemo, armar } = useDescent();
   const [mapaCompleto, setMapaCompleto] = useState(false);
 
   const { cerro, dbStatus } = useTrail();
@@ -51,8 +50,13 @@ export default function CerroPage() {
 
   const cerroId = cerro.id;
 
-  function handlePlay() {
+  function handleDemo() {
     startDemo();
+    router.push(`/cerro/${cerroId}/cronometro`);
+  }
+
+  function handleJugar(puntoJugar: { lat: number; lng: number }) {
+    armar(puntoJugar);
     router.push(`/cerro/${cerroId}/cronometro`);
   }
 
@@ -61,7 +65,7 @@ export default function CerroPage() {
   return (
     <>
       <DbStatusNotice dbStatus={dbStatus} />
-      <main className="flex flex-1 flex-col gap-4 p-4 pb-44 max-w-3xl mx-auto w-full">
+      <main className="flex flex-1 flex-col gap-4 p-4 pb-56 max-w-3xl mx-auto w-full">
         {/* Encabezado estilo Quest / Misión */}
         <header className="rounded-2xl border border-border bg-surface p-5 shadow-sm">
           <div className="flex items-center justify-between gap-2">
@@ -87,18 +91,6 @@ export default function CerroPage() {
           <p className="mt-3 text-sm leading-relaxed text-text-muted">
             {cerro.descripcion}
           </p>
-
-          {/* Botón Iniciar en el header para que nunca se tape */}
-          <div className="mt-4 pt-3 border-t border-border/60">
-            <Button
-              onClick={handlePlay}
-              size="lg"
-              className="w-full bg-primary hover:bg-primary-ink text-text font-bold text-base py-3 shadow-sm flex items-center justify-center gap-2"
-            >
-              <Play className="h-5 w-5 fill-current" />
-              Iniciar Descenso
-            </Button>
-          </div>
         </header>
 
         {/* Alerta del Pomberito */}
@@ -214,14 +206,12 @@ export default function CerroPage() {
         {/* Barra flotante inferior fija con alto z-index y safe-area */}
         <div className="fixed inset-x-0 bottom-0 z-[1000] border-t border-border bg-surface/95 backdrop-blur-md p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-xl">
           <div className="mx-auto max-w-md">
-            <Button
-              onClick={handlePlay}
-              size="lg"
-              className="w-full bg-primary hover:bg-primary-ink text-text font-bold text-base py-3 shadow-md flex items-center justify-center gap-2"
-            >
-              <Play className="h-5 w-5 fill-current" />
-              Iniciar Descenso
-            </Button>
+            {/* Single place to start a run: Jugar (real GPS) or demo mode. */}
+            <StartPanel
+              salida={cerro.pista[0].puntos[0]}
+              onJugar={handleJugar}
+              onDemo={handleDemo}
+            />
           </div>
         </div>
       </main>
