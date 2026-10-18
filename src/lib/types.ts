@@ -64,6 +64,38 @@ export interface Usuario {
 
 export type TipoBici = "DH" | "Enduro" | "Trail";
 
+/** Rider level, chosen when signing up. */
+export type NivelRider = "principiante" | "intermedio" | "avanzado";
+
+/** Wheel size: 27.5", 29" or mullet (29 front, 27.5 rear). */
+export type RodadoBici = "27.5" | "29" | "mullet";
+
+/** A bike of the signed-in rider, as the screens use it (the database uses English names). */
+export interface Bici {
+  id: string;
+  tipo: TipoBici;
+  marca: string;
+  modelo: string;
+  anio: number;
+  rodado: RodadoBici;
+  recorridoDelanteroMm: number;
+  /** 0 = hardtail (no rear suspension). */
+  recorridoTraseroMm: number;
+  /** The bike preselected before a run. Each rider has exactly one. */
+  principal: boolean;
+}
+
+/** The signed-in rider (never includes the password). */
+export interface PerfilRider {
+  id: string;
+  nombre: string;
+  email: string;
+  nivel: NivelRider;
+  ciudad: string;
+  /** Year the rider started riding. */
+  andaDesde: number;
+}
+
 export interface EntradaLeaderboard {
   id: string;
   cerroId: string;
@@ -102,6 +134,8 @@ export interface ResultadoDescenso {
   path: PuntoDescenso[];
   /** Track sent to the server (at most one point per second). Missing = no track (older results). */
   track?: PuntoRastro[];
+  /** Bike chosen before the run (null = no account or no bike). Missing = older results. */
+  bikeId?: string | null;
   guardadoEn: number;
 }
 
@@ -128,5 +162,7 @@ export interface SesionFreeride {
   desnivelNegativoM: number;
   puntos: PuntoFreeride[];
   guardadoEn: number;
+  /** Label of the bike used ("Specialized Demo 2024 · DH · 29"). Missing = no account or older session. */
+  bici?: string;
 }
 
