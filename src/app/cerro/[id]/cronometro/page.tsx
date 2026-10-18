@@ -10,8 +10,10 @@ import {
   Footprints,
   Radio,
   Square,
+  X,
 } from "lucide-react";
 import { DbStatusNotice } from "@/components/db-status/DbStatusNotice";
+import { RunStatusBanner } from "@/components/descent/RunStatusBanner";
 import { Button } from "@/components/ui/Button";
 import { useElapsedTime } from "@/hooks/use-elapsed-time";
 import { formatDistance, formatSpeed } from "@/lib/format";
@@ -43,7 +45,7 @@ const VENTAJA_SALIDA_S = 8; // Segundos de ventaja de salida antes de que arranq
 export default function CronometroPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { state, stop } = useDescent();
+  const { state, stop, cancelar, gps, wakeLock } = useDescent();
 
   const { cerro, dbStatus } = useTrail();
   const { ms, formateado } = useElapsedTime(
@@ -65,6 +67,12 @@ export default function CronometroPage() {
 
   function handleStop() {
     stop();
+  }
+
+  // Armed (real GPS, the clock has not started yet): leave without a run.
+  function handleCancelar() {
+    cancelar();
+    router.push(`/cerro/${id}`);
   }
 
   const velocidadKmh = state.puntoActual?.velocidadKmh ?? 0;
@@ -122,6 +130,15 @@ export default function CronometroPage() {
               {cerro.nombre}
             </span>
           </div>
+
+          <RunStatusBanner
+            modo={state.modo}
+            estado={state.estado}
+            gpsEstado={gps.estado}
+            precisionM={gps.precisionM}
+            senalPerdida={state.senalPerdida}
+            wakeLock={wakeLock}
+          />
 
           {/* Cronómetro Principal */}
           <p className="font-mono text-5xl sm:text-6xl font-extrabold tabular-nums tracking-tighter text-text">
@@ -237,13 +254,23 @@ export default function CronometroPage() {
 
         {/* Botones inferiores */}
         <div className="flex gap-3 border-t border-border bg-surface p-4 shadow-sm">
-          <Button
-            variant="ghost"
-            onClick={handleStop}
-            className="flex-1 font-bold flex items-center justify-center gap-2"
-          >
-            <Square className="h-4 w-4 fill-current" /> Parar
-          </Button>
+          {state.estado === "armado" ? (
+            <Button
+              variant="ghost"
+              onClick={handleCancelar}
+              className="flex-1 font-bold flex items-center justify-center gap-2"
+            >
+              <X className="h-4 w-4" /> Cancelar
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              onClick={handleStop}
+              className="flex-1 font-bold flex items-center justify-center gap-2"
+            >
+              <Square className="h-4 w-4 fill-current" /> Parar
+            </Button>
+          )}
         </div>
       </main>
     </>
