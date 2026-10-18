@@ -18,8 +18,9 @@ Contexto de la última sesión (qué se hizo, en qué paso estamos y qué falta)
    - Excepción (2026-10-17): para publicar en Vercel se usa MongoDB Atlas, **solo** por variable de entorno (`MONGODB_URI` en Vercel y en `.env.production`, ambos fuera de git). El código no cambia: es el mismo driver y las mismas consultas. Desarrollo y evaluación de la cátedra siguen en local.
    - Cambiar de base = cambiar solo `MONGODB_URI` (tabla en `README.md`, sección "Base local o MongoDB Atlas"). Presentación: app en Vercel + Compass conectado a Atlas; plan B: `npm start` contra la base local. `npm run seed:prod` (lee `.env.production`) carga Atlas con el mismo script y los mismos datos que `npm run seed`. La URI de Atlas tiene que terminar en `/dh`.
 2. Driver oficial `mongodb`, sin Mongoose, así las consultas quedan visibles y se parecen a lo que escribimos en Compass.
-3. Colecciones: `users`, `trails`, `descents`, `reviews`. Embebemos lo que se lee junto (tramos dentro de `trails`) y referenciamos lo que crece (`descents`, `reviews` apuntan a `trailId`/`userId`).
-4. Índices (con comentario de por qué cada uno): `trails` 2dsphere en `start`, único en `slug`; `descents` `{trailId, status, validated, durationMs}`; `reviews` `{trailId, createdAt: -1}`.
+3. Colecciones: `users`, `trails`, `descents`, `reviews`, `bikes`, `sessions`. Embebemos lo que se lee junto (tramos dentro de `trails`) y referenciamos lo que crece (`descents`, `reviews` apuntan a `trailId`/`userId`; `bikes` apunta a `userId`; `descents` apunta a `bikeId`). `users`, `bikes` y `sessions` tienen validación `$jsonSchema` (se aplica en `scripts/seed.ts`).
+4. Índices (con comentario de por qué cada uno): `trails` 2dsphere en `start`, único en `slug`; `descents` `{trailId, status, validated, durationMs}` y único parcial en `runId`; `reviews` `{trailId, createdAt: -1}`; `users` único en `displayName` y único parcial en `email`; `bikes` `{userId, isPrimary: -1}` y único parcial en `userId` con `isPrimary: true` (una sola bici principal); `sessions` único en `tokenHash` y TTL en `expiresAt`.
+   - Registro con contraseña (scrypt de `node:crypto`), sesión en cookie httpOnly. Mongo no tiene RLS: cada ruta filtra por el `userId` de la sesión, nunca por uno que mande el cliente.
 5. Las consultas importantes viven en `src/lib/queries/`, una función por consulta, con un comentario arriba que diga: qué hace, en lenguaje de Compass (el pipeline equivalente) y qué concepto de la materia ilustra:
    - C1 senderos cercanos (`$geoNear`)
    - C2 ¿estoy dentro del radio de salida? (`$near` / `$geoWithin`)
@@ -27,6 +28,10 @@ Contexto de la última sesión (qué se hizo, en qué paso estamos y qué falta)
    - C4 mejor tiempo personal (`$group`)
    - C5 promedio de calificación por sendero (`$group` + `$avg`)
    - C6 cantidad de descensos por sendero (`$lookup` + `$count` / `$group`)
+   - C10 mejor tiempo por nivel en un sendero (`$lookup` a `users` + `$group` por nivel)
+   - C11 descensos por ciudad (`$lookup` + `$group` + `$addToSet`/`$size`)
+   - C12 descensos válidos por tipo de bici (`$lookup` a `bikes` + `$avg`)
+   - C13 perfil con sus bicis (`$lookup` con `pipeline` de `users` a `bikes`)
 
    Cada consulta debe poder copiarse y pegarse en Compass (pestaña Aggregations).
 6. Código simple y legible: somos estudiantes y tenemos que poder explicar cada línea. Claridad antes que "elegancia".

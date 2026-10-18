@@ -39,6 +39,14 @@ El código es el mismo para las dos bases: lo único que cambia es `MONGODB_URI`
 - La dirección de Atlas **tiene que terminar en `/dh`** (antes del `?`). Sin eso, el driver usa la base `test`.
 - `npm run seed` carga la base local; `npm run seed:prod` carga Atlas. Es el mismo script con los mismos datos de partida (`src/lib/mock-data.ts`). Solo borra y vuelve a insertar los descensos y reseñas con `source: "seed"`; lo que guarda la app (`source: "app"`) no se toca.
 - `/api/health` muestra a qué base está conectada la app.
+- El seed también aplica la validación `$jsonSchema` de `users`, `bikes` y `sessions` (comando `collMod`). En Atlas, un usuario de base con permiso "Read and write" no puede correr `collMod`: el seed avisa y sigue sin validación. Para aplicarla, dale temporalmente el rol "Atlas admin" en Database Access y corré `npm run seed:prod` otra vez.
+
+## Cuentas y bicis
+
+- Registro con nombre visible, email, contraseña, nivel, ciudad, año en que empezó a andar y una primera bici (`/registro`). En "Mi perfil" (`/perfil`) se agregan más bicis y se elige la principal.
+- La contraseña se guarda como hash scrypt con sal propia; la sesión es una cookie httpOnly y en `sessions` queda solo el hash del token. Un índice TTL borra solas las sesiones vencidas.
+- Sin cuenta se puede ver el mapa, el ranking y usar el modo demo. Para guardar un descenso con GPS real hace falta una cuenta.
+- Consultas nuevas para Compass: C10 (mejor tiempo por nivel), C11 (descensos por ciudad), C12 (descensos por tipo de bici) y C13 (perfil con sus bicis). `npm run queries` imprime C10 a C12.
 - Los archivos `.env*` no se suben a git (salvo `.env.example`).
 
 ## Equipo
