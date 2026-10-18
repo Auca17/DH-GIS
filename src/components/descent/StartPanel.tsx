@@ -1,15 +1,22 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
-import { LocateFixed, Play, PlayCircle } from "lucide-react";
+import { LocateFixed, LogIn, Play, PlayCircle } from "lucide-react";
+import { BikePicker } from "@/components/bikes/BikePicker";
 import { Button } from "@/components/ui/Button";
 import { useGeolocation } from "@/hooks/use-geolocation";
+import { biciPorDefecto } from "@/lib/bikes/bike-label";
 import { MAX_ACCURACY_M, START_RADIUS_M } from "@/lib/gps/config";
 import { haversineDistanceM } from "@/lib/track-geometry";
+import { useSesion } from "@/providers/session-provider";
 
 // Start buttons of the trail screen.
 //   - "Jugar" (real GPS): enabled only within START_RADIUS_M of the trail start.
 //   - "Probar en modo demo": always enabled, works without GPS or permissions.
+//
+// A real run needs an account (it is saved with the rider and the bike). Demo mode
+// works without one. With 2 or more bikes, the picker asks which one is used.
 //
 // Before the run, the screen goes through these states:
 //   gps_apagado -> (Activar GPS) -> buscando_senal -> lejos_de_la_salida -> listo
@@ -23,12 +30,17 @@ function formatearDistancia(m: number): string {
 interface StartPanelProps {
   /** First point of the trail. */
   salida: { lat: number; lng: number };
-  /** "Jugar" was pressed at this (good) GPS position. */
-  onJugar: (puntoJugar: { lat: number; lng: number }) => void;
-  onDemo: () => void;
+  /** "Jugar" was pressed at this (good) GPS position, with this bike. */
+  onJugar: (puntoJugar: { lat: number; lng: number }, bikeId: string | null) => void;
+  onDemo: (bikeId: string | null) => void;
 }
 
 export function StartPanel({ salida, onJugar, onDemo }: StartPanelProps) {
+  const { usuario, bicis } = useSesion();
+  // null = nothing picked yet: the main bike is used.
+  const [biciElegida, setBiciElegida] = useState<string | null>(null);
+  const bikeId = biciElegida ?? biciPorDefecto(bicis)?.id ?? null;
+
   // The GPS is turned on with a tap: the browser asks for the permission at that moment.
   const [gpsEncendido, setGpsEncendido] = useState(false);
   const gps = useGeolocation(gpsEncendido);
@@ -38,7 +50,9 @@ export function StartPanel({ salida, onJugar, onDemo }: StartPanelProps) {
 
   let mensaje: string;
   let esError = false;
-  if (!gpsEncendido) {
+  if (!usuario) {
+    mensaje = "Para medir con GPS real necesitás una cuenta. El modo demo anda sin cuenta.";
+  } else if (!gpsEncendido) {
     mensaje = "Activá el GPS para jugar en el sendero.";
   } else if (gps.estado === "sin_https") {
     mensaje = "La ubicación solo funciona con HTTPS. Abrí la app desde su dirección https://.";
@@ -66,13 +80,24 @@ export function StartPanel({ salida, onJugar, onDemo }: StartPanelProps) {
 
   function handleJugar() {
     if (listo && gps.lectura) {
-      onJugar({ lat: gps.lectura.lat, lng: gps.lectura.lng });
+      onJugar({ lat: gps.lectura.lat, lng: gps.lectura.lng }, bikeId);
     }
   }
 
   return (
     <div className="flex flex-col gap-2">
-      {gpsEncendido ? (
+      {usuario ? (
+        <BikePicker id="bici-sendero" bicis={bicis} value={bikeId ?? ""} onChange={setBiciElegida} />
+      ) : null}
+      {!usuario ? (
+        <Link
+          href="/"
+          className="flex w-full items-center justify-center gap-2 rounded bg-primary py-3 text-base font-bold text-text shadow-sm hover:bg-primary-ink"
+        >
+          <LogIn className="h-5 w-5" />
+          Ingresá para jugar con GPS
+        </Link>
+      ) : gpsEncendido ? (
         <Button
           onClick={handleJugar}
           disabled={!listo}
@@ -100,7 +125,7 @@ export function StartPanel({ salida, onJugar, onDemo }: StartPanelProps) {
       </p>
       <Button
         variant="ghost"
-        onClick={onDemo}
+        onClick={() => onDemo(bikeId)}
         className="w-full font-bold flex items-center justify-center gap-2"
       >
         <PlayCircle className="h-4 w-4" />
