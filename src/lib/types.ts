@@ -85,13 +85,23 @@ export interface PuntoDescenso {
   velocidadKmh: number;
 }
 
+/** "gps" = measured with the phone's real GPS; "demo" = simulated route. */
+export type ModoCorrida = "gps" | "demo";
+
+/** One track point as it is saved in MongoDB: [longitude, latitude, ms since the start]. */
+export type PuntoRastro = [number, number, number];
+
 export interface ResultadoDescenso {
   cerroId: string;
+  /** How the run was measured; isDemo in the database comes from here. Missing = "demo" (older results). */
+  modo?: ModoCorrida;
   tiempoMs: number;
   velocidadPromedioKmh: number;
   cambioElevacionM: number;
   interrumpidoPorSos: boolean;
   path: PuntoDescenso[];
+  /** Track sent to the server (at most one point per second). Missing = no track (older results). */
+  track?: PuntoRastro[];
   guardadoEn: number;
 }
 
