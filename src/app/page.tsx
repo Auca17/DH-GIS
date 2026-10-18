@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { DhLogo } from "@/components/brand/DhLogo";
@@ -7,28 +8,44 @@ import { DownhillRider } from "@/components/brand/DownhillRider";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { useSesion } from "@/providers/session-provider";
 
-// Key the AppHeader reads to show the rider's name.
-const RIDER_STORAGE_KEY = "dh_rider";
-
-// Cosmetic login only: no auth. Any non-empty input is accepted; the name is
-// remembered in localStorage so the header can greet the rider.
+// Sign in with email and password (POST /api/auth/login). The server sets an
+// httpOnly session cookie; then we ask GET /api/me again so the header shows the name.
+// Without an account you can still look at the map and use the demo mode.
 export default function LoginPage() {
   const router = useRouter();
-  const [usuario, setUsuario] = useState("");
+  const { recargar } = useSesion();
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
 
-  const puedeContinuar = usuario.trim().length > 0 && password.trim().length > 0;
+  const puedeContinuar = email.trim().length > 0 && password.length > 0 && !enviando;
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!puedeContinuar) return;
+    setEnviando(true);
+    setError(null);
     try {
-      localStorage.setItem(RIDER_STORAGE_KEY, usuario.trim());
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const json = await response.json();
+      if (!json.ok) {
+        setError(json.message ?? "No se pudo ingresar.");
+        return;
+      }
+      await recargar();
+      router.push("/mapa");
     } catch {
-      // Storage blocked (private mode): the header falls back to "Vos".
+      setError("Sin conexión. Probá de nuevo.");
+    } finally {
+      setEnviando(false);
     }
-    router.push("/mapa");
   }
 
   return (
@@ -70,18 +87,19 @@ export default function LoginPage() {
             <DhLogo size={44} title="" />
             <div>
               <h2 className="text-xl font-bold tracking-tight text-text">Entrá a DH</h2>
-              <p className="text-sm text-text-muted">Elegí un nombre para el ranking.</p>
+              <p className="text-sm text-text-muted">Ingresá para guardar tus descensos.</p>
             </div>
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <Input
-              id="usuario"
-              label="Nombre de rider"
-              placeholder="ej. Lucas R."
-              autoComplete="username"
-              value={usuario}
-              onChange={(event) => setUsuario(event.target.value)}
+              id="email"
+              label="Email"
+              type="email"
+              placeholder="vos@mail.com"
+              autoComplete="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
             />
             <Input
               id="password"
@@ -92,12 +110,28 @@ export default function LoginPage() {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
-            <p className="text-xs text-text-muted">Demo: cualquier contraseña sirve.</p>
+            {error ? (
+              <p role="alert" className="text-sm font-semibold text-danger">
+                {error}
+              </p>
+            ) : null}
 
             <Button type="submit" size="lg" disabled={!puedeContinuar} className="mt-1 w-full">
-              Entrar
+              {enviando ? "Ingresando…" : "Entrar"}
             </Button>
           </form>
+
+          <div className="mt-5 flex flex-col gap-2 text-center text-sm">
+            <p className="text-text-muted">
+              ¿No tenés cuenta?{" "}
+              <Link href="/registro" className="font-bold text-primary underline-offset-2 hover:underline">
+                Creá una
+              </Link>
+            </p>
+            <Link href="/mapa" className="text-text-muted underline-offset-2 hover:underline">
+              Entrar sin cuenta (mapa y modo demo)
+            </Link>
+          </div>
         </Card>
       </section>
     </main>
