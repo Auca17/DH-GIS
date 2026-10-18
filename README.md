@@ -26,6 +26,64 @@ npm run dev
 
 Abrí [http://localhost:3000](http://localhost:3000).
 
+## Practicar consultas: base local y base online (leé esto antes de empezar)
+
+### La idea en una línea
+
+**Practicamos en nuestra compu (base local). La base online (Atlas) es solo para la app publicada y la presentación.**
+
+### Las dos bases
+
+| | Base **local** | Base **online** (MongoDB Atlas) |
+| --- | --- | --- |
+| Dónde está | En tu compu | En un servidor de Atlas, en internet |
+| Para qué la usamos | Practicar consultas, probar, romper cosas | La app publicada en Vercel y la presentación |
+| Quién la usa | Cada uno tiene la suya | Una sola, compartida por todos |
+| Dirección en Compass | `mongodb://127.0.0.1:27017` | La dirección `mongodb+srv://…` (te la pasa Augustus, **no se sube a git**) |
+| ¿Puedo borrar o romper datos? | Sí, sin miedo | **No.** Ahí están las cuentas y los descensos reales |
+| Cuesta algo | No | Plan gratis (M0), con límites |
+
+### Cómo practicar en tu compu (paso a paso)
+
+1. Instalá **MongoDB Community Server** y **MongoDB Compass** (los links están en "Cómo levantar la base").
+2. Cloná el repo y corré `npm install`.
+3. Copiá `.env.example` a `.env.local`. Tiene que decir `MONGODB_URI=mongodb://127.0.0.1:27017/dh` (la base local).
+4. Corré `npm run seed`. Carga en tu compu: 70 riders, 105 bicis, 20.017 descensos y 306 reseñas.
+5. Abrí Compass, conectate a `mongodb://127.0.0.1:27017` y entrá a la base `dh`.
+6. Practicá en la pestaña **Aggregations** de cada colección. Las consultas del proyecto (C1 a C13) están en `src/lib/queries/`, cada una con un comentario listo para copiar y pegar en Compass.
+7. ¿Rompiste algo? Corré `npm run seed` de nuevo y vuelve todo a como estaba.
+
+### Preguntas que nos hicimos (y sus respuestas)
+
+**¿Hacer consultas en Atlas gasta los 512 MB gratis?**
+No. Los 512 MB son **espacio para guardar datos**, como el disco de una compu. Una consulta (`find`, `aggregate`) **lee** los datos y no guarda nada, así que no ocupa espacio. Lo único que ocupa espacio es **guardar** datos nuevos (o usar `$out` / `$merge` en una agregación, que guardan el resultado en una colección).
+
+**¿Cuánto ocupa nuestra base?**
+Unos **5 MB** con todos los datos de práctica e índices: alrededor del 1 % de los 512 MB.
+
+**Entonces, ¿por qué practicamos en local y no en Atlas?**
+Porque el plan gratis de Atlas sí tiene límites, pero de **velocidad de uso**, no de espacio: cuántas operaciones por segundo y cuántos datos se transfieren por semana. Cuatro personas practicando a la vez contra la misma base pueden toparse con esos límites. Además, en Atlas un error nuestro (borrar una colección, por ejemplo) rompe la app publicada para todos. En local no le pasa nada a nadie.
+
+**¿Compass usa mi compu para ejecutar las consultas?**
+No. **Compass es solo una ventana**: manda la consulta al servidor y te muestra lo que contesta. La consulta se ejecuta **donde está la base**:
+
+- Si en Compass estás conectado a `127.0.0.1` → se ejecuta en **tu compu**.
+- Si estás conectado a la dirección de Atlas → se ejecuta en **los servidores de Atlas**.
+
+Por eso, para usar nuestro hardware, cada uno tiene que tener la base **en su compu** (los pasos de arriba).
+
+**¿Mis datos de práctica van a ser iguales a los de mis compañeros?**
+Sí. El seed genera **siempre exactamente los mismos datos** (`scripts/seed-volume.ts` usa números "al azar" pero fijos). Si a vos C10 te da que el mejor avanzado en Pequia hizo 37,5 s, a tus compañeros también. Lo único que cambia son los `_id` (los inventa Mongo en cada compu) y las fechas de creación.
+
+**¿Atlas tiene los mismos datos que mi base local?**
+Sí, los datos de práctica son los mismos (se cargaron con el mismo seed). Además, Atlas tiene lo que guardó la app publicada: cuentas creadas y descensos reales, con `source: "app"`.
+
+**¿Puedo correr el seed contra Atlas?**
+Solo Augustus, y solo si hace falta. El seed borra y vuelve a cargar los datos de práctica (`source: "seed"`), pero **nunca toca lo que guardó la app** (`source: "app"`).
+
+**Me registré en la app local y no puedo entrar en la publicada (o al revés). ¿Está roto?**
+No. Son dos bases distintas: una cuenta creada en local existe solo en tu compu, y una creada en la app publicada existe solo en Atlas.
+
 ## Base local o MongoDB Atlas
 
 El código es el mismo para las dos bases: lo único que cambia es `MONGODB_URI`.
@@ -38,6 +96,7 @@ El código es el mismo para las dos bases: lo único que cambia es `MONGODB_URI`
 
 - La dirección de Atlas **tiene que terminar en `/dh`** (antes del `?`). Sin eso, el driver usa la base `test`.
 - `npm run seed` carga la base local; `npm run seed:prod` carga Atlas. Es el mismo script con los mismos datos de partida (`src/lib/mock-data.ts`). Solo borra y vuelve a insertar los descensos y reseñas con `source: "seed"`; lo que guarda la app (`source: "app"`) no se toca.
+- Además de los datos de ejemplo, el seed genera volumen para practicar consultas (`scripts/seed-volume.ts`): 60 riders con nivel y ciudad, de 1 a 3 bicis cada uno, 20.000 descensos de los últimos 18 meses (alrededor del 5 % inválidos, cada uno con su motivo) y 300 reseñas. Siempre genera exactamente lo mismo, así la base local y Atlas quedan iguales.
 - `/api/health` muestra a qué base está conectada la app.
 - El seed también aplica la validación `$jsonSchema` de `users`, `bikes` y `sessions` (comando `collMod`). En Atlas, un usuario de base con permiso "Read and write" no puede correr `collMod`: el seed avisa y sigue sin validación. Para aplicarla, dale temporalmente el rol "Atlas admin" en Database Access y corré `npm run seed:prod` otra vez.
 
