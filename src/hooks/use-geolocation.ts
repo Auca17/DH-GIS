@@ -14,7 +14,8 @@ import { lecturaEsConfiable, type LecturaGps } from "@/lib/gps/gps-math";
 //   "ok"             -> `lectura` is a recent, good reading
 //
 // Only good readings (lecturaEsConfiable) reach `lectura` and `onLectura`. A bad one
-// only updates `precisionM`, so the screen can say "Buscando señal GPS (45 m)…".
+// only updates `precisionM` and `aproximada`, so the screen can say
+// "Buscando señal GPS (45 m)…" and show a rough distance, but never start anything with it.
 
 export type EstadoGps =
   | "inactivo"
@@ -30,6 +31,8 @@ export interface InfoGps {
   lectura: LecturaGps | null;
   /** Accuracy of the last reading, good or bad (to show it on screen). */
   precisionM: number | null;
+  /** Last reading even if its accuracy is bad: ONLY to show a rough distance. */
+  aproximada: LecturaGps | null;
 }
 
 type Soporte = "ok" | "no_soportado" | "sin_https";
@@ -49,9 +52,15 @@ interface Medicion {
   estado: "buscando_senal" | "sin_permiso" | "ok";
   lectura: LecturaGps | null;
   precisionM: number | null;
+  aproximada: LecturaGps | null;
 }
 
-const SIN_MEDICION: Medicion = { estado: "buscando_senal", lectura: null, precisionM: null };
+const SIN_MEDICION: Medicion = {
+  estado: "buscando_senal",
+  lectura: null,
+  precisionM: null,
+  aproximada: null,
+};
 
 export function useGeolocation(
   activo: boolean,
@@ -76,18 +85,23 @@ export function useGeolocation(
         };
         if (!lecturaEsConfiable(lectura)) {
           // Bad accuracy: keep searching, never start or end anything with it.
-          setMedicion({ estado: "buscando_senal", lectura: null, precisionM: lectura.accuracyM });
+          setMedicion({
+            estado: "buscando_senal",
+            lectura: null,
+            precisionM: lectura.accuracyM,
+            aproximada: lectura,
+          });
           return;
         }
-        setMedicion({ estado: "ok", lectura, precisionM: lectura.accuracyM });
+        setMedicion({ estado: "ok", lectura, precisionM: lectura.accuracyM, aproximada: lectura });
         avisarLectura(lectura);
       },
       (error) => {
         if (error.code === error.PERMISSION_DENIED) {
-          setMedicion({ estado: "sin_permiso", lectura: null, precisionM: null });
+          setMedicion({ ...SIN_MEDICION, estado: "sin_permiso" });
         } else {
           // POSITION_UNAVAILABLE: no signal right now (GPS off, indoors). The watch keeps trying.
-          setMedicion({ estado: "buscando_senal", lectura: null, precisionM: null });
+          setMedicion(SIN_MEDICION);
         }
       },
       // enableHighAccuracy: use the real GPS chip, not wifi/antennas.
@@ -104,7 +118,7 @@ export function useGeolocation(
     };
   }, [activo, soporte]);
 
-  if (!activo) return { estado: "inactivo", lectura: null, precisionM: null };
-  if (soporte !== "ok") return { estado: soporte, lectura: null, precisionM: null };
+  if (!activo) return { ...SIN_MEDICION, estado: "inactivo" };
+  if (soporte !== "ok") return { ...SIN_MEDICION, estado: soporte };
   return medicion;
 }

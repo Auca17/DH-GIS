@@ -79,7 +79,7 @@ function HeaderFrame({ pathname }: { pathname: string | null }) {
                   key={href}
                   href={href}
                   aria-current={isActive ? "page" : undefined}
-                  className={`rounded px-3 py-1.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
+                  className={`rounded px-2 py-1.5 text-sm font-semibold sm:px-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
                     isActive
                       ? "border-b-2 border-primary text-primary font-bold"
                       : "text-text-muted hover:bg-surface-muted hover:text-text"
@@ -95,9 +95,10 @@ function HeaderFrame({ pathname }: { pathname: string | null }) {
         {/* Rider profile / name + Theme Toggle */}
         <div className="flex items-center gap-2">
           {!isLogin ? (
-            <div className="flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-bold text-primary shadow-xs">
+            // Hidden on phones: with the name (often an email) the header did not fit in 390 px.
+            <div className="hidden max-w-56 items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-bold text-primary shadow-xs sm:flex">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
-              <span className="font-mono text-xs text-text">{rider}</span>
+              <span className="truncate font-mono text-xs text-text">{rider}</span>
             </div>
           ) : null}
           <ThemeToggle />

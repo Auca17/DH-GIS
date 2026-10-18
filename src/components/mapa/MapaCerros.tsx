@@ -92,7 +92,8 @@ export function MapaCerros({ cerros }: MapaCerrosProps) {
   const visible = useIsVisible();
 
   return (
-    <div className="relative h-full w-full">
+    // isolate: keeps Leaflet layers (z-index 400-1000) under the sticky header.
+    <div className="relative isolate h-full w-full">
       {visible ? (
         <MapContainer
           key="mapa-cerros"

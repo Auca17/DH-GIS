@@ -62,7 +62,7 @@ function iconoEnVivo(etiqueta: string, colorEtiqueta: string, colorCirculo: stri
 const PIN_POMBERITO = iconoEnVivo("Pomberito", "#C55221", "#7A2706", ICONO_POMBERITO);
 const PIN_RIDER = iconoEnVivo("Vos", "#16A34A", "#15803D", ICONO_BICI);
 
-function FitBoundsAlMontar({ pista }: { pista: TramoPista[] }) {
+function FitBoundsAlMontar({ pista, bloqueado }: { pista: TramoPista[]; bloqueado: boolean }) {
   const map = useMap();
 
   useEffect(() => {
@@ -74,13 +74,22 @@ function FitBoundsAlMontar({ pista }: { pista: TramoPista[] }) {
     map.invalidateSize();
     // animate: false -> no zoom animation left running if the screen changes right
     // away (the map is removed and the animation end used to crash: "_leaflet_pos").
-    map.fitBounds(getBounds(pista), { padding: [24, 24], animate: false });
+    // 40 px of margin so the live pins and their labels (Vos / Pomberito) are not cut at the edges.
+    map.fitBounds(getBounds(pista), { padding: [40, 40], animate: false });
 
+    // When the container changes size (for example, warnings appear above the map on the
+    // chronometer), the locked mini-map frames the trail again; otherwise it drifts to a corner.
+    // The free map ("Ver mapa completo") keeps whatever the user panned to.
     const contenedor = map.getContainer();
-    const observer = new ResizeObserver(() => map.invalidateSize());
+    const observer = new ResizeObserver(() => {
+      map.invalidateSize();
+      if (bloqueado) {
+        map.fitBounds(getBounds(pista), { padding: [40, 40], animate: false });
+      }
+    });
     observer.observe(contenedor);
     return () => observer.disconnect();
-  }, [map, pista]);
+  }, [map, pista, bloqueado]);
 
   return null;
 }
@@ -114,7 +123,9 @@ export function TrackMapPreview({
       center={centro}
       zoom={14}
       maxZoom={17}
-      className={`h-full w-full ${className}`}
+      // isolate: Leaflet layers use z-index 400-1000; this keeps them inside the map
+      // so they never paint over the sticky header (z-40) when the page scrolls.
+      className={`isolate h-full w-full ${className}`}
       // Mini-mapa bloqueado (sección 5.3): solo el sendero elegido, sin arrastrar ni
       // zoomear. "Ver mapa completo" reutiliza este mismo componente con bloqueado={false}.
       dragging={!bloqueado}
@@ -170,7 +181,7 @@ export function TrackMapPreview({
           zIndexOffset={1000}
         />
       ) : null}
-      <FitBoundsAlMontar pista={pista} />
+      <FitBoundsAlMontar pista={pista} bloqueado={bloqueado} />
     </MapContainer>
   );
 }

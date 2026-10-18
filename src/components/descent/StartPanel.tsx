@@ -4,7 +4,7 @@ import { useState } from "react";
 import { LocateFixed, Play, PlayCircle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useGeolocation } from "@/hooks/use-geolocation";
-import { START_RADIUS_M } from "@/lib/gps/config";
+import { MAX_ACCURACY_M, START_RADIUS_M } from "@/lib/gps/config";
 import { haversineDistanceM } from "@/lib/track-geometry";
 
 // Start buttons of the trail screen.
@@ -14,6 +14,11 @@ import { haversineDistanceM } from "@/lib/track-geometry";
 // Before the run, the screen goes through these states:
 //   gps_apagado -> (Activar GPS) -> buscando_senal -> lejos_de_la_salida -> listo
 //   and also sin_permiso / sin_https / no_soportado (error messages, demo still works).
+
+/** "850 m" under one kilometer, "1,5 km" above. */
+function formatearDistancia(m: number): string {
+  return m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1).replace(".", ",")} km`;
+}
 
 interface StartPanelProps {
   /** First point of the trail. */
@@ -46,10 +51,13 @@ export function StartPanel({ salida, onJugar, onDemo }: StartPanelProps) {
       "Permiso de ubicación denegado. Habilitalo en los ajustes del navegador para este sitio y recargá la página.";
     esError = true;
   } else if (gps.estado === "buscando_senal" || distanciaM === null) {
-    mensaje =
-      gps.precisionM !== null
-        ? `Buscando señal GPS… (precisión actual: ${Math.round(gps.precisionM)} m)`
-        : "Buscando señal GPS…";
+    if (gps.aproximada && gps.precisionM !== null) {
+      // Bad accuracy (a computer, indoors): show a rough distance, but "Jugar" stays off.
+      const aproxM = haversineDistanceM(gps.aproximada, salida);
+      mensaje = `Señal GPS débil (precisión ${Math.round(gps.precisionM)} m). Estás a unos ${formatearDistancia(aproxM)} de la salida. Jugar se habilita con precisión de ${MAX_ACCURACY_M} m o mejor.`;
+    } else {
+      mensaje = "Buscando señal GPS…";
+    }
   } else if (!listo) {
     mensaje = `Estás a ${Math.round(distanciaM)} m de la salida. Acercate a menos de ${START_RADIUS_M} m.`;
   } else {
