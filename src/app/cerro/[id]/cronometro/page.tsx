@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -43,8 +43,7 @@ const VENTAJA_SALIDA_S = 8; // Segundos de ventaja de salida antes de que arranq
 export default function CronometroPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { state, stop, sos } = useDescent();
-  const [confirmandoSos, setConfirmandoSos] = useState(false);
+  const { state, stop } = useDescent();
 
   const { cerro, dbStatus } = useTrail();
   const { ms, formateado } = useElapsedTime(
@@ -66,14 +65,6 @@ export default function CronometroPage() {
 
   function handleStop() {
     stop();
-  }
-
-  function handleSos() {
-    if (!confirmandoSos) {
-      setConfirmandoSos(true);
-      return;
-    }
-    sos();
   }
 
   const velocidadKmh = state.puntoActual?.velocidadKmh ?? 0;
@@ -252,16 +243,6 @@ export default function CronometroPage() {
             className="flex-1 font-bold flex items-center justify-center gap-2"
           >
             <Square className="h-4 w-4 fill-current" /> Parar
-          </Button>
-          <Button
-            variant="danger"
-            onClick={handleSos}
-            className={`flex-1 font-bold flex items-center justify-center gap-2 ${
-              confirmandoSos ? "animate-pulse" : ""
-            }`}
-          >
-            <AlertTriangle className="h-4 w-4" />
-            {confirmandoSos ? "Confirmar SOS" : "SOS"}
           </Button>
         </div>
       </main>
