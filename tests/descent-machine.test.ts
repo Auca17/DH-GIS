@@ -147,6 +147,23 @@ describe("crearResultado", () => {
     expect(crearResultado(jugar([{ type: "START_DEMO", ahora: T0 }]))).toBeNull();
   });
 
+  it("keeps the bike chosen before the run", () => {
+    const s = jugar([
+      { type: "ARMAR", puntoJugar: SALIDA, bikeId: "6ad40945e800c0b6c7b75f76" },
+      lectura(SALIDA.lat - 5 * UN_METRO_LAT, SALIDA.lng, T0),
+      { type: "STOP", ahora: T0 + 7000 },
+    ]);
+    expect(crearResultado(s)!.bikeId).toBe("6ad40945e800c0b6c7b75f76");
+  });
+
+  it("uses no bike for a demo run without an account", () => {
+    const s = jugar([
+      { type: "START_DEMO", ahora: T0 },
+      { type: "STOP", ahora: T0 + 3000 },
+    ]);
+    expect(crearResultado(s)!.bikeId).toBeNull();
+  });
+
   it("uses startedAt + elapsedMs as guardadoEn and keeps the mode", () => {
     const s = jugar([
       { type: "ARMAR", puntoJugar: SALIDA },

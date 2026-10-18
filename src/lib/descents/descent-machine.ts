@@ -36,6 +36,8 @@ export interface DescentState {
   estado: DescentEstado;
   /** Where "Jugar" was pressed (gps mode). The clock starts 3 m away from here. */
   puntoJugar: { lat: number; lng: number } | null;
+  /** Bike chosen before the run (null = no account). */
+  bikeId: string | null;
   startedAt: number | null;
   elapsedMs: number;
   path: PuntoDescenso[];
@@ -51,9 +53,9 @@ export interface DescentState {
 }
 
 export type DescentAction =
-  | { type: "START_DEMO"; ahora: number }
+  | { type: "START_DEMO"; ahora: number; bikeId?: string | null }
   | { type: "TICK"; ahora: number; flat: PuntoPlano[] }
-  | { type: "ARMAR"; puntoJugar: { lat: number; lng: number } }
+  | { type: "ARMAR"; puntoJugar: { lat: number; lng: number }; bikeId?: string | null }
   | { type: "LECTURA"; lectura: LecturaGps; ahora: number; flat: PuntoPlano[] }
   | { type: "REVISAR_SENAL"; ahora: number }
   | { type: "STOP"; ahora: number }
@@ -69,6 +71,7 @@ export function crearEstadoInicial(cerroId: string): DescentState {
     modo: "demo",
     estado: "idle",
     puntoJugar: null,
+    bikeId: null,
     startedAt: null,
     elapsedMs: 0,
     path: [],
@@ -119,6 +122,7 @@ export function descentReducer(state: DescentState, action: DescentAction): Desc
         modo: "demo",
         estado: "corriendo",
         startedAt: action.ahora,
+        bikeId: action.bikeId ?? null,
       };
 
     case "TICK": {
@@ -147,6 +151,7 @@ export function descentReducer(state: DescentState, action: DescentAction): Desc
         modo: "gps",
         estado: "armado",
         puntoJugar: action.puntoJugar,
+        bikeId: action.bikeId ?? null,
       };
 
     case "LECTURA": {
@@ -273,6 +278,7 @@ export function crearResultado(state: DescentState): ResultadoDescenso | null {
     interrumpidoPorSos: false,
     path: state.path,
     track: state.track,
+    bikeId: state.bikeId,
     guardadoEn: state.startedAt + state.elapsedMs,
   };
 }
