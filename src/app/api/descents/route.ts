@@ -1,4 +1,6 @@
 import { connection } from "next/server";
+import { ObjectId } from "mongodb";
+import { getSessionUserId } from "@/lib/auth/session";
 import { getDb, isDbAvailable } from "@/lib/mongodb";
 import { evaluarDescenso } from "@/lib/descents/descent-rules";
 import { validateDescentBody } from "@/lib/descents/validate-descent";
@@ -47,7 +49,7 @@ import { isInsideStartRadius } from "@/lib/queries/c2-inside-start-radius";
  * )
  */
 
-// There is no login yet, so every run is saved under this user (created by the seed).
+// Demo runs of people without an account are saved under this user (created by the seed).
 const DEMO_USER_NAME = "Demo rider";
 
 const OFFLINE_MESSAGE = "No se pudo guardar el descenso (sin conexión a la base)";
@@ -84,17 +86,46 @@ export async function POST(request: Request) {
   try {
     const db = getDb();
 
-    // 3. Find the trail and the user that the descent will reference.
+    // 3. Find the trail that the descent will reference.
     const trail = await db.collection("trails").findOne({ slug: input.trailSlug });
     if (!trail) {
       return Response.json({ ok: false, message: "Trail not found." }, { status: 404 });
     }
-    const user = await db.collection("users").findOne({ displayName: DEMO_USER_NAME });
-    if (!user) {
-      return Response.json(
-        { ok: false, dbStatus: "empty", message: 'Run "npm run seed" to create the demo user.' },
-        { status: 503 },
-      );
+
+    // 3b. Who is saving it. The rider ALWAYS comes from the session cookie, never
+    // from the body. With a session: that rider and one of THEIR bikes (the bike is
+    // searched with its _id AND the rider's userId, so another rider's bike is not
+    // found). Without a session: only demo runs, saved as "Demo rider" with no bike.
+    let userId: ObjectId;
+    let bike: { _id: ObjectId; type?: string } | null = null;
+    const sessionUserId = await getSessionUserId();
+    if (sessionUserId) {
+      userId = sessionUserId;
+      const bikes = db.collection("bikes");
+      bike = input.bikeId
+        ? await bikes.findOne(
+            { _id: new ObjectId(input.bikeId), userId: sessionUserId },
+            { projection: { type: 1 } },
+          )
+        : await bikes.findOne({ userId: sessionUserId, isPrimary: true }, { projection: { type: 1 } });
+      if (input.bikeId && !bike) {
+        return Response.json({ ok: false, message: "Esa bici no es tuya." }, { status: 403 });
+      }
+    } else {
+      if (!input.isDemo) {
+        return Response.json(
+          { ok: false, message: "Ingresá a tu cuenta para guardar un descenso con GPS real." },
+          { status: 401 },
+        );
+      }
+      const demoUser = await db.collection("users").findOne({ displayName: DEMO_USER_NAME });
+      if (!demoUser) {
+        return Response.json(
+          { ok: false, dbStatus: "empty", message: 'Run "npm run seed" to create the demo user.' },
+          { status: 503 },
+        );
+      }
+      userId = demoUser._id;
     }
 
     // 4. The server decides if the run counts.
@@ -123,12 +154,15 @@ export async function POST(request: Request) {
     // same run twice does not create a second descent.
     const descent = {
       trailId: trail._id,
-      userId: user._id,
+      userId,
+      // Reference to the bike, plus a copy of its type so the leaderboard (C3)
+      // can show it without another $lookup.
+      bikeId: bike?._id ?? null,
       startedAt: input.startedAt,
       durationMs: input.durationMs,
       avgSpeedKmh: input.avgSpeedKmh,
       elevationChangeM: input.elevationChangeM,
-      bikeType: null,
+      bikeType: bike?.type ?? null,
       status,
       validated,
       invalidReason,
