@@ -229,15 +229,19 @@ export default function CronometroPage() {
 
         {/* Mapa con posición en vivo del ciclista Y del Pomberito */}
         <div className="relative min-h-[240px] flex-1">
-          <TrackMapPreview
-            pista={cerro.pista}
-            puntoActual={
-              state.puntoActual
-                ? { lat: state.puntoActual.lat, lng: state.puntoActual.lng }
-                : null
-            }
-            puntoChaser={puntoPomberito}
-          />
+          {/* absolute inset-0: this flex item has no definite height, so a plain
+              h-full on the map would collapse to 0px and Leaflet would draw nothing. */}
+          <div className="absolute inset-0">
+            <TrackMapPreview
+              pista={cerro.pista}
+              puntoActual={
+                state.puntoActual
+                  ? { lat: state.puntoActual.lat, lng: state.puntoActual.lng }
+                  : null
+              }
+              puntoChaser={puntoPomberito}
+            />
+          </div>
         </div>
 
         {/* Botones inferiores */}

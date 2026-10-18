@@ -42,23 +42,25 @@ function iconoFlecha(rumboDeg: number) {
   });
 }
 
-function iconoPomberito() {
+const ICONO_POMBERITO = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18v3s1 1 4 1 5-2 8-2 4 1 4 1v-3"/><path d="M2 10s3-3 10-3 10 3 10 3"/><circle cx="12" cy="11" r="3.5"/></svg>`;
+const ICONO_BICI = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/></svg>`;
+
+// Live pin: a 28x28 circle whose CENTER is the GPS point (iconAnchor [14, 14]).
+// The label floats above with position:absolute, so it never moves the anchor.
+// (Before, a CSS translate(-50%,-50%) plus iconAnchor [14, 30] shifted the pin
+// up and to the left of the trail.)
+function iconoEnVivo(etiqueta: string, colorEtiqueta: string, colorCirculo: string, svg: string) {
   return L.divIcon({
-    className: "dh-pomberito-pin",
-    html: `<div style="position:relative;display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-50%);pointer-events:none;"><span style="font-size:9px;font-weight:800;background:#C55221;color:#ffffff;padding:1px 5px;border-radius:9999px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.4);margin-bottom:2px;letter-spacing:0.04em;">Pomberito</span><div style="width:24px;height:24px;border-radius:50%;background:#7A2706;border:2px solid #ffffff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 5px rgba(0,0,0,0.35);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18v3s1 1 4 1 5-2 8-2 4 1 4 1v-3"/><path d="M2 10s3-3 10-3 10 3 10 3"/><circle cx="12" cy="11" r="3.5"/></svg></div></div>`,
-    iconSize: [28, 40],
-    iconAnchor: [14, 30],
+    className: "",
+    html: `<div style="position:relative;width:28px;height:28px;pointer-events:none;"><span style="position:absolute;bottom:calc(100% + 2px);left:50%;transform:translateX(-50%);font-size:9px;font-weight:800;line-height:1.3;background:${colorEtiqueta};color:#ffffff;padding:1px 5px;border-radius:9999px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.4);letter-spacing:0.04em;">${etiqueta}</span><div style="box-sizing:border-box;width:28px;height:28px;border-radius:50%;background:${colorCirculo};border:2px solid #ffffff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 5px rgba(0,0,0,0.35);">${svg}</div></div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
   });
 }
 
-function iconoRider() {
-  return L.divIcon({
-    className: "dh-rider-pin",
-    html: `<div style="position:relative;display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-50%);pointer-events:none;"><span style="font-size:9px;font-weight:800;background:#16A34A;color:#ffffff;padding:1px 5px;border-radius:9999px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.4);margin-bottom:2px;letter-spacing:0.04em;">Vos</span><div style="width:24px;height:24px;border-radius:50%;background:#15803D;border:2px solid #ffffff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 5px rgba(0,0,0,0.35);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/></svg></div></div>`,
-    iconSize: [28, 40],
-    iconAnchor: [14, 30],
-  });
-}
+// Created once: Leaflet only needs to rebuild the DOM when the icon object changes.
+const PIN_POMBERITO = iconoEnVivo("Pomberito", "#C55221", "#7A2706", ICONO_POMBERITO);
+const PIN_RIDER = iconoEnVivo("Vos", "#16A34A", "#15803D", ICONO_BICI);
 
 function FitBoundsAlMontar({ pista }: { pista: TramoPista[] }) {
   const map = useMap();
@@ -155,15 +157,17 @@ export function TrackMapPreview({
       {puntoChaser ? (
         <Marker
           position={[puntoChaser.lat, puntoChaser.lng]}
-          icon={iconoPomberito()}
+          icon={PIN_POMBERITO}
           interactive={false}
         />
       ) : null}
       {puntoActual ? (
         <Marker
           position={[puntoActual.lat, puntoActual.lng]}
-          icon={iconoRider()}
+          icon={PIN_RIDER}
           interactive={false}
+          // Rider always drawn above the Pomberito when they overlap.
+          zIndexOffset={1000}
         />
       ) : null}
       <FitBoundsAlMontar pista={pista} />
