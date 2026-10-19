@@ -1,140 +1,65 @@
-# Contexto de sesión: DH Leaderboard (MongoDB local + Atlas para el deploy)
+# Contexto de sesión: DH Leaderboard (MongoDB local + Atlas, publicado en Vercel)
 
 > Archivo para retomar el trabajo en otra sesión. Leelo entero antes de seguir.
-> Última actualización: 2026-10-17. Rama de trabajo: `feat/mongodb` (pusheada a `origin`).
+> Última actualización: 2026-10-19. Rama de trabajo: `main` (publicado en **https://dh-gis.vercel.app**).
 
 ## 1. Qué es el proyecto
 
 Leaderboard de descensos de mountain bike (DH) medidos con GPS, en Next.js 16.4 (App Router, `cacheComponents: true`, Turbopack) + TypeScript + Tailwind + Leaflet. Proyecto académico de **Diseño de Bases de Datos (Universidad de Mendoza)**. Equipo: Augustus Rufino, Nicolas Beltran, Ariel Cohen, Josefina Porolli.
 
 Documentos de referencia en el repo:
-- `DH-especificacion-claude-code.md`: la especificación completa (pantallas, reglas GPS, modelo de datos, etapas 1 a 4, checklist final).
 - `CLAUDE.md`: decisión del docente y reglas de trabajo (sección "Base de datos"). **Manda sobre todo lo demás.**
+- `README.md`: cómo levantar todo, base local vs Atlas, cuentas, bicis, reseñas, `npm run explain`.
 - `REVISION.md`: **pendientes conocidos** (leerlo antes de arrancar).
-- `odd/tasks/*.md`: seguimiento de cada feature (C1–C6, conectar pantallas, guardar descensos).
-- `prompt.md`: el usuario escribe ahí cada pedido nuevo y dice "seguí lo que dice este archivo". **No se commitea.**
+- `docs/GUIA-EQUIPO.md`: guía para el equipo (colecciones, índices, qué es cada consulta C1–C13, glosario).
+- `docs/consultas-mongo.md`: guía de estudio de consultas para mongosh.
+- `docs/explain.md`: reporte de índices sin/con índice (lo genera `npm run explain`).
 
 ## 2. Reglas (resumen de CLAUDE.md y del usuario)
 
-- MongoDB **LOCAL** + Compass para desarrollo y evaluación. Única excepción: Atlas para el deploy en Vercel, solo por `MONGODB_URI` (ver CLAUDE.md).
-- Se evalúa: consultas, aggregations, relaciones, `$lookup`, índices, índices geoespaciales.
+- **Practicar y evaluar en MongoDB local** + Compass. **Atlas** solo para la app publicada y la presentación, por `MONGODB_URI`.
+- Se evalúa: consultas, aggregations, relaciones, `$lookup`, índices, índices geoespaciales, validación.
 - Driver oficial `mongodb`, **sin Mongoose**. Cada consulta tiene que poder pegarse en Compass.
 - Código simple y explicable (son estudiantes).
-- **Un paso por vez**: al terminar cada paso, explicar la causa en simple, qué cambió, cómo probarlo en el navegador y en Compass. Esperar el OK.
-- No tocar diseño visual ni lógica de GPS salvo lo mínimo. **No commitear sin aprobación; push solo cuando el usuario lo pide.** No tocar `main`.
-- No borrar datos ni colecciones.
-- Modo demo tiene que andar sí o sí. Mongo caído: mensaje claro, nunca pantalla rota.
+- **Un paso por vez**: explicar en simple, cómo probarlo en el navegador y en Compass. Esperar el OK.
+- **No commitear sin aprobación; push y merge a `main` solo cuando el usuario lo pide** (mostrando antes la lista de commits).
+- No borrar datos ni colecciones del usuario.
+- Modo demo tiene que andar sí o sí, sin cuenta y sin GPS. Mongo caído: mensaje claro, nunca pantalla rota.
 - Conventional commits, **sin** `Co-Authored-By` ni atribución de IA.
-- Respuestas cortas, una pregunta por vez, en español rioplatense. Código, comentarios y textos nuevos en inglés, salvo los mensajes de UI que el usuario dicta en español.
-- La documentación final (README) se hace **al final**.
+- Respuestas cortas, una pregunta por vez, en español rioplatense. Código y comentarios en inglés; textos de pantalla y docs del equipo en español.
+- Para trabajos grandes el usuario pide **un plan para Gemini** ("Gemini solo codea, no piensa"): implementarlo y probarlo primero en una copia del proyecto en el scratchpad, generar el plan desde ese código probado (archivos enteros o buscar/reemplazar exactos, un commit por paso) y aplicarlo sobre un clon limpio para verificar que coincide. Al volver, comparar la rama de Gemini contra la copia probada.
 
 ## 3. Gotchas del entorno
 
-- **Permisos bloquean `.env*`**: no leer ni imprimir `.env.local`. `MONGODB_URI` apunta a `mongodb://127.0.0.1:27017/dh`.
-- El servicio Windows `MongoDB` se inicia/detiene con `Start-Service` / `Stop-Service MongoDB` en PowerShell **de administrador**.
-- El usuario suele tener `npm run dev` en el puerto **3000**. No lo cierres. Next **no deja levantar un segundo `next dev`** en la misma carpeta: para probar otros estados usá `npm run build` + `npx next start -p 31xx` y **cerralo al terminar** (ya pasó que quedaron servidores colgados).
-- Para simular estados sin admin: `MONGODB_URI=mongodb://127.0.0.1:27999/dh` (apagado) o `.../dh_empty_check` (vacía). La variable de entorno pisa `.env.local`.
-- Con `cacheComponents: true`:
-  - Los datos de la base se leen con `await connection()` (está en `load()` de `src/lib/data/trail-data.ts`; **no** en `mongodb.ts`, porque los scripts corren fuera de Next).
-  - El layout de `/cerro/[id]` lee la base dentro de `<Suspense>`.
-  - Next **no desmonta** las páginas al navegar: las oculta con `<Activity>` (los efectos se limpian al ocultar y vuelven a correr al mostrar). Por eso los mapas de Leaflet usan `useIsVisible()` (`src/hooks/use-is-visible.ts`).
-- `useSyncExternalStore` necesita un snapshot estable: devolver el string crudo y parsear con `useMemo` (ver `use-ultimo-resultado.ts`).
-- En `npm run dev` cada GET sale dos veces por React Strict Mode. Es normal; en producción sale una vez.
-- `generate-params` en el log de dev es una medición interna de Next para rutas dinámicas; no hay `generateStaticParams` en el proyecto.
-- El repo **no usa Prettier**: no correrlo sobre archivos tocados (reformatea líneas ajenas). Los archivos son CRLF.
-- No hay `mongosh`. Probar consultas con `npm run queries` o `node --env-file=.env.local -e "..."`.
-- Para medir pedidos o recorrer el flujo sin navegador manual: `puppeteer-core` con el Chrome instalado (`C:/Program Files/Google/Chrome/Application/chrome.exe`), instalado en una carpeta temporal, nunca en el repo.
+- **No leer ni imprimir `.env*`.** El `.env.local` del usuario **apunta a Atlas**. Para la base local: `MONGODB_URI="mongodb://127.0.0.1:27017/dh" npx tsx scripts/seed.ts`. `npm run explain` tiene la URI local fija.
+- El clasificador de permisos bloquea borrar datos y leer Atlas desde la terminal: pedírselo al usuario (comando para la shell de Compass).
+- El servicio Windows `MongoDB` se inicia/detiene con `Start-Service` / `Stop-Service MongoDB` en PowerShell de administrador. Versión local: 8.0.
+- El usuario suele tener `npm run dev` en el puerto **3000**. No lo cierres. Usá otro puerto y cerralo al terminar (`taskkill /PID … /T /F`).
+- Copia del proyecto en el scratchpad: `git clone` + copiar `node_modules` con `robocopy /E /MT:32` (un junction rompe Turbopack; si usás junction, borralo con `rmdir`, nunca `rm -rf`). En la copia, `next build` falla en `/_global-error` (también sin cambios): usar `next dev`. Si `tsc` no encuentra `RouteContext`/`LayoutProps`, correr `npx next typegen`.
+- Con `cacheComponents: true`: datos con `await connection()`; Next no desmonta páginas (`<Activity>`), por eso el GPS vive en `DescentProvider`; `cookies()` es async. Un `notFound()`/`redirect()` dentro de `<Suspense>` no puede cambiar el status (ya salió el 200): las redirecciones fijas van en `next.config.ts`.
+- Lint con reglas del React Compiler: no llamar `setState` directo en el cuerpo de un efecto. `npm run lint` **ya falla** con 7 problemas ajenos: correr lint solo sobre los archivos tocados.
+- El repo no usa Prettier. No hay `mongosh` en la terminal: usar `node -e` con el driver o scripts `tsx`.
+- En Git Bash, rutas que empiezan con `/` como argumento se convierten: usar `MSYS_NO_PATHCONV=1`.
+- Vercel: el conector MCP no puede crear proyectos en `aucas-projects`; el usuario lo hace desde el panel.
 
 ## 4. Lo que está hecho
 
-### Commits en `feat/mongodb` (todos pusheados)
+- **GPS real**, anti-trampa en el servidor (`src/lib/descents/descent-rules.ts`), cuentas con contraseña (scrypt) y sesión en cookie httpOnly, bicis (una sola principal por índice único parcial), seed con volumen (70 riders, 105 bicis, 20.017 descensos, 306 reseñas) en local y Atlas.
+- **2026-10-18/19 (`feat/mejoras`, mergeado):** `npm run explain` + `docs/explain.md`; `$jsonSchema` en todas las colecciones (`users`, `bikes`, `sessions`, `trails`, `descents`, `reviews`); reseñas reales desde la pantalla de resultado (`POST /api/reviews`, solo descenso propio, válido y con GPS real, índice único parcial `one_review_per_descent`); reenvío del guardado "pendiente" a los 30 s; mensajes de la API en español; ids viejos redirigidos en `next.config.ts`.
+- Consultas C1–C13 en `src/lib/queries/` (tabla en `docs/GUIA-EQUIPO.md`). 170 tests (`npx vitest run`), `tsc` limpio.
 
-| Commit | Qué |
-|---|---|
-| `0fe697b` … `33b266a` | Base: docs a Mongo local, cliente + seed, consultas C1–C6, C3 agrupada por persona |
-| `6cd7fcf` | Pantallas leen de MongoDB por rutas API de lectura, URLs por slug, tres estados de la base |
-| `9b003bc` | `turbopack.root` fijado |
-| `896fb1f` | Fix bucle infinito de `getSnapshot` en el resultado |
-| `eed4b3d` | Fix mapa que explotaba al volver a `/mapa` (Leaflet + `<Activity>`), `fitBounds` sin animación |
-| `1c125ca` | Guardar descensos: `POST /api/descents` con validación en el servidor |
-| `4868a8f` | Layout de `/cerro/[id]` con `connection()` + `Suspense`; sendero compartido por contexto (menos GET) |
-| (último) | docs: `REVISION.md`, este archivo y la referencia en `CLAUDE.md` |
+## 5. Lo que falta
 
-### Piezas clave
+1. **El usuario:** correr `npm run seed:prod` (con rol "Atlas admin" temporal) para que Atlas tenga los validadores y el índice de reseñas.
+2. **El usuario:** borrar en la local los descensos `check-fast-1`, `check-ok-1`, `check-sos-1` (comando en la shell de Compass) y pasar ese ítem de `REVISION.md` a "Fixed".
+3. **El usuario:** probar su cuenta y una corrida con GPS real en el cerro.
+4. Guion de presentación con mongosh (acordado: las consultas se muestran en mongosh, no en una pantalla de la app).
+5. Freeride guardado en Mongo (colección `rides` con `LineString`), opción B acordada.
+6. Después de la presentación: sacar `0.0.0.0/0` de Atlas y cambiar la contraseña del usuario de la base (y en Vercel).
 
-- `src/lib/mongodb.ts`: `getDb()`, `isDbAvailable()` (no lanza, ping 3 s), `closeDb()`.
-- `src/lib/queries/`: C1–C6 + C7 lista de senderos, C8 sendero por slug, C9 reviews con `$lookup`. C3 tiene `INCLUDE_DEMO_RUNS` (único lugar para excluir corridas demo del ranking).
-- `src/lib/data/trail-data.ts`: decide el estado de la base (`ok` / `offline` con mock / `empty` sin mock) y mapea documentos a los tipos de la UI. `legacyIdToSlug()` es el único lugar con los ids viejos del mock.
-- Rutas: `GET /api/trails`, `/api/trails/[slug]`, `/leaderboard`, `/reviews`, `/nearby`, `/api/health`; `POST /api/descents`.
-- `src/lib/descents/validate-descent.ts`: validación del body (400 con datos imposibles).
-- `src/providers/trail-provider.tsx`: el layout comparte el sendero cargado en el servidor; sendero y cronómetro no lo vuelven a pedir.
-- `src/hooks/use-guardar-descenso.ts`: guarda una sola vez por corrida (`runId`), con marca en sessionStorage.
-- `src/components/db-status/DbStatusNotice.tsx`: barra "Sin conexión a la base…" y mensaje "La base está vacía…".
+## 6. Cómo retomar
 
-### Modelo de datos (base `dh`)
-
-- `users` (11): incluye **"Demo rider"**, el usuario de prueba con el que se guardan las corridas de la app.
-- `trails` (4): ahora con `minValidTimeS` (Pequia 30; Cantera 60, Zampal 30, Quebrada Seca 45 son provisorios). Solo Pequia es real y `visibleOnMap`.
-- `descents`: 18 del seed + los de la app (`source: "app"`, `isDemo: true`, `runId`, `bikeType: null`).
-- `reviews` (6).
-- Índices: `trails` 2dsphere en `start` y único en `slug`; `users` único en `displayName`; `descents` `{trailId, status, validated, durationMs}` y **único parcial en `runId`**; `reviews` `{trailId, createdAt: -1}`.
-
-### Reglas del guardado (servidor)
-
-- SOS → `status: "interrupted"`, `validated: false`, `invalidReason: "sos"`.
-- Menos de `minValidTimeS` → `interrupted`, `validated: false`, `"too fast"`. No entra al ranking.
-- Si no → `completed`, `validated: true`.
-- Mongo apagado → 503 "No se pudo guardar el descenso (sin conexión a la base)".
-- Hoy **todas** las corridas son simuladas (no hay GPS real), así que todas van con `isDemo: true` y se ven con la etiqueta "Demo".
-
-### Mediciones (recorrido mapa → sendero → cronómetro → resultado → leaderboard → mapa)
-
-GET a `/api`: dev 12 → 8, producción 6 → 4. Flujo completo sin errores de consola en dev y producción, con datos y con Mongo apagado.
-
-## 5. En qué quedamos
-
-### 2026-10-17: preparando el deploy (Vercel + Atlas)
-
-- Estrategia doble (`a38cdc5`): local para desarrollo y evaluación; Atlas para Vercel. `npm run seed:prod` carga Atlas leyendo `.env.production` (ignorado por `.env*` en `.gitignore`).
-- Plan de deploy en pasos (0 a 9): primero arreglar, después `npm run build` + `npm start`, push, Atlas `0.0.0.0/0`, importar en Vercel, `MONGODB_URI`, región `gru1`, `/api/health`, prueba con celular y, después de la presentación, sacar `0.0.0.0/0` y rotar la contraseña.
-- Paso 0, arreglado (sin commit): el mapa en vivo del cronómetro tenía 0 px de alto (`h-full` dentro de un item flex sin altura definida). Ahora va dentro de un `absolute inset-0`.
-- Paso 0, arreglado (sin commit): los pines "Vos" y "Pomberito" quedaban corridos del sendero (`translate(-50%,-50%)` sumado a `iconAnchor [14,30]`). Ahora el centro del círculo es el punto GPS (`iconAnchor [14,14]`) y la etiqueta flota con `position:absolute`. "Vos" se dibuja encima (`zIndexOffset`).
-- Falta del Paso 0: recorrer el flujo sin errores de consola y `/api/health` contra Atlas.
-- No hay `sd` en el entorno (la regla global lo pide); usar Edit.
-
-### 2026-10-07
-
-Cerramos el día con todo pusheado. El usuario todavía no probó a mano en su navegador los últimos arreglos.
-
-**Decisiones pendientes del usuario:**
-- ¿Borrar los descensos de prueba `check-fast-1`, `check-ok-1`, `check-sos-1`? Por `check-ok-1` (45 s), "Demo rider" va primero en el ranking de Pequia.
-- Valores de `minValidTimeS` para Cantera, Zampal y Quebrada Seca.
-- ¿Las corridas demo cuentan para el ranking en la presentación? (hoy sí: `INCLUDE_DEMO_RUNS = true`).
-
-**Pedido del usuario para el próximo paso (probado a mano con un descenso de 5 s):**
-- Si el descenso **no es válido** (tiempo no creíble: "too fast", o SOS), la pantalla de resultado **no tiene que ofrecer escribir una review**. El formulario de opinión solo aparece cuando el descenso se hizo en un tiempo creíble (válido). Hoy el formulario se muestra siempre. Cuando se haga el `POST` de reviews, el servidor también tiene que rechazarla si el descenso de ese usuario no es válido (no confiar en el cliente).
-
-**Pendientes técnicos** (detalle en `REVISION.md`):
-- `/cerro/zzz` responde 200 en vez de 404.
-- Fallo de red (no de base) sin mensaje claro en mapa, reviews y leaderboard.
-- Errores 400/404 del POST en inglés.
-- "Guardando descenso…" puede quedar trabado si se recarga a mitad del guardado.
-- Revisar a mano el mensaje de sin conexión en la pantalla de resultado.
-
-## 6. Lo que falta (según la especificación)
-
-Etapa 2:
-1. Guardar reviews desde la pantalla de resultado (`POST`), y que el promedio se calcule con C5 (no denormalizado).
-2. Validación con `$jsonSchema` en `trails` y `descents`.
-3. Seed de volumen (decenas de miles de descensos `source: "seed"`) y `explain("executionStats")` de al menos 3 consultas antes/después de los índices, documentado.
-
-Etapas 3 y 4: GPS real (proximidad 30 m con C2, arranque a 3 m, fin automático a 15 m, SOS), login con Google, anti-trampa más completo, rastro (`track`), pulido visual. Cuando haya GPS real, `isDemo` tiene que salir del modo de la corrida y no ir siempre en `true`.
-
-Al final: README con consultas, índices justificados y mediciones; checklist de la sección 12 de la especificación; PR solo cuando el usuario lo pida.
-
-## 7. Cómo retomar
-
-1. Leer `CLAUDE.md`, este archivo, `REVISION.md` y `prompt.md`.
-2. `git status` y `git log --oneline -12` en `feat/mongodb`.
-3. Confirmar Mongo: `npm run queries` imprime las tablas. Si la base está vacía: `npm run seed` (no borra los descensos de la app).
-4. Seguir el pedido de `prompt.md`, de a un paso, y esperar el OK.
+1. Leer `CLAUDE.md`, este archivo y `REVISION.md`.
+2. `git status` y `git log --oneline -12` en `main`.
+3. Confirmar Mongo local: `MONGODB_URI="mongodb://127.0.0.1:27017/dh" npx tsx scripts/queries.ts` imprime las tablas.
+4. Seguir el pedido del usuario, de a un paso, y esperar el OK.
