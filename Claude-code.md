@@ -33,7 +33,7 @@ Documentos de referencia en el repo:
 
 ## 3. Gotchas del entorno
 
-- **No leer ni imprimir `.env*`.** El `.env.local` del usuario **apunta a Atlas**. Para la base local: `MONGODB_URI="mongodb://127.0.0.1:27017/dh" npx tsx scripts/seed.ts`. `npm run explain` tiene la URI local fija.
+- **No leer ni imprimir `.env*`.** El `.env.local` del usuario **apunta a Atlas** (host `dh.35crots.mongodb.net`, confirmado 2026-10-19) y **no existe `.env.production`**: en su compu `npm run seed` carga Atlas y `npm run seed:prod` falla. Para ver a qué base apunta sin mostrar la contraseña: `node --env-file=.env.local -e "console.log(new URL(process.env.MONGODB_URI).host)"` (que lo corra el usuario). Para la base local: `MONGODB_URI="mongodb://127.0.0.1:27017/dh" npx tsx scripts/seed.ts`. `npm run explain` tiene la URI local fija.
 - El clasificador de permisos bloquea borrar datos y leer Atlas desde la terminal: pedírselo al usuario (comando para la shell de Compass).
 - El servicio Windows `MongoDB` se inicia/detiene con `Start-Service` / `Stop-Service MongoDB` en PowerShell de administrador. Versión local: 8.0.
 - El usuario suele tener `npm run dev` en el puerto **3000**. No lo cierres. Usá otro puerto y cerralo al terminar (`taskkill /PID … /T /F`).
@@ -48,15 +48,14 @@ Documentos de referencia en el repo:
 
 - **GPS real**, anti-trampa en el servidor (`src/lib/descents/descent-rules.ts`), cuentas con contraseña (scrypt) y sesión en cookie httpOnly, bicis (una sola principal por índice único parcial), seed con volumen (70 riders, 105 bicis, 20.017 descensos, 306 reseñas) en local y Atlas.
 - **2026-10-18/19 (`feat/mejoras`, mergeado):** `npm run explain` + `docs/explain.md`; `$jsonSchema` en todas las colecciones (`users`, `bikes`, `sessions`, `trails`, `descents`, `reviews`); reseñas reales desde la pantalla de resultado (`POST /api/reviews`, solo descenso propio, válido y con GPS real, índice único parcial `one_review_per_descent`); reenvío del guardado "pendiente" a los 30 s; mensajes de la API en español; ids viejos redirigidos en `next.config.ts`.
+- 2026-10-19: Atlas recargado con el seed (validadores en todas las colecciones e índice `one_review_per_descent`; el usuario de la base volvió a "Read and write"). Descensos `check-*` borrados de la local.
 - Consultas C1–C13 en `src/lib/queries/` (tabla en `docs/GUIA-EQUIPO.md`). 170 tests (`npx vitest run`), `tsc` limpio.
 
 ## 5. Lo que falta
 
-1. **El usuario:** correr `npm run seed:prod` (con rol "Atlas admin" temporal) para que Atlas tenga los validadores y el índice de reseñas.
-2. **El usuario:** borrar en la local los descensos `check-fast-1`, `check-ok-1`, `check-sos-1` (comando en la shell de Compass) y pasar ese ítem de `REVISION.md` a "Fixed".
-3. **El usuario:** probar su cuenta y una corrida con GPS real en el cerro.
-4. Freeride guardado en Mongo (colección `rides` con `LineString`), opción B acordada.
-5. Después de la presentación: sacar `0.0.0.0/0` de Atlas y cambiar la contraseña del usuario de la base (y en Vercel).
+1. **El usuario:** probar su cuenta y una corrida con GPS real en el cerro.
+2. Freeride guardado en Mongo (colección `rides` con `LineString`), opción B acordada.
+3. Después de la presentación: sacar `0.0.0.0/0` de Atlas y cambiar la contraseña del usuario de la base (y en Vercel).
 
 ## 6. Cómo retomar
 
