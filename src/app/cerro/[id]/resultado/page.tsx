@@ -15,7 +15,8 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { formatDistance, formatDuration, formatSpeed } from "@/lib/format";
-import { useGuardarDescenso } from "@/hooks/use-guardar-descenso";
+import { crearRunId, useGuardarDescenso } from "@/hooks/use-guardar-descenso";
+import { MAX_COMMENT_LENGTH } from "@/lib/reviews/validate-review";
 import { useUltimoResultado } from "@/hooks/use-ultimo-resultado";
 import { useTrail } from "@/providers/trail-provider";
 
@@ -46,10 +47,38 @@ export default function ResultadoPage() {
   const [texto, setTexto] = useState("");
   const [calificacion, setCalificacion] = useState(0);
   const [enviado, setEnviado] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [errorResena, setErrorResena] = useState<string | null>(null);
 
+  // POST /api/reviews. The server checks again that the descent is ours, valid and real GPS.
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setEnviado(true);
+    if (!resultado || calificacion === 0) return;
+    setEnviando(true);
+    setErrorResena(null);
+    fetch("/api/reviews", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        runId: crearRunId(id, resultado.guardadoEn),
+        rating: calificacion,
+        comment: texto,
+      }),
+    })
+      .then(async (response) => {
+        const json = await response.json();
+        if (response.ok && json.ok) {
+          setEnviado(true);
+        } else {
+          setErrorResena(json.message ?? "No se pudo guardar la reseña.");
+        }
+      })
+      .catch(() => {
+        setErrorResena("No se pudo guardar la reseña (sin conexión).");
+      })
+      .finally(() => {
+        setEnviando(false);
+      });
   }
 
   if (!resultado) {
@@ -64,6 +93,9 @@ export default function ResultadoPage() {
       </main>
     );
   }
+
+  // Reviews only for a valid run measured with real GPS (the server checks it again).
+  const puedeResenar = guardado?.outcome === "saved" && resultado.modo === "gps";
 
   const criatura = cerro.criatura;
   const escapo = criatura
@@ -189,7 +221,8 @@ export default function ResultadoPage() {
         <Trophy className="h-5 w-5" /> Ver mi Posición en el Ranking
       </Button>
 
-      {/* Dejá tu opinión */}
+      {/* Dejá tu opinión: only after a valid real-GPS run */}
+      {puedeResenar ? (
       <Card className="flex flex-col gap-3 border-border bg-surface">
         <h2 className="text-sm font-bold uppercase tracking-wider text-text">
           Calificá el sendero
@@ -221,20 +254,25 @@ export default function ResultadoPage() {
             </div>
             <textarea
               value={texto}
+              maxLength={MAX_COMMENT_LENGTH}
               onChange={(e) => setTexto(e.target.value)}
               placeholder="¿Cómo estaba el terreno? Saltos, barro, piedras…"
               className="min-h-20 w-full rounded-xl border border-border bg-surface-muted/60 p-3 text-sm text-text outline-none placeholder:text-text-muted focus:border-primary focus:ring-1 focus:ring-primary"
             />
+            {errorResena ? (
+              <p className="text-sm font-medium text-danger">{errorResena}</p>
+            ) : null}
             <Button
               type="submit"
               variant="secondary"
-              disabled={calificacion === 0}
+              disabled={calificacion === 0 || enviando}
             >
-              Enviar reseña
+              {enviando ? "Enviando…" : "Enviar reseña"}
             </Button>
           </form>
         )}
       </Card>
+      ) : null}
 
       <Button
         variant="ghost"

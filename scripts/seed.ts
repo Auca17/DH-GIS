@@ -81,6 +81,15 @@ async function createIndexes() {
   // Reviews of one trail, newest first: filter by trailId, sort by createdAt desc.
   await db.collection("reviews").createIndex({ trailId: 1, createdAt: -1 });
 
+  // At most ONE review per descent (POST /api/reviews). Seed reviews have no
+  // descentId, so the index only covers documents that have one (partial index).
+  await db
+    .collection("reviews")
+    .createIndex(
+      { descentId: 1 },
+      { unique: true, partialFilterExpression: { descentId: { $type: "objectId" } }, name: "one_review_per_descent" },
+    );
+
   // Unique email: two accounts can never share one. Seed riders have no email,
   // so the index only covers documents that have one (partial index).
   await db
@@ -217,6 +226,20 @@ const VALIDATORS: Record<string, object> = {
       isDemo: { bsonType: "bool" },
       track: { bsonType: "array" },
       runId: { bsonType: "string" },
+      createdAt: { bsonType: "date" },
+      source: { enum: ["seed", "app"] },
+    },
+  },
+  reviews: {
+    bsonType: "object",
+    required: ["trailId", "userId", "rating", "comment", "createdAt"],
+    properties: {
+      trailId: { bsonType: "objectId" },
+      userId: { bsonType: "objectId" },
+      // Only reviews made from the app point to the descent they review.
+      descentId: { bsonType: "objectId" },
+      rating: { bsonType: "int", minimum: 1, maximum: 5 },
+      comment: { bsonType: "string", maxLength: 500 },
       createdAt: { bsonType: "date" },
       source: { enum: ["seed", "app"] },
     },
