@@ -96,7 +96,7 @@ rechaza** (error 121), aunque venga de Compass. Las reglas están en `scripts/se
 ## 7. Qué podemos hacer cada uno
 
 **Practicar** (lo más importante):
-1. Levantá la base local y cargá los datos (README).
+1. Levantá la base local y cargá los datos: paso a paso en [PRACTICAR.md](PRACTICAR.md).
 2. Abrí `docs/consultas-mongo.md` y hacé las consultas en la shell de Compass (mongosh).
 3. Agarrá una consulta de la tabla de arriba, abrí su archivo en `src/lib/queries/`, copiá el pipeline del
    comentario y corrélo en Compass. Después cambiale algo (otro sendero, otro límite, sacá una etapa) y mirá qué pasa.
