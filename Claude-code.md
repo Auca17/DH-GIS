@@ -11,6 +11,7 @@ Documentos de referencia en el repo:
 - `CLAUDE.md`: decisión del docente y reglas de trabajo (sección "Base de datos"). **Manda sobre todo lo demás.**
 - `README.md`: cómo levantar todo, base local vs Atlas, cuentas, bicis, reseñas, `npm run explain`.
 - `REVISION.md`: **pendientes conocidos** (leerlo antes de arrancar).
+- `docs/PRACTICAR.md`: instalación paso a paso para que el equipo practique en su base local.
 - `docs/GUIA-EQUIPO.md`: guía para el equipo (colecciones, índices, qué es cada consulta C1–C13, glosario).
 - `docs/consultas-mongo.md`: guía de estudio de consultas para mongosh.
 - `docs/explain.md`: reporte de índices sin/con índice (lo genera `npm run explain`).
@@ -19,6 +20,7 @@ Documentos de referencia en el repo:
 
 - **Practicar y evaluar en MongoDB local** + Compass. **Atlas** solo para la app publicada y la presentación, por `MONGODB_URI`.
 - Se evalúa: consultas, aggregations, relaciones, `$lookup`, índices, índices geoespaciales, validación.
+- La "presentación" es informal: sentarse con el profe, explicar lo que hicieron y correr alguna consulta en mongosh. No hace falta guion ni pantalla de estadísticas (descartado: las consultas se muestran en mongosh).
 - Driver oficial `mongodb`, **sin Mongoose**. Cada consulta tiene que poder pegarse en Compass.
 - Código simple y explicable (son estudiantes).
 - **Un paso por vez**: explicar en simple, cómo probarlo en el navegador y en Compass. Esperar el OK.
@@ -53,9 +55,8 @@ Documentos de referencia en el repo:
 1. **El usuario:** correr `npm run seed:prod` (con rol "Atlas admin" temporal) para que Atlas tenga los validadores y el índice de reseñas.
 2. **El usuario:** borrar en la local los descensos `check-fast-1`, `check-ok-1`, `check-sos-1` (comando en la shell de Compass) y pasar ese ítem de `REVISION.md` a "Fixed".
 3. **El usuario:** probar su cuenta y una corrida con GPS real en el cerro.
-4. Guion de presentación con mongosh (acordado: las consultas se muestran en mongosh, no en una pantalla de la app).
-5. Freeride guardado en Mongo (colección `rides` con `LineString`), opción B acordada.
-6. Después de la presentación: sacar `0.0.0.0/0` de Atlas y cambiar la contraseña del usuario de la base (y en Vercel).
+4. Freeride guardado en Mongo (colección `rides` con `LineString`), opción B acordada.
+5. Después de la presentación: sacar `0.0.0.0/0` de Atlas y cambiar la contraseña del usuario de la base (y en Vercel).
 
 ## 6. Cómo retomar
 
