@@ -5,17 +5,29 @@ import type { ResultadoDescenso } from "@/lib/types";
 
 // Saves the finished run with POST /api/descents, only ONCE per run, and remembers
 // what happened in sessionStorage (key per trail slug):
-//   { runId, outcome: "pending" | "saved" | "invalid" | "failed", invalidReason?, message? }
+//   { runId, outcome: "pending" | "saved" | "invalid" | "failed", invalidReason?, message?, sentAt? }
 //
 // Why sessionStorage: React Strict Mode runs effects twice in development and Next's
 // <Activity> runs them again when a page is shown again. If the stored runId equals
 // the current one, the POST was already sent and we skip it.
+//
+// Timeout: a "pending" mark older than PENDING_TIMEOUT_MS means the page was closed or
+// reloaded while the POST was in flight, so the answer never arrived. We send the run
+// again: runId makes the save idempotent, so if it was already saved the server answers
+// with what it stored and does not create a second descent. The fetch itself also gives
+// up after PENDING_TIMEOUT_MS, so "Sincronizando…" can never stay forever.
+
+export const PENDING_TIMEOUT_MS = 30_000;
+
+const TIMEOUT_MESSAGE = "No pudimos confirmar si se guardó el descenso. Revisá el ranking en un rato.";
 
 export interface GuardadoDescenso {
   runId: string;
   outcome: "pending" | "saved" | "invalid" | "failed";
   invalidReason?: string | null;
   message?: string;
+  /** Only for "pending": when the POST was sent (Date.now()). */
+  sentAt?: number;
 }
 
 // One id per run: the slug plus the stop timestamp. The server uses it to avoid duplicates.
@@ -67,6 +79,13 @@ function parse(raw: string | null): GuardadoDescenso | null {
   }
 }
 
+/** True when this stored save still blocks a new POST for runId (see the timeout above). */
+export function yaEnviado(stored: GuardadoDescenso | null, runId: string, now: number): boolean {
+  if (stored?.runId !== runId) return false;
+  if (stored.outcome !== "pending") return true;
+  return now - (stored.sentAt ?? 0) <= PENDING_TIMEOUT_MS;
+}
+
 /** Read only: what happened with the save of THIS run (null if nothing was stored for it). */
 export function useGuardadoDescenso(slug: string, runId: string | null): GuardadoDescenso | null {
   const raw = useSyncExternalStore(
@@ -101,11 +120,11 @@ export function useGuardarDescenso(
   useEffect(() => {
     if (runId === null || guardadoEn === null) return;
 
-    // Already sent (or being sent) for this run: do nothing.
-    if (parse(readRaw(slug))?.runId === runId) return;
+    // Already sent (or being sent, and not timed out) for this run: do nothing.
+    if (yaEnviado(parse(readRaw(slug)), runId, Date.now())) return;
 
     // Mark it as pending BEFORE the fetch, so a second run of this effect skips the POST.
-    write(slug, { runId, outcome: "pending" });
+    write(slug, { runId, outcome: "pending", sentAt: Date.now() });
 
     const body = {
       runId,
@@ -127,6 +146,8 @@ export function useGuardarDescenso(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
+      // Gives up after the timeout: the .catch below shows TIMEOUT_MESSAGE.
+      signal: AbortSignal.timeout(PENDING_TIMEOUT_MS),
     })
       .then(async (response) => {
         const json = await response.json();
@@ -138,8 +159,9 @@ export function useGuardarDescenso(
           write(slug, { runId, outcome: "invalid", invalidReason: json.data.invalidReason });
         }
       })
-      .catch(() => {
-        write(slug, { runId, outcome: "failed" });
+      .catch((error: unknown) => {
+        const timedOut = error instanceof DOMException && error.name === "TimeoutError";
+        write(slug, { runId, outcome: "failed", message: timedOut ? TIMEOUT_MESSAGE : undefined });
       });
   }, [
     slug,
