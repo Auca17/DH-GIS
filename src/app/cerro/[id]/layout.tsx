@@ -1,7 +1,7 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 import { DbStatusNotice } from "@/components/db-status/DbStatusNotice";
-import { legacyIdToSlug, loadTrail } from "@/lib/data/trail-data";
+import { loadTrail } from "@/lib/data/trail-data";
 import { DescentProvider } from "@/providers/descent-provider";
 import { TrailProvider } from "@/providers/trail-provider";
 
@@ -13,6 +13,14 @@ import { TrailProvider } from "@/providers/trail-provider";
 // arrives at request time must be inside <Suspense>: Next.js sends the fallback right
 // away and streams the real content when the database answers. (A loading.tsx file
 // would not help here: it only wraps the page, not this layout.)
+//
+// Known limitation: an unknown slug shows the not-found page but the HTTP status is
+// 200, not 404. Once the <Suspense> fallback is sent, the status is already on its
+// way and cannot change; Next.js adds <meta name="robots" content="noindex"> instead
+// (node_modules/next/dist/docs/01-app/02-guides/streaming.md, "The HTTP contract").
+// A real 404 would need a database query before any <Suspense> (in proxy.ts) on every
+// request, only for a status code that no screen shows. Old ids ("pequia") are
+// redirected in next.config.ts, before rendering.
 export default function CerroLayout({
   params,
   children,
@@ -41,13 +49,6 @@ async function CerroContent({
   children: ReactNode;
 }) {
   const { id } = await params;
-
-  // Old links used ids like "pequia". Send them to the slug URL. A layout does not
-  // know the rest of the path, so old sub-paths (/cronometro, ...) land on the trail page.
-  const slug = legacyIdToSlug(id);
-  if (slug && slug !== id) {
-    redirect(`/cerro/${slug}`);
-  }
 
   const { dbStatus, data: cerro } = await loadTrail(id);
 

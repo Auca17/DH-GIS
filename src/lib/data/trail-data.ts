@@ -20,14 +20,6 @@ import { diaEnMendoza } from "@/lib/format";
 export type DbStatus = "ok" | "offline" | "empty";
 export type DbResult<T> = { dbStatus: DbStatus; data: T | null };
 
-// Old URLs used the mock ids ("pequia"). The URLs now use the slug.
-// This is the only place that knows the old ids: it returns the slug, or null
-// when `id` is not an old id (for example when it already is a slug).
-export function legacyIdToSlug(id: string): string | null {
-  const cerro = cerros.find((c) => c.id === id);
-  return cerro ? cerro.slug : null;
-}
-
 // ---------- Status decision ----------
 
 // Runs `fromDb` when Mongo is healthy and has trails; otherwise decides the status.
