@@ -108,6 +108,12 @@ El código es el mismo para las dos bases: lo único que cambia es `MONGODB_URI`
 - Consultas nuevas para Compass: C10 (mejor tiempo por nivel), C11 (descensos por ciudad), C12 (descensos por tipo de bici) y C13 (perfil con sus bicis). `npm run queries` imprime C10 a C12.
 - Los archivos `.env*` no se suben a git (salvo `.env.example`).
 
+## Índices: antes y después (explain)
+
+- `npm run explain` mide C3, C4 y C9 con `explain("executionStats")` dos veces: forzando la lectura de toda la colección (`hint({ $natural: 1 })`, COLLSCAN) y dejando que MongoDB use el índice (IXSCAN). No borra ni crea índices.
+- Corre **solo contra la base local** (la dirección está fija en `scripts/explain.ts`) y escribe el resultado en `docs/explain.md`.
+- C1 (`$geoNear`) no tiene versión "sin índice": MongoDB no la deja correr sin el índice 2dsphere.
+
 ## Equipo
 
 Augustus Rufino, Nicolas Beltran, Ariel Cohen, Josefina Porolli.

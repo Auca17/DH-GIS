@@ -10,6 +10,7 @@
     "seed": "tsx --env-file=.env.local scripts/seed.ts",
     "seed:prod": "tsx --env-file=.env.production scripts/seed.ts",
     "queries": "tsx --env-file=.env.local scripts/queries.ts",
+    "explain": "tsx scripts/explain.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
