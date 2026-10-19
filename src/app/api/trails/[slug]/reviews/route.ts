@@ -11,7 +11,7 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/trails/[slu
   // "empty" has no data on purpose (the screen shows the seed message).
   // With "ok" or "offline", no data means the trail does not exist.
   if (data === null && dbStatus !== "empty") {
-    return Response.json({ ok: false, dbStatus, message: "Trail not found." }, { status: 404 });
+    return Response.json({ ok: false, dbStatus, message: "No encontramos ese sendero." }, { status: 404 });
   }
   return Response.json({ ok: true, dbStatus, data });
 }

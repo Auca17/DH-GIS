@@ -70,7 +70,7 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return Response.json({ ok: false, message: "The body is not valid JSON." }, { status: 400 });
+    return Response.json({ ok: false, message: "Los datos no llegaron bien." }, { status: 400 });
   }
   const check = validateDescentBody(body);
   if (!check.ok) {
@@ -89,7 +89,7 @@ export async function POST(request: Request) {
     // 3. Find the trail that the descent will reference.
     const trail = await db.collection("trails").findOne({ slug: input.trailSlug });
     if (!trail) {
-      return Response.json({ ok: false, message: "Trail not found." }, { status: 404 });
+      return Response.json({ ok: false, message: "No encontramos ese sendero." }, { status: 404 });
     }
 
     // 3b. Who is saving it. The rider ALWAYS comes from the session cookie, never
@@ -121,7 +121,7 @@ export async function POST(request: Request) {
       const demoUser = await db.collection("users").findOne({ displayName: DEMO_USER_NAME });
       if (!demoUser) {
         return Response.json(
-          { ok: false, dbStatus: "empty", message: 'Run "npm run seed" to create the demo user.' },
+          { ok: false, dbStatus: "empty", message: "Falta cargar los datos de ejemplo (npm run seed)." },
           { status: 503 },
         );
       }

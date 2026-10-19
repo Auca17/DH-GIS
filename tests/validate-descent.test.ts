@@ -69,32 +69,32 @@ describe("validateDescentBody", () => {
     it("fails when body is not an object or is null", () => {
       expect(validateDescentBody(null)).toEqual({
         ok: false,
-        message: "The body must be a JSON object.",
+        message: "Faltan los datos del descenso.",
       });
       expect(validateDescentBody("not-json")).toEqual({
         ok: false,
-        message: "The body must be a JSON object.",
+        message: "Faltan los datos del descenso.",
       });
       expect(validateDescentBody(123)).toEqual({
         ok: false,
-        message: "The body must be a JSON object.",
+        message: "Faltan los datos del descenso.",
       });
     });
 
     it("fails when runId is missing, empty, or whitespace", () => {
       expect(validateDescentBody({ ...validBasePayload, runId: "" })).toEqual({
         ok: false,
-        message: "runId must use only lowercase letters, digits and dashes.",
+        message: "El identificador de la corrida no es válido.",
       });
       expect(validateDescentBody({ ...validBasePayload, runId: "   " })).toEqual({
         ok: false,
-        message: "runId must use only lowercase letters, digits and dashes.",
+        message: "El identificador de la corrida no es válido.",
       });
       expect(
         validateDescentBody({ ...validBasePayload, runId: undefined }),
       ).toEqual({
         ok: false,
-        message: "runId must use only lowercase letters, digits and dashes.",
+        message: "El identificador de la corrida no es válido.",
       });
     });
 
@@ -103,13 +103,13 @@ describe("validateDescentBody", () => {
         validateDescentBody({ ...validBasePayload, trailSlug: "" }),
       ).toEqual({
         ok: false,
-        message: "trailSlug must use only lowercase letters, digits and dashes.",
+        message: "El sendero no es válido.",
       });
       expect(
         validateDescentBody({ ...validBasePayload, trailSlug: null }),
       ).toEqual({
         ok: false,
-        message: "trailSlug must use only lowercase letters, digits and dashes.",
+        message: "El sendero no es válido.",
       });
     });
 
@@ -118,7 +118,7 @@ describe("validateDescentBody", () => {
         validateDescentBody({ ...validBasePayload, startedAt: true }),
       ).toEqual({
         ok: false,
-        message: "startedAt must be an ISO string or a number of milliseconds.",
+        message: "Falta la hora de inicio del descenso.",
       });
       expect(
         validateDescentBody({
@@ -127,7 +127,7 @@ describe("validateDescentBody", () => {
         }),
       ).toEqual({
         ok: false,
-        message: "startedAt is not a valid date.",
+        message: "La hora de inicio del descenso no es una fecha válida.",
       });
     });
 
@@ -136,25 +136,25 @@ describe("validateDescentBody", () => {
         validateDescentBody({ ...validBasePayload, durationMs: 0 }),
       ).toEqual({
         ok: false,
-        message: "durationMs must be a number between 1 and 7200000 (2 hours).",
+        message: "El tiempo del descenso tiene que estar entre 1 ms y 2 horas.",
       });
       expect(
         validateDescentBody({ ...validBasePayload, durationMs: -500 }),
       ).toEqual({
         ok: false,
-        message: "durationMs must be a number between 1 and 7200000 (2 hours).",
+        message: "El tiempo del descenso tiene que estar entre 1 ms y 2 horas.",
       });
       expect(
         validateDescentBody({ ...validBasePayload, durationMs: "45000" }),
       ).toEqual({
         ok: false,
-        message: "durationMs must be a number between 1 and 7200000 (2 hours).",
+        message: "El tiempo del descenso tiene que estar entre 1 ms y 2 horas.",
       });
       expect(
         validateDescentBody({ ...validBasePayload, durationMs: NaN }),
       ).toEqual({
         ok: false,
-        message: "durationMs must be a number between 1 and 7200000 (2 hours).",
+        message: "El tiempo del descenso tiene que estar entre 1 ms y 2 horas.",
       });
     });
 
@@ -163,13 +163,13 @@ describe("validateDescentBody", () => {
         validateDescentBody({ ...validBasePayload, avgSpeedKmh: -1 }),
       ).toEqual({
         ok: false,
-        message: "avgSpeedKmh must be a number greater than or equal to 0.",
+        message: "La velocidad promedio tiene que ser un número mayor o igual a 0.",
       });
       expect(
         validateDescentBody({ ...validBasePayload, avgSpeedKmh: "25" }),
       ).toEqual({
         ok: false,
-        message: "avgSpeedKmh must be a number greater than or equal to 0.",
+        message: "La velocidad promedio tiene que ser un número mayor o igual a 0.",
       });
     });
 
@@ -178,13 +178,13 @@ describe("validateDescentBody", () => {
         validateDescentBody({ ...validBasePayload, elevationChangeM: "flat" }),
       ).toEqual({
         ok: false,
-        message: "elevationChangeM must be a number.",
+        message: "El desnivel tiene que ser un número.",
       });
       expect(
         validateDescentBody({ ...validBasePayload, elevationChangeM: Infinity }),
       ).toEqual({
         ok: false,
-        message: "elevationChangeM must be a number.",
+        message: "El desnivel tiene que ser un número.",
       });
     });
 
@@ -193,13 +193,13 @@ describe("validateDescentBody", () => {
         validateDescentBody({ ...validBasePayload, endedBySos: "false" }),
       ).toEqual({
         ok: false,
-        message: "endedBySos must be true or false.",
+        message: "Falta indicar si el descenso terminó por SOS.",
       });
       expect(
         validateDescentBody({ ...validBasePayload, endedBySos: 1 }),
       ).toEqual({
         ok: false,
-        message: "endedBySos must be true or false.",
+        message: "Falta indicar si el descenso terminó por SOS.",
       });
     });
 
@@ -208,13 +208,13 @@ describe("validateDescentBody", () => {
         validateDescentBody({ ...validBasePayload, isDemo: "true" }),
       ).toEqual({
         ok: false,
-        message: "isDemo must be true or false.",
+        message: "Falta indicar si el descenso es de modo demo.",
       });
       expect(
         validateDescentBody({ ...validBasePayload, isDemo: null }),
       ).toEqual({
         ok: false,
-        message: "isDemo must be true or false.",
+        message: "Falta indicar si el descenso es de modo demo.",
       });
     });
   });
@@ -232,7 +232,7 @@ describe("validateDescentBody", () => {
     it("rejects a missing track", () => {
       expect(validateDescentBody({ ...validBasePayload, track: undefined })).toEqual({
         ok: false,
-        message: "track must be an array.",
+        message: "El rastro GPS tiene que ser una lista de puntos.",
       });
     });
 
@@ -240,7 +240,7 @@ describe("validateDescentBody", () => {
       const result = validateDescentBody({ ...validBasePayload, track: [[-68.89, "-32.89", 0]] });
       expect(result).toEqual({
         ok: false,
-        message: "every track point must be [lng, lat, t] with numbers.",
+        message: "Cada punto del rastro GPS tiene que ser [lng, lat, t] con números.",
       });
     });
 
@@ -264,7 +264,7 @@ describe("validateDescentBody", () => {
       const track = Array.from({ length: 3601 }, (_, i) => [-68.89, -32.89, i * 1000]);
       expect(validateDescentBody({ ...validBasePayload, track })).toEqual({
         ok: false,
-        message: "track can have at most 3600 points.",
+        message: "El rastro GPS puede tener hasta 3600 puntos.",
       });
     });
 

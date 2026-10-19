@@ -13,7 +13,7 @@ export async function GET(request: Request) {
 
   if (!params.get("lat") || !params.get("lng") || Number.isNaN(lat) || Number.isNaN(lng)) {
     return Response.json(
-      { ok: false, message: "Send lat and lng, e.g. ?lat=-32.8959&lng=-68.8953" },
+      { ok: false, message: "Faltan lat y lng, por ejemplo ?lat=-32.8959&lng=-68.8953" },
       { status: 400 },
     );
   }
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
   // Check first: if Mongo is down we answer a clear message instead of an error page.
   if (!(await isDbAvailable())) {
     return Response.json(
-      { ok: false, message: "The database is not responding. Try again in a moment." },
+      { ok: false, message: "No hay conexión con la base. Probá de nuevo en un rato." },
       { status: 503 },
     );
   }
