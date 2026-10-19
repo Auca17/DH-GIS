@@ -167,6 +167,60 @@ const VALIDATORS: Record<string, object> = {
       expiresAt: { bsonType: "date" },
     },
   },
+  trails: {
+    bsonType: "object",
+    required: ["slug", "name", "difficulty", "start", "end", "segments", "minValidTimeS"],
+    properties: {
+      slug: { bsonType: "string", pattern: "^[a-z0-9-]{1,80}$" },
+      name: { bsonType: "string", minLength: 1, maxLength: 80 },
+      difficulty: { enum: ["facil", "intermedia", "dificil"] },
+      // GeoJSON points: [longitude, latitude]. The 2dsphere index needs this exact shape.
+      start: {
+        bsonType: "object",
+        required: ["type", "coordinates"],
+        properties: {
+          type: { enum: ["Point"] },
+          coordinates: { bsonType: "array", minItems: 2, maxItems: 2, items: { bsonType: "number" } },
+        },
+      },
+      end: {
+        bsonType: "object",
+        required: ["type", "coordinates"],
+        properties: {
+          type: { enum: ["Point"] },
+          coordinates: { bsonType: "array", minItems: 2, maxItems: 2, items: { bsonType: "number" } },
+        },
+      },
+      segments: { bsonType: "array", minItems: 1 },
+      minValidTimeS: { bsonType: "number", minimum: 0 },
+      startRadiusM: { bsonType: "number", minimum: 1 },
+      endRadiusM: { bsonType: "number", minimum: 1 },
+      source: { enum: ["seed", "app"] },
+    },
+  },
+  descents: {
+    bsonType: "object",
+    required: ["trailId", "userId", "startedAt", "durationMs", "status", "validated", "source"],
+    properties: {
+      trailId: { bsonType: "objectId" },
+      userId: { bsonType: "objectId" },
+      // null: a run saved without a bike (signed out, demo mode).
+      bikeId: { bsonType: ["objectId", "null"] },
+      startedAt: { bsonType: "date" },
+      durationMs: { bsonType: "number", minimum: 1, maximum: 7200000 },
+      avgSpeedKmh: { bsonType: "number", minimum: 0 },
+      elevationChangeM: { bsonType: "number" },
+      bikeType: { enum: ["DH", "Enduro", "Trail", null] },
+      status: { enum: ["completed", "interrupted"] },
+      validated: { bsonType: "bool" },
+      invalidReason: { bsonType: ["string", "null"] },
+      isDemo: { bsonType: "bool" },
+      track: { bsonType: "array" },
+      runId: { bsonType: "string" },
+      createdAt: { bsonType: "date" },
+      source: { enum: ["seed", "app"] },
+    },
+  },
 };
 
 async function applyValidators() {

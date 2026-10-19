@@ -98,7 +98,7 @@ El código es el mismo para las dos bases: lo único que cambia es `MONGODB_URI`
 - `npm run seed` carga la base local; `npm run seed:prod` carga Atlas. Es el mismo script con los mismos datos de partida (`src/lib/mock-data.ts`). Solo borra y vuelve a insertar los descensos y reseñas con `source: "seed"`; lo que guarda la app (`source: "app"`) no se toca.
 - Además de los datos de ejemplo, el seed genera volumen para practicar consultas (`scripts/seed-volume.ts`): 60 riders con nivel y ciudad, de 1 a 3 bicis cada uno, 20.000 descensos de los últimos 18 meses (alrededor del 5 % inválidos, cada uno con su motivo) y 300 reseñas. Siempre genera exactamente lo mismo, así la base local y Atlas quedan iguales.
 - `/api/health` muestra a qué base está conectada la app.
-- El seed también aplica la validación `$jsonSchema` de `users`, `bikes` y `sessions` (comando `collMod`). En Atlas, un usuario de base con permiso "Read and write" no puede correr `collMod`: el seed avisa y sigue sin validación. Para aplicarla, dale temporalmente el rol "Atlas admin" en Database Access y corré `npm run seed:prod` otra vez.
+- El seed también aplica la validación `$jsonSchema` de `users`, `bikes`, `sessions`, `trails` y `descents` (comando `collMod`). En Atlas, un usuario de base con permiso "Read and write" no puede correr `collMod`: el seed avisa y sigue sin validación. Para aplicarla, dale temporalmente el rol "Atlas admin" en Database Access y corré `npm run seed:prod` otra vez.
 
 ## Cuentas y bicis
 
