@@ -12,8 +12,7 @@ Documentos de referencia en el repo:
 - `README.md`: cómo levantar todo, base local vs Atlas, cuentas, bicis, reseñas, `npm run explain`.
 - `REVISION.md`: **pendientes conocidos** (leerlo antes de arrancar).
 - `docs/PRACTICAR.md`: instalación paso a paso para que el equipo practique en su base local.
-- `docs/GUIA-EQUIPO.md`: guía para el equipo (colecciones, índices, qué es cada consulta C1–C13, glosario).
-- `docs/consultas-mongo.md`: guía de estudio de consultas para mongosh.
+- `docs/COMO-FUNCIONA.md`: el documento único del equipo (2026-10-21, reemplaza a GUIA-EQUIPO y consultas-mongo). Parte I: modelo de datos, referencias, índices por dentro, validación, flujo del código, auth y roles de Atlas, C1–C13. Parte II: ejercicios para mongosh.
 - `docs/explain.md`: reporte de índices sin/con índice (lo genera `npm run explain`).
 
 ## 2. Reglas (resumen de CLAUDE.md y del usuario)
@@ -49,7 +48,7 @@ Documentos de referencia en el repo:
 - **GPS real**, anti-trampa en el servidor (`src/lib/descents/descent-rules.ts`), cuentas con contraseña (scrypt) y sesión en cookie httpOnly, bicis (una sola principal por índice único parcial), seed con volumen (70 riders, 105 bicis, 20.017 descensos, 306 reseñas) en local y Atlas.
 - **2026-10-18/19 (`feat/mejoras`, mergeado):** `npm run explain` + `docs/explain.md`; `$jsonSchema` en todas las colecciones (`users`, `bikes`, `sessions`, `trails`, `descents`, `reviews`); reseñas reales desde la pantalla de resultado (`POST /api/reviews`, solo descenso propio, válido y con GPS real, índice único parcial `one_review_per_descent`); reenvío del guardado "pendiente" a los 30 s; mensajes de la API en español; ids viejos redirigidos en `next.config.ts`.
 - 2026-10-19: Atlas recargado con el seed (validadores en todas las colecciones e índice `one_review_per_descent`; el usuario de la base volvió a "Read and write"). Descensos `check-*` borrados de la local.
-- Consultas C1–C13 en `src/lib/queries/` (tabla en `docs/GUIA-EQUIPO.md`). 170 tests (`npx vitest run`), `tsc` limpio.
+- Consultas C1–C13 en `src/lib/queries/` (tabla en `docs/COMO-FUNCIONA.md`, sección 9). 170 tests (`npx vitest run`), `tsc` limpio.
 - **2026-10-21 (`feat/espanol-db`, mergeado):** base en español (`usuarios`, `senderos`, `bajadas`, `resenas`, `bicis`, `sesiones`; campos como `usuarioId`, `duracion`, `principal`, `estado: "completada"`). Sin `source` (riders del seed = usuarios sin email), sin `createdAt` en bicis, sin `path`/radios/`visibleOnMap`/`dataSource` en senderos, sin `null` en bajadas sin bici. El código y los cuerpos de la API siguen en inglés. Pendiente del usuario: borrar las colecciones viejas en inglés (local y Atlas) y volver a registrar sus cuentas.
 
 ## 5. Lo que falta

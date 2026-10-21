@@ -5,7 +5,7 @@ mapa, apretás play, la app mide tu bajada y actualiza el ranking del sendero. P
 académico de Diseño de Bases de Datos: usa MongoDB con información geoespacial (GIS).
 
 ¿Sos del equipo? Para dejar todo instalado y andando en tu compu: [docs/PRACTICAR.md](docs/PRACTICAR.md).
-Para entender qué tenemos (colecciones, índices, qué es cada consulta C1 a C13): [docs/GUIA-EQUIPO.md](docs/GUIA-EQUIPO.md).
+Para entender cómo funciona todo (la base, los índices, el código, los permisos y las consultas C1 a C13 para practicar): [docs/COMO-FUNCIONA.md](docs/COMO-FUNCIONA.md).
 
 ## Tecnologías
 

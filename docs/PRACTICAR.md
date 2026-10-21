@@ -137,8 +137,8 @@ Opcional:
 
 Ya está todo. Ahora, a lo que importa:
 
-1. **Leé [GUIA-EQUIPO.md](GUIA-EQUIPO.md)**: qué hay en cada colección, qué índices tenemos y qué es cada consulta
-   (C1 a C13).
+1. **Leé la Parte I de [COMO-FUNCIONA.md](COMO-FUNCIONA.md)**: cómo pensamos la base, cómo se relacionan las
+   colecciones, cómo funcionan los índices y qué es cada consulta (C1 a C13).
 2. **Abrí la shell en Compass**: en la lista de la izquierda, al lado de tu conexión, tocá el botón **">_"**
    ("Open MongoDB shell"). En versiones viejas de Compass es la barra **">_ MONGOSH"** abajo de todo.
    Escribí `use dh` y Enter. Probá:
@@ -146,7 +146,7 @@ Ya está todo. Ahora, a lo que importa:
    db.senderos.find({}, { nombre: 1, dificultad: 1 })
    db.bajadas.countDocuments({ valida: true })
    ```
-3. **Seguí [consultas-mongo.md](consultas-mongo.md)**: es la guía de ejercicios, de lo más simple a lo más complejo.
+3. **Seguí la Parte II de [COMO-FUNCIONA.md](COMO-FUNCIONA.md)**: son los ejercicios para la shell, de lo más simple a lo más complejo.
 4. **Copiá las consultas del proyecto**: abrí un archivo de `src/lib/queries/` (por ejemplo `c3-leaderboard.ts`).
    Arriba tiene un comentario con el pipeline. En Compass, entrá a la colección que dice el comentario →
    pestaña **Aggregations** → ícono de **"</> TEXT"** → pegalo. Donde dice `PASTE_..._ID_HERE`, poné el `_id` real

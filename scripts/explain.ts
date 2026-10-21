@@ -137,7 +137,7 @@ async function main() {
   console.log("Written: docs/explain.md");
 }
 
-// The report is in Spanish: the team studies with it (like docs/consultas-mongo.md).
+// The report is in Spanish: the team studies with it (like docs/COMO-FUNCIONA.md).
 function toMarkdown(measures: Measure[], c1Note: string): string {
   const modo = { "without index": "sin índice", "with index": "con índice" };
   const rows = measures
