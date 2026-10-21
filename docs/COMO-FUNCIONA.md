@@ -28,11 +28,16 @@ La instalación paso a paso está aparte, en [PRACTICAR.md](PRACTICAR.md).
 
 **Parte II — Practicar en la shell**
 
-10. [Cómo abrir la shell](#10-cómo-abrir-la-shell) · 11. [Inspección](#11-inspección) ·
-12. [find](#12-find-filtros-proyección-orden) · 13. [Geoespaciales](#13-geoespaciales-gis) ·
-14. [Aggregations](#14-aggregations) · 15. [Las consultas de la app](#15-las-consultas-de-la-app-c1c13) ·
-16. [explain](#16-índices-y-explain) · 17. [Validación](#17-validación-con-jsonschema) ·
-18. [Escrituras](#18-escrituras-con-cuidado-en-dh_practica) · 19. [Ejercicios](#19-ejercicios)
+10. [Cómo abrir la shell](#10-cómo-abrir-la-shell)
+11. [Inspección](#11-inspección)
+12. [find: filtros, proyección, orden](#12-find-filtros-proyección-orden)
+13. [Geoespaciales (GIS)](#13-geoespaciales-gis)
+14. [Aggregations](#14-aggregations)
+15. [Las consultas de la app (C1–C13)](#15-las-consultas-de-la-app-c1c13)
+16. [Índices y explain](#16-índices-y-explain)
+17. [Validación con `$jsonSchema`](#17-validación-con-jsonschema)
+18. [Escrituras (en `dh_practica`)](#18-escrituras-con-cuidado-en-dh_practica)
+19. [Ejercicios](#19-ejercicios)
 
 [Glosario](#glosario)
 
