@@ -3,17 +3,18 @@ import type { ObjectId } from "mongodb";
 import { hashPassword } from "@/lib/auth/password";
 import { startSession } from "@/lib/auth/session";
 import { validateRegister } from "@/lib/auth/validate-auth";
+import { toBikeFields } from "@/lib/bikes/validate-bike";
 import { getDb, isDbAvailable } from "@/lib/mongodb";
 
 /*
  * POST /api/auth/register — creates a rider, their first bike and a session
  *
  * The bike is required: every real descent must point to a bike.
- * The first bike is the main one (isPrimary: true).
+ * The first bike is the main one (principal: true).
  *
  * Course concept: unique indexes as the last word. We check for a repeated name or
  * email first (to give a clear message), but if two sign-ups arrive at the same time
- * the unique indexes on users.displayName and users.email reject the second one
+ * the unique indexes on usuarios.nombre and usuarios.email reject the second one
  * (error code 11000).
  *
  * The local MongoDB runs as a single server, which has no multi-document
@@ -46,15 +47,15 @@ export async function POST(request: Request) {
   }
 
   const db = getDb();
-  const users = db.collection("users");
+  const users = db.collection("usuarios");
 
   const taken = await users.findOne(
-    { $or: [{ displayName: input.displayName }, { email: input.email }] },
-    { projection: { displayName: 1 } },
+    { $or: [{ nombre: input.displayName }, { email: input.email }] },
+    { projection: { nombre: 1 } },
   );
   if (taken) {
     const message =
-      taken.displayName === input.displayName
+      taken.nombre === input.displayName
         ? "Ese nombre visible ya está en uso. Elegí otro."
         : "Ya hay una cuenta con ese email.";
     return Response.json({ ok: false, message }, { status: 409 });
@@ -66,15 +67,14 @@ export async function POST(request: Request) {
   let userId: ObjectId;
   try {
     const result = await users.insertOne({
-      displayName: input.displayName,
+      nombre: input.displayName,
       email: input.email,
-      passwordHash: hash,
-      passwordSalt: salt,
-      level: input.level,
-      city: input.city,
-      ridingSinceYear: input.ridingSinceYear,
-      createdAt: now,
-      source: "app",
+      hashContrasena: hash,
+      salContrasena: salt,
+      nivel: input.level,
+      ciudad: input.city,
+      anioInicio: input.ridingSinceYear,
+      fechaCreacion: now,
     });
     userId = result.insertedId;
   } catch (error) {
@@ -89,12 +89,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    await db.collection("bikes").insertOne({
-      userId,
-      ...input.bike,
-      isPrimary: true,
-      createdAt: now,
-      source: "app",
+    await db.collection("bicis").insertOne({
+      usuarioId: userId,
+      ...toBikeFields(input.bike),
+      principal: true,
     });
   } catch (error) {
     // No transactions on a single server: undo the user by hand.

@@ -9,72 +9,72 @@ import { getDb } from "@/lib/mongodb";
  * Course concept: $lookup + $group by a field of the joined collection, and
  * $addToSet + $size to count DIFFERENT riders (not descents).
  *
- * Compass (collection `descents` → Aggregations → paste):
+ * Compass (collection `bajadas` → Aggregations → paste):
  *
  * [
- *   { $lookup: { from: "users", localField: "userId", foreignField: "_id", as: "user" } },
- *   { $unwind: "$user" },
- *   { $match: { "user.city": { $exists: true } } },
+ *   { $lookup: { from: "usuarios", localField: "usuarioId", foreignField: "_id", as: "usuario" } },
+ *   { $unwind: "$usuario" },
+ *   { $match: { "usuario.ciudad": { $exists: true } } },
  *   {
  *     $group: {
- *       _id: "$user.city",
- *       totalDescents: { $sum: 1 },
- *       validDescents: { $sum: { $cond: ["$validated", 1, 0] } },
- *       riders: { $addToSet: "$userId" }
+ *       _id: "$usuario.ciudad",
+ *       totalBajadas: { $sum: 1 },
+ *       bajadasValidas: { $sum: { $cond: ["$valida", 1, 0] } },
+ *       ciclistas: { $addToSet: "$usuarioId" }
  *     }
  *   },
  *   {
  *     $project: {
  *       _id: 0,
- *       city: "$_id",
- *       totalDescents: 1,
- *       validDescents: 1,
- *       riders: { $size: "$riders" }
+ *       ciudad: "$_id",
+ *       totalBajadas: 1,
+ *       bajadasValidas: 1,
+ *       ciclistas: { $size: "$ciclistas" }
  *     }
  *   },
- *   { $sort: { totalDescents: -1, city: 1 } }
+ *   { $sort: { totalBajadas: -1, ciudad: 1 } }
  * ]
  *
  * Stages:
- * - $lookup + $unwind: each descent gets its rider (the city lives in `users`).
+ * - $lookup + $unwind: each descent gets its rider (the city lives in `usuarios`).
  * - $match: leaves out riders without a city ("Demo rider").
- * - $group: one row per city. $addToSet keeps each userId once, so its size is
+ * - $group: one row per city. $addToSet keeps each usuarioId once, so its size is
  *   the number of different riders.
  * - $project: $size turns the set of ids into a number.
  * - $sort: most descents first; ties in alphabetical order.
  */
 
 export interface CityCount {
-  city: string;
-  totalDescents: number;
-  validDescents: number;
-  riders: number;
+  ciudad: string;
+  totalBajadas: number;
+  bajadasValidas: number;
+  ciclistas: number;
 }
 
 export async function getDescentsPerCity(): Promise<CityCount[]> {
   const pipeline = [
-    { $lookup: { from: "users", localField: "userId", foreignField: "_id", as: "user" } },
-    { $unwind: "$user" },
-    { $match: { "user.city": { $exists: true } } },
+    { $lookup: { from: "usuarios", localField: "usuarioId", foreignField: "_id", as: "usuario" } },
+    { $unwind: "$usuario" },
+    { $match: { "usuario.ciudad": { $exists: true } } },
     {
       $group: {
-        _id: "$user.city",
-        totalDescents: { $sum: 1 },
-        validDescents: { $sum: { $cond: ["$validated", 1, 0] } },
-        riders: { $addToSet: "$userId" },
+        _id: "$usuario.ciudad",
+        totalBajadas: { $sum: 1 },
+        bajadasValidas: { $sum: { $cond: ["$valida", 1, 0] } },
+        ciclistas: { $addToSet: "$usuarioId" },
       },
     },
     {
       $project: {
         _id: 0,
-        city: "$_id",
-        totalDescents: 1,
-        validDescents: 1,
-        riders: { $size: "$riders" },
+        ciudad: "$_id",
+        totalBajadas: 1,
+        bajadasValidas: 1,
+        ciclistas: { $size: "$ciclistas" },
       },
     },
-    { $sort: { totalDescents: -1, city: 1 } },
+    { $sort: { totalBajadas: -1, ciudad: 1 } },
   ];
 
-  return getDb().collection("descents").aggregate<CityCount>(pipeline).toArray();
+  return getDb().collection("bajadas").aggregate<CityCount>(pipeline).toArray();
 }

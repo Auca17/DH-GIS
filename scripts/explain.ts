@@ -8,8 +8,8 @@
 // It prints a table and writes docs/explain.md (in Spanish, for the team).
 //
 // Compass equivalent (collection → Explain Plan tab, or mongosh):
-//   db.descents.find({ trailId: ObjectId("..."), status: "completed", validated: true })
-//     .sort({ durationMs: 1 }).limit(10).hint({ $natural: 1 }).explain("executionStats")
+//   db.bajadas.find({ senderoId: ObjectId("..."), estado: "completada", valida: true })
+//     .sort({ duracion: 1 }).limit(10).hint({ $natural: 1 }).explain("executionStats")
 import { writeFileSync } from "node:fs";
 import { MongoClient, type Document } from "mongodb";
 
@@ -74,8 +74,8 @@ async function main() {
   }
 
   const db = client.db();
-  const trail = await db.collection("trails").findOne({ slug: PEQUIA_SLUG }, { projection: { _id: 1 } });
-  const user = await db.collection("users").findOne({ displayName: "Lucas R." }, { projection: { _id: 1 } });
+  const trail = await db.collection("senderos").findOne({ codigo: PEQUIA_SLUG }, { projection: { _id: 1 } });
+  const user = await db.collection("usuarios").findOne({ nombre: "Lucas R." }, { projection: { _id: 1 } });
   if (!trail || !user) {
     console.error('No seed data. Run: MONGODB_URI="mongodb://127.0.0.1:27017/dh" npx tsx scripts/seed.ts');
     process.exitCode = 1;
@@ -84,28 +84,28 @@ async function main() {
   }
 
   // The filter + sort part of each query (the stages that can use an index).
-  // C3 leaderboard: index { trailId, status, validated, durationMs }.
-  const c3Filter = { trailId: trail._id, status: "completed", validated: true };
-  // C4 personal best: same index (prefix trailId, status, validated), then filters userId.
-  const c4Filter = { trailId: trail._id, userId: user._id, status: "completed", validated: true };
-  // C9 reviews of a trail: index { trailId, createdAt: -1 }.
-  const c9Filter = { trailId: trail._id };
+  // C3 leaderboard: index { senderoId, estado, valida, duracion }.
+  const c3Filter = { senderoId: trail._id, estado: "completada", valida: true };
+  // C4 personal best: same index (prefix senderoId, estado, valida), then filters usuarioId.
+  const c4Filter = { senderoId: trail._id, usuarioId: user._id, estado: "completada", valida: true };
+  // C9 reviews of a trail: index { senderoId, fecha: -1 }.
+  const c9Filter = { senderoId: trail._id };
 
-  const descents = db.collection("descents");
-  const reviews = db.collection("reviews");
+  const descents = db.collection("bajadas");
+  const reviews = db.collection("resenas");
   const measures: Measure[] = [];
 
   for (const mode of ["without index", "with index"] as const) {
     // hint({ $natural: 1 }) = "read the collection in disk order", which means no index.
     const hint = mode === "without index" ? { hint: { $natural: 1 } } : {};
 
-    const c3 = await descents.find(c3Filter, hint).sort({ durationMs: 1 }).limit(10).explain("executionStats");
+    const c3 = await descents.find(c3Filter, hint).sort({ duracion: 1 }).limit(10).explain("executionStats");
     measures.push(toMeasure("C3 leaderboard", mode, c3));
 
     const c4 = await descents.find(c4Filter, hint).explain("executionStats");
     measures.push(toMeasure("C4 personal best", mode, c4));
 
-    const c9 = await reviews.find(c9Filter, hint).sort({ createdAt: -1 }).explain("executionStats");
+    const c9 = await reviews.find(c9Filter, hint).sort({ fecha: -1 }).explain("executionStats");
     measures.push(toMeasure("C9 reviews", mode, c9));
   }
 
@@ -113,12 +113,12 @@ async function main() {
   let c1Note: string;
   try {
     await db
-      .collection("trails")
+      .collection("senderos")
       .aggregate([
         {
           $geoNear: {
             near: { type: "Point", coordinates: [PEQUIA_START.lng, PEQUIA_START.lat] },
-            distanceField: "distanceM",
+            distanceField: "distanciaM",
             maxDistance: 10_000,
           },
         },
@@ -163,14 +163,14 @@ ${rows}
 - **IXSCAN**: MongoDB recorrió el índice y leyó solo los documentos que necesitaba.
 - Cuanto más se parecen "docs leídos" y "devueltos", mejor le queda el índice a la consulta.
 - El tiempo cambia de una corrida a otra (caché, otros programas). Lo que hay que comparar es "docs leídos", que no cambia.
-- C4 usa el índice del ranking solo para \`trailId, status, validated\`: igual lee todos los descensos válidos del sendero
-  y después se queda con los de ese rider. Un índice \`{ userId: 1, trailId: 1 }\` le quedaría mejor.
+- C4 usa el índice del ranking solo para \`senderoId, estado, valida\`: igual lee todas las bajadas válidas del sendero
+  y después se queda con las de ese rider. Un índice \`{ usuarioId: 1, senderoId: 1 }\` le quedaría mejor.
 
 ## C1 (geoespacial)
 
 ${c1Note}
 
-\`$geoNear\` necesita el índice 2dsphere de \`trails.start\`: no existe una versión "sin índice" para comparar.
+\`$geoNear\` necesita el índice 2dsphere de \`senderos.inicio\`: no existe una versión "sin índice" para comparar.
 `;
 }
 

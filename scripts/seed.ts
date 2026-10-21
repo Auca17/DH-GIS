@@ -1,15 +1,16 @@
 // Seed for the local MongoDB database. Run with: npm run seed
 //
 // Idempotent: it can run many times without duplicating data.
-// - users and trails are upserted by a natural key (displayName / slug), so their
+// - usuarios and senderos are upserted by a natural key (nombre / codigo), so their
 //   _id never changes and real descents that point to them keep working.
-// - seed descents and reviews are tagged with source: "seed"; we delete only those
-//   and insert them again. Data created by the app (no source: "seed") is kept.
+// - Seed riders are the usuarios WITHOUT email (they cannot sign in). Their bicis,
+//   bajadas and resenas are deleted and inserted again. Data of real accounts
+//   (usuarios with email) is kept.
 //
 // Data comes from src/lib/mock-data.ts (the same data the frontend mock shows).
 import { MongoClient, type ObjectId } from "mongodb";
 import { cerros, comentarios, leaderboardPorCerro } from "@/lib/mock-data";
-import type { TipoBici, TramoPista } from "@/lib/types";
+import type { TipoBici } from "@/lib/types";
 import { generateVolume, type VolumeDescent, type VolumeReview, type VolumeRider } from "./seed-volume";
 
 const uri = process.env.MONGODB_URI;
@@ -27,24 +28,14 @@ function toPoint(lat: number, lng: number) {
   return { type: "Point", coordinates: [lng, lat] };
 }
 
-// Joins all segments into one line. Consecutive segments share their joint point,
-// so we skip a point when it is identical to the previous one.
-function toLineString(segments: TramoPista[]) {
-  const coordinates: number[][] = [];
-  for (const segment of segments) {
-    for (const p of segment.puntos) {
-      const last = coordinates[coordinates.length - 1];
-      if (!last || last[0] !== p.lng || last[1] !== p.lat) {
-        coordinates.push([p.lng, p.lat]);
-      }
-    }
-  }
-  return { type: "LineString", coordinates };
-}
-
 // Mock dates are "YYYY-MM-DD"; we store real Date objects (Mendoza time, 10 AM).
 function toDate(day: string) {
   return new Date(`${day}T10:00:00-03:00`);
+}
+
+// The generator and the mock data work in English; the database stores the state in Spanish.
+function toEstado(status: "completed" | "interrupted") {
+  return status === "completed" ? "completada" : "interrumpida";
 }
 
 // ---------- Indexes ----------
@@ -52,68 +43,66 @@ function toDate(day: string) {
 async function createIndexes() {
   const db = client.db();
 
-  // 2dsphere on trails.start: needed by $geoNear / $near / $geoWithin
+  // 2dsphere on senderos.inicio: needed by $geoNear / $near / $geoWithin
   // (C1 nearby trails, C2 "am I inside the start radius?").
-  await db.collection("trails").createIndex({ start: "2dsphere" });
+  await db.collection("senderos").createIndex({ inicio: "2dsphere" });
 
-  // Unique on trails.slug: direct access to a trail by its URL name, and the
-  // database itself rejects two trails with the same slug.
-  await db.collection("trails").createIndex({ slug: 1 }, { unique: true });
+  // Unique on senderos.codigo: direct access to a trail by its URL name, and the
+  // database itself rejects two trails with the same codigo.
+  await db.collection("senderos").createIndex({ codigo: 1 }, { unique: true });
 
-  // Unique on users.displayName: the seed upserts users by this name, so it
+  // Unique on usuarios.nombre: the seed upserts users by this name, so it
   // must never repeat.
-  await db.collection("users").createIndex({ displayName: 1 }, { unique: true });
+  await db.collection("usuarios").createIndex({ nombre: 1 }, { unique: true });
 
   // Compound index for the leaderboard (C3): equality filters first
-  // (trailId, status, validated) and the sort field last (durationMs), so
+  // (senderoId, estado, valida) and the sort field last (duracion), so
   // Mongo reads the best times already in order without sorting in memory.
-  await db
-    .collection("descents")
-    .createIndex({ trailId: 1, status: 1, validated: 1, durationMs: 1 });
+  await db.collection("bajadas").createIndex({ senderoId: 1, estado: 1, valida: 1, duracion: 1 });
 
-  // Unique runId: POST /api/descents saves each run once, even if two identical
-  // requests arrive at the same time. Seed descents have no runId, so the index
+  // Unique idCorrida: POST /api/descents saves each run once, even if two identical
+  // requests arrive at the same time. Seed descents have no idCorrida, so the index
   // only covers documents that have one (partial index).
   await db
-    .collection("descents")
-    .createIndex({ runId: 1 }, { unique: true, partialFilterExpression: { runId: { $type: "string" } } });
+    .collection("bajadas")
+    .createIndex({ idCorrida: 1 }, { unique: true, partialFilterExpression: { idCorrida: { $type: "string" } } });
 
-  // Reviews of one trail, newest first: filter by trailId, sort by createdAt desc.
-  await db.collection("reviews").createIndex({ trailId: 1, createdAt: -1 });
+  // Reviews of one trail, newest first: filter by senderoId, sort by fecha desc.
+  await db.collection("resenas").createIndex({ senderoId: 1, fecha: -1 });
 
   // At most ONE review per descent (POST /api/reviews). Seed reviews have no
-  // descentId, so the index only covers documents that have one (partial index).
+  // bajadaId, so the index only covers documents that have one (partial index).
   await db
-    .collection("reviews")
+    .collection("resenas")
     .createIndex(
-      { descentId: 1 },
-      { unique: true, partialFilterExpression: { descentId: { $type: "objectId" } }, name: "one_review_per_descent" },
+      { bajadaId: 1 },
+      { unique: true, partialFilterExpression: { bajadaId: { $type: "objectId" } }, name: "una_resena_por_bajada" },
     );
 
   // Unique email: two accounts can never share one. Seed riders have no email,
   // so the index only covers documents that have one (partial index).
   await db
-    .collection("users")
+    .collection("usuarios")
     .createIndex({ email: 1 }, { unique: true, partialFilterExpression: { email: { $type: "string" } } });
 
   // A rider's bikes, main bike first (C13 rider profile, the bike picker).
-  await db.collection("bikes").createIndex({ userId: 1, isPrimary: -1 });
+  await db.collection("bicis").createIndex({ usuarioId: 1, principal: -1 });
 
-  // At most ONE main bike per rider, enforced by the database: unique on userId,
-  // but only among the bikes with isPrimary: true (partial unique index).
+  // At most ONE main bike per rider, enforced by the database: unique on usuarioId,
+  // but only among the bikes with principal: true (partial unique index).
   await db
-    .collection("bikes")
+    .collection("bicis")
     .createIndex(
-      { userId: 1 },
-      { unique: true, partialFilterExpression: { isPrimary: true }, name: "one_primary_bike_per_user" },
+      { usuarioId: 1 },
+      { unique: true, partialFilterExpression: { principal: true }, name: "una_bici_principal_por_usuario" },
     );
 
   // Sessions are looked up by the hash of the cookie token on every request.
-  await db.collection("sessions").createIndex({ tokenHash: 1 }, { unique: true });
+  await db.collection("sesiones").createIndex({ hashToken: 1 }, { unique: true });
 
-  // TTL index: MongoDB deletes each session by itself once expiresAt has passed
+  // TTL index: MongoDB deletes each session by itself once venceEn has passed
   // (expireAfterSeconds: 0 = "at the date stored in the field").
-  await db.collection("sessions").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+  await db.collection("sesiones").createIndex({ venceEn: 1 }, { expireAfterSeconds: 0 });
 }
 
 // ---------- Validation ($jsonSchema) ----------
@@ -123,68 +112,65 @@ async function createIndexes() {
 // messages; this is the last line of defense.
 // "number" accepts int, long and double (the driver saves 2019 as an int).
 const VALIDATORS: Record<string, object> = {
-  users: {
+  usuarios: {
     bsonType: "object",
-    required: ["displayName", "createdAt"],
+    required: ["nombre", "fechaCreacion"],
     properties: {
-      displayName: { bsonType: "string", minLength: 1, maxLength: 30 },
+      nombre: { bsonType: "string", minLength: 1, maxLength: 30 },
       email: { bsonType: "string", pattern: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$" },
-      passwordHash: { bsonType: "string" },
-      passwordSalt: { bsonType: "string" },
-      level: { enum: ["principiante", "intermedio", "avanzado"] },
-      city: { bsonType: "string", minLength: 2, maxLength: 60 },
-      ridingSinceYear: { bsonType: "number", minimum: 1950, maximum: 2100 },
-      createdAt: { bsonType: "date" },
-      source: { enum: ["seed", "app"] },
+      hashContrasena: { bsonType: "string" },
+      salContrasena: { bsonType: "string" },
+      nivel: { enum: ["principiante", "intermedio", "avanzado"] },
+      ciudad: { bsonType: "string", minLength: 2, maxLength: 60 },
+      anioInicio: { bsonType: "number", minimum: 1950, maximum: 2100 },
+      fechaCreacion: { bsonType: "date" },
     },
   },
-  bikes: {
+  bicis: {
     bsonType: "object",
     required: [
-      "userId",
-      "type",
-      "brand",
-      "model",
-      "year",
-      "wheelSize",
-      "travelFrontMm",
-      "travelRearMm",
-      "isPrimary",
-      "createdAt",
+      "usuarioId",
+      "tipo",
+      "marca",
+      "modelo",
+      "anio",
+      "rodado",
+      "recorridoDelanteroMm",
+      "recorridoTraseroMm",
+      "principal",
     ],
     properties: {
-      userId: { bsonType: "objectId" },
-      type: { enum: ["DH", "Enduro", "Trail"] },
-      brand: { bsonType: "string", minLength: 1, maxLength: 40 },
-      model: { bsonType: "string", minLength: 1, maxLength: 60 },
-      year: { bsonType: "number", minimum: 1990, maximum: 2100 },
-      wheelSize: { enum: ["27.5", "29", "mullet"] },
-      travelFrontMm: { bsonType: "number", minimum: 80, maximum: 220 },
-      travelRearMm: { bsonType: "number", minimum: 0, maximum: 220 },
-      isPrimary: { bsonType: "bool" },
-      createdAt: { bsonType: "date" },
-      source: { enum: ["seed", "app"] },
+      usuarioId: { bsonType: "objectId" },
+      tipo: { enum: ["DH", "Enduro", "Trail"] },
+      marca: { bsonType: "string", minLength: 1, maxLength: 40 },
+      modelo: { bsonType: "string", minLength: 1, maxLength: 60 },
+      anio: { bsonType: "number", minimum: 1990, maximum: 2100 },
+      rodado: { enum: ["27.5", "29", "mullet"] },
+      recorridoDelanteroMm: { bsonType: "number", minimum: 80, maximum: 220 },
+      recorridoTraseroMm: { bsonType: "number", minimum: 0, maximum: 220 },
+      principal: { bsonType: "bool" },
     },
   },
-  sessions: {
+  sesiones: {
     bsonType: "object",
-    required: ["tokenHash", "userId", "createdAt", "expiresAt"],
+    required: ["hashToken", "usuarioId", "fechaCreacion", "venceEn"],
     properties: {
-      tokenHash: { bsonType: "string", minLength: 64, maxLength: 64 },
-      userId: { bsonType: "objectId" },
-      createdAt: { bsonType: "date" },
-      expiresAt: { bsonType: "date" },
+      hashToken: { bsonType: "string", minLength: 64, maxLength: 64 },
+      usuarioId: { bsonType: "objectId" },
+      fechaCreacion: { bsonType: "date" },
+      venceEn: { bsonType: "date" },
     },
   },
-  trails: {
+  senderos: {
     bsonType: "object",
-    required: ["slug", "name", "difficulty", "start", "end", "segments", "minValidTimeS"],
+    required: ["codigo", "nombre", "dificultad", "inicio", "fin", "tramos", "tiempoMinimoS"],
     properties: {
-      slug: { bsonType: "string", pattern: "^[a-z0-9-]{1,80}$" },
-      name: { bsonType: "string", minLength: 1, maxLength: 80 },
-      difficulty: { enum: ["facil", "intermedia", "dificil"] },
-      // GeoJSON points: [longitude, latitude]. The 2dsphere index needs this exact shape.
-      start: {
+      codigo: { bsonType: "string", pattern: "^[a-z0-9-]{1,80}$" },
+      nombre: { bsonType: "string", minLength: 1, maxLength: 80 },
+      dificultad: { enum: ["facil", "intermedia", "dificil"] },
+      // GeoJSON points: [longitude, latitude]. The 2dsphere index needs this exact shape
+      // (the keys `type` and `coordinates` are fixed by the GeoJSON standard).
+      inicio: {
         bsonType: "object",
         required: ["type", "coordinates"],
         properties: {
@@ -192,7 +178,7 @@ const VALIDATORS: Record<string, object> = {
           coordinates: { bsonType: "array", minItems: 2, maxItems: 2, items: { bsonType: "number" } },
         },
       },
-      end: {
+      fin: {
         bsonType: "object",
         required: ["type", "coordinates"],
         properties: {
@@ -200,48 +186,45 @@ const VALIDATORS: Record<string, object> = {
           coordinates: { bsonType: "array", minItems: 2, maxItems: 2, items: { bsonType: "number" } },
         },
       },
-      segments: { bsonType: "array", minItems: 1 },
-      minValidTimeS: { bsonType: "number", minimum: 0 },
-      startRadiusM: { bsonType: "number", minimum: 1 },
-      endRadiusM: { bsonType: "number", minimum: 1 },
-      source: { enum: ["seed", "app"] },
+      tramos: { bsonType: "array", minItems: 1 },
+      tiempoMinimoS: { bsonType: "number", minimum: 0 },
     },
   },
-  descents: {
+  bajadas: {
     bsonType: "object",
-    required: ["trailId", "userId", "startedAt", "durationMs", "status", "validated", "source"],
+    required: ["senderoId", "usuarioId", "fechaInicio", "duracion", "estado", "valida"],
     properties: {
-      trailId: { bsonType: "objectId" },
-      userId: { bsonType: "objectId" },
-      // null: a run saved without a bike (signed out, demo mode).
-      bikeId: { bsonType: ["objectId", "null"] },
-      startedAt: { bsonType: "date" },
-      durationMs: { bsonType: "number", minimum: 1, maximum: 7200000 },
-      avgSpeedKmh: { bsonType: "number", minimum: 0 },
-      elevationChangeM: { bsonType: "number" },
-      bikeType: { enum: ["DH", "Enduro", "Trail", null] },
-      status: { enum: ["completed", "interrupted"] },
-      validated: { bsonType: "bool" },
-      invalidReason: { bsonType: ["string", "null"] },
-      isDemo: { bsonType: "bool" },
-      track: { bsonType: "array" },
-      runId: { bsonType: "string" },
-      createdAt: { bsonType: "date" },
-      source: { enum: ["seed", "app"] },
+      senderoId: { bsonType: "objectId" },
+      usuarioId: { bsonType: "objectId" },
+      // Missing when the run was saved without a bike (signed out, demo mode).
+      biciId: { bsonType: "objectId" },
+      fechaInicio: { bsonType: "date" },
+      // Milliseconds (at most 2 hours).
+      duracion: { bsonType: "number", minimum: 1, maximum: 7200000 },
+      velocidadPromedioKmh: { bsonType: "number", minimum: 0 },
+      desnivelM: { bsonType: "number" },
+      tipoBici: { enum: ["DH", "Enduro", "Trail"] },
+      estado: { enum: ["completada", "interrumpida"] },
+      valida: { bsonType: "bool" },
+      // Only present when the run does not count.
+      motivoInvalida: { bsonType: "string" },
+      esDemo: { bsonType: "bool" },
+      recorrido: { bsonType: "array" },
+      idCorrida: { bsonType: "string" },
+      fechaCreacion: { bsonType: "date" },
     },
   },
-  reviews: {
+  resenas: {
     bsonType: "object",
-    required: ["trailId", "userId", "rating", "comment", "createdAt"],
+    required: ["senderoId", "usuarioId", "calificacion", "comentario", "fecha"],
     properties: {
-      trailId: { bsonType: "objectId" },
-      userId: { bsonType: "objectId" },
+      senderoId: { bsonType: "objectId" },
+      usuarioId: { bsonType: "objectId" },
       // Only reviews made from the app point to the descent they review.
-      descentId: { bsonType: "objectId" },
-      rating: { bsonType: "int", minimum: 1, maximum: 5 },
-      comment: { bsonType: "string", maxLength: 500 },
-      createdAt: { bsonType: "date" },
-      source: { enum: ["seed", "app"] },
+      bajadaId: { bsonType: "objectId" },
+      calificacion: { bsonType: "int", minimum: 1, maximum: 5 },
+      comentario: { bsonType: "string", maxLength: 500 },
+      fecha: { bsonType: "date" },
     },
   },
 };
@@ -284,16 +267,16 @@ const ratingByCommentId: Record<string, number> = {
 };
 
 // Profile of each seed rider (they cannot sign in: no email, no password).
-const SEED_PROFILES: Record<string, { level: string; city: string; ridingSinceYear: number }> = {
-  "Lucas R.": { level: "avanzado", city: "Mendoza", ridingSinceYear: 2012 },
-  "Mica V.": { level: "intermedio", city: "Godoy Cruz", ridingSinceYear: 2018 },
-  "Facu T.": { level: "avanzado", city: "Luján de Cuyo", ridingSinceYear: 2014 },
-  "Romi S.": { level: "intermedio", city: "Mendoza", ridingSinceYear: 2017 },
-  Dieguito: { level: "principiante", city: "Las Heras", ridingSinceYear: 2023 },
-  "Ignacio P.": { level: "avanzado", city: "Godoy Cruz", ridingSinceYear: 2010 },
-  "Bruno K.": { level: "intermedio", city: "Maipú", ridingSinceYear: 2016 },
-  "Jime L.": { level: "principiante", city: "Luján de Cuyo", ridingSinceYear: 2022 },
-  "Sol M.": { level: "intermedio", city: "Mendoza", ridingSinceYear: 2019 },
+const SEED_PROFILES: Record<string, { nivel: string; ciudad: string; anioInicio: number }> = {
+  "Lucas R.": { nivel: "avanzado", ciudad: "Mendoza", anioInicio: 2012 },
+  "Mica V.": { nivel: "intermedio", ciudad: "Godoy Cruz", anioInicio: 2018 },
+  "Facu T.": { nivel: "avanzado", ciudad: "Luján de Cuyo", anioInicio: 2014 },
+  "Romi S.": { nivel: "intermedio", ciudad: "Mendoza", anioInicio: 2017 },
+  Dieguito: { nivel: "principiante", ciudad: "Las Heras", anioInicio: 2023 },
+  "Ignacio P.": { nivel: "avanzado", ciudad: "Godoy Cruz", anioInicio: 2010 },
+  "Bruno K.": { nivel: "intermedio", ciudad: "Maipú", anioInicio: 2016 },
+  "Jime L.": { nivel: "principiante", ciudad: "Luján de Cuyo", anioInicio: 2022 },
+  "Sol M.": { nivel: "intermedio", ciudad: "Mendoza", anioInicio: 2019 },
 };
 
 /** Every rider name of the mock data (leaderboard and comments), plus "Demo rider". */
@@ -309,21 +292,21 @@ function mockRiderNames(): Set<string> {
 }
 
 async function seedUsers(volumeRiders: VolumeRider[]): Promise<Map<string, ObjectId>> {
-  const users = client.db().collection("users");
+  const users = client.db().collection("usuarios");
   const names = mockRiderNames();
 
   const idByName = new Map<string, ObjectId>();
-  for (const displayName of names) {
+  for (const nombre of names) {
     // upsert: update if it exists, insert if it doesn't.
     // $setOnInsert only writes when the document is new.
-    // $set the profile (level, city...) so queries C10 and C11 have data to group.
-    const profile = SEED_PROFILES[displayName] ?? {};
+    // $set the profile (nivel, ciudad...) so queries C10 and C11 have data to group.
+    const profile = SEED_PROFILES[nombre] ?? {};
     const result = await users.findOneAndUpdate(
-      { displayName },
-      { $set: profile, $setOnInsert: { displayName, createdAt: new Date(), source: "seed" } },
+      { nombre },
+      { $set: profile, $setOnInsert: { nombre, fechaCreacion: new Date() } },
       { upsert: true, returnDocument: "after" },
     );
-    idByName.set(displayName, result!._id);
+    idByName.set(nombre, result!._id);
   }
 
   // Volume riders: the same upsert, but all in ONE bulkWrite (one trip to the
@@ -332,19 +315,19 @@ async function seedUsers(volumeRiders: VolumeRider[]): Promise<Map<string, Objec
   await users.bulkWrite(
     volumeRiders.map((r) => ({
       updateOne: {
-        filter: { displayName: r.displayName },
+        filter: { nombre: r.displayName },
         update: {
-          $set: { level: r.level, city: r.city, ridingSinceYear: r.ridingSinceYear },
-          $setOnInsert: { displayName: r.displayName, createdAt: now, source: "seed" },
+          $set: { nivel: r.level, ciudad: r.city, anioInicio: r.ridingSinceYear },
+          $setOnInsert: { nombre: r.displayName, fechaCreacion: now },
         },
         upsert: true,
       },
     })),
   );
   const volumeDocs = await users
-    .find({ displayName: { $in: volumeRiders.map((r) => r.displayName) } }, { projection: { displayName: 1 } })
+    .find({ nombre: { $in: volumeRiders.map((r) => r.displayName) } }, { projection: { nombre: 1 } })
     .toArray();
-  for (const doc of volumeDocs) idByName.set(doc.displayName as string, doc._id);
+  for (const doc of volumeDocs) idByName.set(doc.nombre as string, doc._id);
 
   return idByName;
 }
@@ -352,11 +335,11 @@ async function seedUsers(volumeRiders: VolumeRider[]): Promise<Map<string, Objec
 // ---------- Trails ----------
 
 async function seedTrails(): Promise<Map<string, ObjectId>> {
-  const trails = client.db().collection("trails");
+  const trails = client.db().collection("senderos");
 
-  // Clean out any seed trails that are no longer in the active dataset
-  const activeSlugs = cerros.map((c) => c.slug);
-  await trails.deleteMany({ source: "seed", slug: { $nin: activeSlugs } });
+  // Clean out any trails that are no longer in the active dataset (src/data).
+  const activeCodes = cerros.map((c) => c.slug);
+  await trails.deleteMany({ codigo: { $nin: activeCodes } });
 
   // Key: the mock id ("pequia"), value: the Mongo _id.
   const idByMockId = new Map<string, ObjectId>();
@@ -368,44 +351,36 @@ async function seedTrails(): Promise<Map<string, ObjectId>> {
     const lastPoint = lastSegment.puntos[lastSegment.puntos.length - 1];
 
     const trail = {
-      slug: cerro.slug,
-      name: cerro.nombre,
-      description: cerro.descripcion,
-      difficulty: cerro.dificultadGeneral,
-      terrain: cerro.terreno,
-      start: toPoint(firstPoint.lat, firstPoint.lng),
-      end: toPoint(lastPoint.lat, lastPoint.lng),
-      path: toLineString(cerro.pista),
-      // Embedded: segments are always read together with the trail.
-      segments: cerro.pista.map((segment) => ({
-        difficulty: segment.dificultad,
-        points: segment.puntos.map((p) => ({
-          location: toPoint(p.lat, p.lng),
-          elevationM: p.elevacionM,
+      codigo: cerro.slug,
+      nombre: cerro.nombre,
+      descripcion: cerro.descripcion,
+      dificultad: cerro.dificultadGeneral,
+      terreno: cerro.terreno,
+      inicio: toPoint(firstPoint.lat, firstPoint.lng),
+      fin: toPoint(lastPoint.lat, lastPoint.lng),
+      // Embedded: tramos are always read together with the trail.
+      tramos: cerro.pista.map((tramo) => ({
+        dificultad: tramo.dificultad,
+        puntos: tramo.puntos.map((p) => ({
+          ubicacion: toPoint(p.lat, p.lng),
+          elevacionM: p.elevacionM,
         })),
       })),
       // Fastest time the server accepts as valid (anti-cheat).
-      minValidTimeS: cerro.tiempoMinimoValidoS,
-      startRadiusM: 30, // play is enabled within this distance of `start`
-      endRadiusM: 15, // the timer stops within this distance of `end`
-      stats: {
-        lengthM: cerro.largoM,
-        dropM: cerro.desnivelM,
-        avgGradePct: cerro.pendientePromedioPct,
-        avgTimeS: cerro.tiempoPromedioS,
+      tiempoMinimoS: cerro.tiempoMinimoValidoS,
+      estadisticas: {
+        largoM: cerro.largoM,
+        desnivelM: cerro.desnivelM,
+        pendientePromedioPct: cerro.pendientePromedioPct,
+        tiempoPromedioS: cerro.tiempoPromedioS,
       },
-      isPlaceholder: cerro.isPlaceholder,
-      visibleOnMap: cerro.visibleEnMapa,
-      dataSource: cerro.fuenteDatos ?? null,
-      source: "seed",
     };
 
-    const result = await trails.findOneAndUpdate(
-      { slug: cerro.slug },
-      { $set: trail },
-      { upsert: true, returnDocument: "after" },
-    );
-    idByMockId.set(cerro.id, result!._id);
+    // replaceOne (not $set): a trail document is exactly what the seed builds,
+    // so fields that are no longer used do not stay behind.
+    await trails.replaceOne({ codigo: cerro.slug }, trail, { upsert: true });
+    const saved = await trails.findOne({ codigo: cerro.slug }, { projection: { _id: 1 } });
+    idByMockId.set(cerro.id, saved!._id);
   }
   return idByMockId;
 }
@@ -415,9 +390,9 @@ async function seedTrails(): Promise<Map<string, ObjectId>> {
 // One typical build per bike type. Two seed riders with the same type get the same
 // build: each one is still a separate document (a bike is a rider's own bike, not a model).
 const SEED_BIKE_BY_TYPE: Record<TipoBici, object> = {
-  DH: { brand: "Specialized", model: "Demo", year: 2024, wheelSize: "29", travelFrontMm: 200, travelRearMm: 200 },
-  Enduro: { brand: "Santa Cruz", model: "Megatower", year: 2023, wheelSize: "29", travelFrontMm: 170, travelRearMm: 165 },
-  Trail: { brand: "Trek", model: "Fuel EX", year: 2022, wheelSize: "29", travelFrontMm: 140, travelRearMm: 130 },
+  DH: { marca: "Specialized", modelo: "Demo", anio: 2024, rodado: "29", recorridoDelanteroMm: 200, recorridoTraseroMm: 200 },
+  Enduro: { marca: "Santa Cruz", modelo: "Megatower", anio: 2023, rodado: "29", recorridoDelanteroMm: 170, recorridoTraseroMm: 165 },
+  Trail: { marca: "Trek", modelo: "Fuel EX", anio: 2022, rodado: "29", recorridoDelanteroMm: 140, recorridoTraseroMm: 130 },
 };
 
 /** Key of the bike map: rider name + bike type ("Romi S.|Enduro"). */
@@ -434,11 +409,11 @@ function volumeBikeKey(rider: string, index: number): string {
 
 async function seedBikes(
   userIds: Map<string, ObjectId>,
+  seedUserIds: ObjectId[],
   descents: SeedDescent[],
   volumeRiders: VolumeRider[],
 ): Promise<Map<string, ObjectId>> {
-  const bikes = client.db().collection("bikes");
-  const now = new Date();
+  const bikes = client.db().collection("bicis");
 
   const documents: Array<Record<string, unknown>> = [];
   const keys: string[] = [];
@@ -448,12 +423,10 @@ async function seedBikes(
     if (keys.includes(key)) continue;
     keys.push(key);
     documents.push({
-      userId: userIds.get(d.user)!,
-      type: d.bikeType,
+      usuarioId: userIds.get(d.user)!,
+      tipo: d.bikeType,
       ...SEED_BIKE_BY_TYPE[d.bikeType],
-      isPrimary: !hasPrimary.has(d.user),
-      createdAt: now,
-      source: "seed",
+      principal: !hasPrimary.has(d.user),
     });
     hasPrimary.add(d.user);
   }
@@ -462,12 +435,22 @@ async function seedBikes(
   for (const rider of volumeRiders) {
     rider.bikes.forEach((bike, index) => {
       keys.push(volumeBikeKey(rider.displayName, index));
-      documents.push({ userId: userIds.get(rider.displayName)!, ...bike, createdAt: now, source: "seed" });
+      documents.push({
+        usuarioId: userIds.get(rider.displayName)!,
+        tipo: bike.type,
+        marca: bike.brand,
+        modelo: bike.model,
+        anio: bike.year,
+        rodado: bike.wheelSize,
+        recorridoDelanteroMm: bike.travelFrontMm,
+        recorridoTraseroMm: bike.travelRearMm,
+        principal: bike.isPrimary,
+      });
     });
   }
 
-  // Same idea as descents: only seed bikes are deleted and inserted again.
-  await bikes.deleteMany({ source: "seed" });
+  // Only the bikes of seed riders are deleted and inserted again.
+  await bikes.deleteMany({ usuarioId: { $in: seedUserIds } });
   const result = await bikes.insertMany(documents);
 
   const idByKey = new Map<string, ObjectId>();
@@ -527,53 +510,54 @@ function allSeedDescents(): SeedDescent[] {
 async function seedDescents(
   trailIds: Map<string, ObjectId>,
   userIds: Map<string, ObjectId>,
+  seedUserIds: ObjectId[],
   bikeIds: Map<string, ObjectId>,
   volumeDescents: VolumeDescent[],
   volumeRiders: VolumeRider[],
 ) {
-  const descents = client.db().collection("descents");
+  const descents = client.db().collection("bajadas");
   const all = allSeedDescents();
 
   const dropByMockId = new Map(cerros.map((c) => [c.id, c.desnivelM]));
   const mockIdBySlug = new Map(cerros.map((c) => [c.slug, c.id]));
   const bikeTypeOf = new Map(volumeRiders.map((r) => [r.displayName, r.bikes.map((b) => b.type)]));
 
-  const documents = all.map((d) => ({
+  const documents: Array<Record<string, unknown>> = all.map((d) => ({
     // Referenced, not embedded: descents grow without limit.
-    trailId: trailIds.get(d.trailMockId)!,
-    userId: userIds.get(d.user)!,
-    bikeId: bikeIds.get(bikeKey(d.user, d.bikeType))!,
-    startedAt: toDate(d.day),
-    durationMs: d.durationMs,
-    avgSpeedKmh: d.avgSpeedKmh,
-    elevationChangeM: dropByMockId.get(d.trailMockId)!,
-    bikeType: d.bikeType,
-    status: d.status,
-    validated: d.validated,
-    invalidReason: d.invalidReason ?? null,
-    source: "seed",
+    senderoId: trailIds.get(d.trailMockId)!,
+    usuarioId: userIds.get(d.user)!,
+    biciId: bikeIds.get(bikeKey(d.user, d.bikeType))!,
+    fechaInicio: toDate(d.day),
+    duracion: d.durationMs,
+    velocidadPromedioKmh: d.avgSpeedKmh,
+    desnivelM: dropByMockId.get(d.trailMockId)!,
+    tipoBici: d.bikeType,
+    estado: toEstado(d.status),
+    valida: d.validated,
+    // The reason only exists when the run does not count.
+    ...(d.invalidReason ? { motivoInvalida: d.invalidReason } : {}),
   }));
 
-  // Volume descents: same shape. bikeType is a copy of the bike's type (like the app does).
+  // Volume descents: same shape. tipoBici is a copy of the bike's type (like the app does).
   for (const d of volumeDescents) {
     const mockId = mockIdBySlug.get(d.trailSlug)!;
     documents.push({
-      trailId: trailIds.get(mockId)!,
-      userId: userIds.get(d.rider)!,
-      bikeId: bikeIds.get(volumeBikeKey(d.rider, d.bikeIndex))!,
-      startedAt: d.startedAt,
-      durationMs: d.durationMs,
-      avgSpeedKmh: d.avgSpeedKmh,
-      elevationChangeM: dropByMockId.get(mockId)!,
-      bikeType: bikeTypeOf.get(d.rider)![d.bikeIndex],
-      status: d.status,
-      validated: d.validated,
-      invalidReason: d.invalidReason,
-      source: "seed",
+      senderoId: trailIds.get(mockId)!,
+      usuarioId: userIds.get(d.rider)!,
+      biciId: bikeIds.get(volumeBikeKey(d.rider, d.bikeIndex))!,
+      fechaInicio: d.startedAt,
+      duracion: d.durationMs,
+      velocidadPromedioKmh: d.avgSpeedKmh,
+      desnivelM: dropByMockId.get(mockId)!,
+      tipoBici: bikeTypeOf.get(d.rider)![d.bikeIndex],
+      estado: toEstado(d.status),
+      valida: d.validated,
+      ...(d.invalidReason ? { motivoInvalida: d.invalidReason } : {}),
     });
   }
 
-  await descents.deleteMany({ source: "seed" });
+  // Only the descents of seed riders (this also clears old demo runs of "Demo rider").
+  await descents.deleteMany({ usuarioId: { $in: seedUserIds } });
   // ordered: false lets the server insert the batches without stopping at the first one.
   await descents.insertMany(documents, { ordered: false });
   return documents.length;
@@ -584,31 +568,30 @@ async function seedDescents(
 async function seedReviews(
   trailIds: Map<string, ObjectId>,
   userIds: Map<string, ObjectId>,
+  seedUserIds: ObjectId[],
   volumeReviews: VolumeReview[],
 ) {
-  const reviews = client.db().collection("reviews");
+  const reviews = client.db().collection("resenas");
   const mockIdBySlug = new Map(cerros.map((c) => [c.slug, c.id]));
 
   const documents = comentarios.map((c) => ({
-    trailId: trailIds.get(c.cerroId)!,
-    userId: userIds.get(c.autor)!,
-    rating: ratingByCommentId[c.id],
-    comment: c.texto,
-    createdAt: toDate(c.fecha),
-    source: "seed",
+    senderoId: trailIds.get(c.cerroId)!,
+    usuarioId: userIds.get(c.autor)!,
+    calificacion: ratingByCommentId[c.id],
+    comentario: c.texto,
+    fecha: toDate(c.fecha),
   }));
   for (const r of volumeReviews) {
     documents.push({
-      trailId: trailIds.get(mockIdBySlug.get(r.trailSlug)!)!,
-      userId: userIds.get(r.rider)!,
-      rating: r.rating,
-      comment: r.comment,
-      createdAt: r.createdAt,
-      source: "seed",
+      senderoId: trailIds.get(mockIdBySlug.get(r.trailSlug)!)!,
+      usuarioId: userIds.get(r.rider)!,
+      calificacion: r.rating,
+      comentario: r.comment,
+      fecha: r.createdAt,
     });
   }
 
-  await reviews.deleteMany({ source: "seed" });
+  await reviews.deleteMany({ usuarioId: { $in: seedUserIds } });
   await reviews.insertMany(documents);
   return documents.length;
 }
@@ -639,17 +622,22 @@ async function main() {
   );
 
   const userIds = await seedUsers(volume.riders);
+  // Seed riders = usuarios without email. Only their data is replaced below.
+  const seedUserIds = (
+    await client.db().collection("usuarios").find({ email: { $exists: false } }, { projection: { _id: 1 } }).toArray()
+  ).map((u) => u._id);
+
   const trailIds = await seedTrails();
-  const bikeIds = await seedBikes(userIds, allSeedDescents(), volume.riders);
-  const descentCount = await seedDescents(trailIds, userIds, bikeIds, volume.descents, volume.riders);
-  const reviewCount = await seedReviews(trailIds, userIds, volume.reviews);
+  const bikeIds = await seedBikes(userIds, seedUserIds, allSeedDescents(), volume.riders);
+  const descentCount = await seedDescents(trailIds, userIds, seedUserIds, bikeIds, volume.descents, volume.riders);
+  const reviewCount = await seedReviews(trailIds, userIds, seedUserIds, volume.reviews);
 
   console.log(`Database: ${client.db().databaseName}`);
-  console.log(`users:    ${userIds.size}`);
-  console.log(`trails:   ${trailIds.size}`);
-  console.log(`bikes:    ${bikeIds.size} (seed)`);
-  console.log(`descents: ${descentCount} (seed)`);
-  console.log(`reviews:  ${reviewCount} (seed)`);
+  console.log(`usuarios: ${userIds.size}`);
+  console.log(`senderos: ${trailIds.size}`);
+  console.log(`bicis:    ${bikeIds.size} (seed)`);
+  console.log(`bajadas:  ${descentCount} (seed)`);
+  console.log(`resenas:  ${reviewCount} (seed)`);
 }
 
 main()

@@ -7,37 +7,37 @@ import { getDb } from "@/lib/mongodb";
  * their average speed and the average front travel of the bikes used.
  * Answers "do DH bikes go faster down these trails?".
  *
- * Course concept: $lookup to the new `bikes` collection through descents.bikeId,
+ * Course concept: $lookup to the `bicis` collection through bajadas.biciId,
  * then $group with $avg over fields of BOTH collections.
  *
- * Compass (collection `descents` → Aggregations → paste):
+ * Compass (collection `bajadas` → Aggregations → paste):
  *
  * [
- *   { $match: { validated: true, bikeId: { $type: "objectId" } } },
- *   { $lookup: { from: "bikes", localField: "bikeId", foreignField: "_id", as: "bike" } },
- *   { $unwind: "$bike" },
+ *   { $match: { valida: true, biciId: { $type: "objectId" } } },
+ *   { $lookup: { from: "bicis", localField: "biciId", foreignField: "_id", as: "bici" } },
+ *   { $unwind: "$bici" },
  *   {
  *     $group: {
- *       _id: "$bike.type",
- *       validDescents: { $sum: 1 },
- *       avgSpeedKmh: { $avg: "$avgSpeedKmh" },
- *       avgFrontTravelMm: { $avg: "$bike.travelFrontMm" }
+ *       _id: "$bici.tipo",
+ *       bajadasValidas: { $sum: 1 },
+ *       velocidadPromedioKmh: { $avg: "$velocidadPromedioKmh" },
+ *       recorridoDelanteroPromedioMm: { $avg: "$bici.recorridoDelanteroMm" }
  *     }
  *   },
  *   {
  *     $project: {
  *       _id: 0,
- *       bikeType: "$_id",
- *       validDescents: 1,
- *       avgSpeedKmh: { $round: ["$avgSpeedKmh", 1] },
- *       avgFrontTravelMm: { $round: ["$avgFrontTravelMm", 0] }
+ *       tipoBici: "$_id",
+ *       bajadasValidas: 1,
+ *       velocidadPromedioKmh: { $round: ["$velocidadPromedioKmh", 1] },
+ *       recorridoDelanteroPromedioMm: { $round: ["$recorridoDelanteroPromedioMm", 0] }
  *     }
  *   },
- *   { $sort: { avgSpeedKmh: -1 } }
+ *   { $sort: { velocidadPromedioKmh: -1 } }
  * ]
  *
  * Stages:
- * - $match: valid descents that point to a bike (older ones have no bikeId).
+ * - $match: valid descents that point to a bike (runs saved without a bike have no biciId).
  * - $lookup + $unwind: each descent gets the bike it was ridden with.
  * - $group: one row per bike type; $avg mixes a descent field (speed) and a bike
  *   field (front travel).
@@ -46,36 +46,36 @@ import { getDb } from "@/lib/mongodb";
  */
 
 export interface BikeTypeStats {
-  bikeType: string;
-  validDescents: number;
-  avgSpeedKmh: number;
-  avgFrontTravelMm: number;
+  tipoBici: string;
+  bajadasValidas: number;
+  velocidadPromedioKmh: number;
+  recorridoDelanteroPromedioMm: number;
 }
 
 export async function getStatsPerBikeType(): Promise<BikeTypeStats[]> {
   const pipeline = [
-    { $match: { validated: true, bikeId: { $type: "objectId" } } },
-    { $lookup: { from: "bikes", localField: "bikeId", foreignField: "_id", as: "bike" } },
-    { $unwind: "$bike" },
+    { $match: { valida: true, biciId: { $type: "objectId" } } },
+    { $lookup: { from: "bicis", localField: "biciId", foreignField: "_id", as: "bici" } },
+    { $unwind: "$bici" },
     {
       $group: {
-        _id: "$bike.type",
-        validDescents: { $sum: 1 },
-        avgSpeedKmh: { $avg: "$avgSpeedKmh" },
-        avgFrontTravelMm: { $avg: "$bike.travelFrontMm" },
+        _id: "$bici.tipo",
+        bajadasValidas: { $sum: 1 },
+        velocidadPromedioKmh: { $avg: "$velocidadPromedioKmh" },
+        recorridoDelanteroPromedioMm: { $avg: "$bici.recorridoDelanteroMm" },
       },
     },
     {
       $project: {
         _id: 0,
-        bikeType: "$_id",
-        validDescents: 1,
-        avgSpeedKmh: { $round: ["$avgSpeedKmh", 1] },
-        avgFrontTravelMm: { $round: ["$avgFrontTravelMm", 0] },
+        tipoBici: "$_id",
+        bajadasValidas: 1,
+        velocidadPromedioKmh: { $round: ["$velocidadPromedioKmh", 1] },
+        recorridoDelanteroPromedioMm: { $round: ["$recorridoDelanteroPromedioMm", 0] },
       },
     },
-    { $sort: { avgSpeedKmh: -1 } },
+    { $sort: { velocidadPromedioKmh: -1 } },
   ];
 
-  return getDb().collection("descents").aggregate<BikeTypeStats>(pipeline).toArray();
+  return getDb().collection("bajadas").aggregate<BikeTypeStats>(pipeline).toArray();
 }

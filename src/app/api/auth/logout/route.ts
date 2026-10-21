@@ -4,7 +4,7 @@ import { isDbAvailable } from "@/lib/mongodb";
 
 /*
  * POST /api/auth/logout — signs out: deletes the session and the cookie.
- * Compass equivalent: db.sessions.deleteOne({ tokenHash: "..." })
+ * Compass equivalent: db.sesiones.deleteOne({ hashToken: "..." })
  */
 export async function POST() {
   await connection();

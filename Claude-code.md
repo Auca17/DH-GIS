@@ -50,6 +50,7 @@ Documentos de referencia en el repo:
 - **2026-10-18/19 (`feat/mejoras`, mergeado):** `npm run explain` + `docs/explain.md`; `$jsonSchema` en todas las colecciones (`users`, `bikes`, `sessions`, `trails`, `descents`, `reviews`); reseñas reales desde la pantalla de resultado (`POST /api/reviews`, solo descenso propio, válido y con GPS real, índice único parcial `one_review_per_descent`); reenvío del guardado "pendiente" a los 30 s; mensajes de la API en español; ids viejos redirigidos en `next.config.ts`.
 - 2026-10-19: Atlas recargado con el seed (validadores en todas las colecciones e índice `one_review_per_descent`; el usuario de la base volvió a "Read and write"). Descensos `check-*` borrados de la local.
 - Consultas C1–C13 en `src/lib/queries/` (tabla en `docs/GUIA-EQUIPO.md`). 170 tests (`npx vitest run`), `tsc` limpio.
+- **2026-10-21 (`feat/espanol-db`, mergeado):** base en español (`usuarios`, `senderos`, `bajadas`, `resenas`, `bicis`, `sesiones`; campos como `usuarioId`, `duracion`, `principal`, `estado: "completada"`). Sin `source` (riders del seed = usuarios sin email), sin `createdAt` en bicis, sin `path`/radios/`visibleOnMap`/`dataSource` en senderos, sin `null` en bajadas sin bici. El código y los cuerpos de la API siguen en inglés. Pendiente del usuario: borrar las colecciones viejas en inglés (local y Atlas) y volver a registrar sus cuentas.
 
 ## 5. Lo que falta
 

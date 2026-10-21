@@ -9,20 +9,20 @@ import { validateReviewBody } from "@/lib/reviews/validate-review";
  * Body: { runId, rating (1 to 5), comment (optional, up to 500 characters) }.
  * Rules (all checked here, on the server):
  * - Only signed-in riders. The rider comes from the session cookie, never from the body.
- * - Only for THEIR OWN descent: the descent is searched with runId AND the session's userId.
+ * - Only for THEIR OWN descent: the descent is searched with idCorrida AND the session's usuarioId.
  * - Only for a valid descent with real GPS (no demo runs).
- * - One review per descent: `reviews` has a unique partial index on descentId
+ * - One review per descent: `resenas` has a unique partial index on bajadaId
  *   (scripts/seed.ts), so the database itself rejects a second one (error 11000).
  *
  * The trail's average rating is not stored anywhere: C5 computes it with $avg.
  *
- * Course concept: references between collections (the review stores trailId, userId
- * and descentId) and a partial unique index as a business rule.
+ * Course concept: references between collections (the review stores senderoId, usuarioId
+ * and bajadaId) and a partial unique index as a business rule.
  *
  * Compass equivalent:
- *   db.reviews.insertOne({
- *     trailId: ObjectId("..."), userId: ObjectId("..."), descentId: ObjectId("..."),
- *     rating: 4, comment: "Mucha piedra suelta", createdAt: new Date(), source: "app"
+ *   db.resenas.insertOne({
+ *     senderoId: ObjectId("..."), usuarioId: ObjectId("..."), bajadaId: ObjectId("..."),
+ *     calificacion: 4, comentario: "Mucha piedra suelta", fecha: new Date()
  *   })
  */
 
@@ -55,38 +55,37 @@ export async function POST(request: Request) {
     }
 
     const db = getDb();
-    // runId AND userId: another rider's descent is never found.
+    // idCorrida AND usuarioId: another rider's descent is never found.
     const descent = await db
-      .collection("descents")
-      .findOne({ runId: input.runId, userId }, { projection: { trailId: 1, validated: 1, isDemo: 1 } });
+      .collection("bajadas")
+      .findOne({ idCorrida: input.runId, usuarioId: userId }, { projection: { senderoId: 1, valida: 1, esDemo: 1 } });
     if (!descent) {
       return Response.json({ ok: false, message: "No encontramos ese descenso." }, { status: 404 });
     }
-    if (descent.isDemo === true) {
+    if (descent.esDemo === true) {
       return Response.json(
         { ok: false, message: "Las reseñas son solo para descensos con GPS real." },
         { status: 403 },
       );
     }
-    if (descent.validated !== true) {
+    if (descent.valida !== true) {
       return Response.json(
         { ok: false, message: "Solo se puede reseñar un descenso válido." },
         { status: 403 },
       );
     }
 
-    await db.collection("reviews").insertOne({
-      trailId: descent.trailId,
-      userId,
-      descentId: descent._id,
-      rating: input.rating,
-      comment: input.comment,
-      createdAt: new Date(),
-      source: "app",
+    await db.collection("resenas").insertOne({
+      senderoId: descent.senderoId,
+      usuarioId: userId,
+      bajadaId: descent._id,
+      calificacion: input.rating,
+      comentario: input.comment,
+      fecha: new Date(),
     });
     return Response.json({ ok: true }, { status: 201 });
   } catch (error) {
-    // 11000 = duplicate key: the unique index on descentId already has a review.
+    // 11000 = duplicate key: the unique index on bajadaId already has a review.
     if ((error as { code?: number }).code === 11000) {
       return Response.json(
         { ok: false, message: "Ya dejaste una reseña para este descenso." },

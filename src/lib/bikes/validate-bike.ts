@@ -19,6 +19,19 @@ export interface BikeInput {
   travelRearMm: number;
 }
 
+/** The checked bike with the field names of the `bicis` collection. */
+export function toBikeFields(input: BikeInput) {
+  return {
+    tipo: input.type,
+    marca: input.brand,
+    modelo: input.model,
+    anio: input.year,
+    rodado: input.wheelSize,
+    recorridoDelanteroMm: input.travelFrontMm,
+    recorridoTraseroMm: input.travelRearMm,
+  };
+}
+
 export type Check<T> = { ok: true; value: T } | { ok: false; message: string };
 
 /** A trimmed string with a length between min and max, or null. */

@@ -37,7 +37,7 @@ async function load<T>(
   }
 
   try {
-    const trailCount = await getDb().collection("trails").countDocuments({}, { limit: 1 });
+    const trailCount = await getDb().collection("senderos").countDocuments({}, { limit: 1 });
     if (trailCount === 0) {
       return { dbStatus: "empty", data: null };
     }
@@ -56,33 +56,36 @@ function toDay(date: Date): string {
 }
 
 function toCerro(doc: TrailDoc, rating: number): Cerro {
+  // Screen-only details (placeholder, map visibility, data credit) are not stored in
+  // the database: they come from the trail files in src/data, matched by codigo.
+  const screenInfo = cerros.find((c) => c.slug === doc.codigo);
   return {
-    id: doc.slug, // the slug is the id everywhere in the UI
-    slug: doc.slug,
-    nombre: doc.name,
+    id: doc.codigo, // the codigo is the id everywhere in the UI
+    slug: doc.codigo,
+    nombre: doc.nombre,
     // GeoJSON is [lng, lat]; the UI uses { lat, lng }.
-    ubicacion: { lat: doc.start.coordinates[1], lng: doc.start.coordinates[0] },
-    descripcion: doc.description,
-    dificultadGeneral: doc.difficulty,
+    ubicacion: { lat: doc.inicio.coordinates[1], lng: doc.inicio.coordinates[0] },
+    descripcion: doc.descripcion,
+    dificultadGeneral: doc.dificultad,
     calificacion: rating,
-    pista: doc.segments.map((segment) => ({
-      dificultad: segment.difficulty,
-      puntos: segment.points.map((p) => ({
-        lat: p.location.coordinates[1],
-        lng: p.location.coordinates[0],
-        elevacionM: p.elevationM,
+    pista: doc.tramos.map((tramo) => ({
+      dificultad: tramo.dificultad,
+      puntos: tramo.puntos.map((p) => ({
+        lat: p.ubicacion.coordinates[1],
+        lng: p.ubicacion.coordinates[0],
+        elevacionM: p.elevacionM,
       })),
     })),
-    duracionEstimadaMs: doc.stats.avgTimeS * 1000,
-    terreno: doc.terrain,
-    largoM: doc.stats.lengthM,
-    desnivelM: doc.stats.dropM,
-    pendientePromedioPct: doc.stats.avgGradePct,
-    tiempoPromedioS: doc.stats.avgTimeS,
-    tiempoMinimoValidoS: doc.minValidTimeS ?? 0,
-    isPlaceholder: doc.isPlaceholder,
-    visibleEnMapa: doc.visibleOnMap,
-    fuenteDatos: doc.dataSource ?? undefined,
+    duracionEstimadaMs: doc.estadisticas.tiempoPromedioS * 1000,
+    terreno: doc.terreno,
+    largoM: doc.estadisticas.largoM,
+    desnivelM: doc.estadisticas.desnivelM,
+    pendientePromedioPct: doc.estadisticas.pendientePromedioPct,
+    tiempoPromedioS: doc.estadisticas.tiempoPromedioS,
+    tiempoMinimoValidoS: doc.tiempoMinimoS ?? 0,
+    isPlaceholder: screenInfo?.isPlaceholder ?? false,
+    visibleEnMapa: screenInfo?.visibleEnMapa ?? true,
+    fuenteDatos: screenInfo?.fuenteDatos,
   };
 }
 
@@ -101,7 +104,7 @@ export async function loadTrails(): Promise<DbResult<Cerro[]>> {
     async () => {
       const [trails, ratings] = await Promise.all([listTrails(), getAverageRatings()]);
       return trails.map((trail) => {
-        const rating = ratings.find((r) => r.slug === trail.slug)?.avgRating ?? 0;
+        const rating = ratings.find((r) => r.codigo === trail.codigo)?.promedio ?? 0;
         return toCerro(trail, rating);
       });
     },
@@ -117,7 +120,7 @@ export async function loadTrail(slug: string): Promise<DbResult<Cerro>> {
         return null;
       }
       const ratings = await getAverageRatings();
-      return toCerro(trail, ratings.find((r) => r.slug === slug)?.avgRating ?? 0);
+      return toCerro(trail, ratings.find((r) => r.codigo === slug)?.promedio ?? 0);
     },
     () => mockCerro(slug),
   );
@@ -132,14 +135,14 @@ export async function loadLeaderboard(slug: string): Promise<DbResult<EntradaLea
       const rows = await getLeaderboard(slug);
       // C3 returns one row per rider, so the rider name is unique and works as id.
       return rows.map((row) => ({
-        id: row.rider,
+        id: row.ciclista,
         cerroId: slug,
-        usuario: row.rider,
-        tiempoMs: row.durationMs,
-        velocidadPromedioKmh: row.avgSpeedKmh,
-        fecha: toDay(row.startedAt),
-        bikeType: row.bikeType as TipoBici,
-        esDemo: row.isDemo === true,
+        usuario: row.ciclista,
+        tiempoMs: row.duracion,
+        velocidadPromedioKmh: row.velocidadPromedioKmh,
+        fecha: toDay(row.fechaInicio),
+        bikeType: row.tipoBici as TipoBici,
+        esDemo: row.esDemo === true,
       }));
     },
     () => {
@@ -162,9 +165,9 @@ export async function loadReviews(slug: string): Promise<DbResult<Comentario[]>>
       return reviews.map((review, i) => ({
         id: `${slug}-review-${i}`,
         cerroId: slug,
-        autor: review.author,
-        texto: review.comment,
-        fecha: toDay(review.createdAt),
+        autor: review.autor,
+        texto: review.comentario,
+        fecha: toDay(review.fecha),
       }));
     },
     () => {

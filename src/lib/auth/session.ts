@@ -5,14 +5,14 @@ import type { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
 
 // Sessions: after signing up or in, the browser keeps a random token in an
-// httpOnly cookie (JavaScript in the page cannot read it), and `sessions` keeps
+// httpOnly cookie (JavaScript in the page cannot read it), and `sesiones` keeps
 // its SHA-256 hash. If the database leaked, the hashes could not be used as cookies.
 //
-// `sessions` has a TTL index on expiresAt (scripts/seed.ts): MongoDB deletes
+// `sesiones` has a TTL index on venceEn (scripts/seed.ts): MongoDB deletes
 // expired sessions by itself, about once a minute.
 //
 // This is how the server knows WHO is calling. MongoDB has no row-level security
-// for app users, so every route that touches a rider's data filters by the userId
+// for app users, so every route that touches a rider's data filters by the usuarioId
 // that comes from here, never by an id sent by the client.
 
 export const SESSION_COOKIE = "dh_session";
@@ -29,8 +29,8 @@ export async function startSession(userId: ObjectId): Promise<void> {
   const expiresAt = new Date(now.getTime() + SESSION_DAYS * 24 * 60 * 60 * 1000);
 
   await getDb()
-    .collection("sessions")
-    .insertOne({ tokenHash: hashToken(token), userId, createdAt: now, expiresAt });
+    .collection("sesiones")
+    .insertOne({ hashToken: hashToken(token), usuarioId: userId, fechaCreacion: now, venceEn: expiresAt });
 
   (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
@@ -48,10 +48,10 @@ export async function getSessionUserId(): Promise<ObjectId | null> {
   if (!token) return null;
 
   const session = await getDb()
-    .collection("sessions")
-    // expiresAt filter: the TTL index can take up to a minute to delete a session.
-    .findOne({ tokenHash: hashToken(token), expiresAt: { $gt: new Date() } });
-  return (session?.userId as ObjectId | undefined) ?? null;
+    .collection("sesiones")
+    // venceEn filter: the TTL index can take up to a minute to delete a session.
+    .findOne({ hashToken: hashToken(token), venceEn: { $gt: new Date() } });
+  return (session?.usuarioId as ObjectId | undefined) ?? null;
 }
 
 /** Deletes the session and the cookie (sign out). Only in Route Handlers. */
@@ -59,7 +59,7 @@ export async function endSession(): Promise<void> {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (token) {
-    await getDb().collection("sessions").deleteOne({ tokenHash: hashToken(token) });
+    await getDb().collection("sesiones").deleteOne({ hashToken: hashToken(token) });
   }
   cookieStore.delete(SESSION_COOKIE);
 }

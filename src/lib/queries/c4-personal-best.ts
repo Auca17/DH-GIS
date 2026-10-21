@@ -8,39 +8,39 @@ import { getDb } from "@/lib/mongodb";
  *
  * Course concept: grouping with $group and accumulators ($min, $sum).
  *
- * Compass (collection `descents` → Aggregations → paste).
- * Replace both ObjectIds: Pequia's _id (from `trails`) and Lucas R.'s _id (from `users`):
+ * Compass (collection `bajadas` → Aggregations → paste).
+ * Replace both ObjectIds: Pequia's _id (from `senderos`) and Lucas R.'s _id (from `usuarios`):
  *
  * [
  *   {
  *     $match: {
- *       trailId: ObjectId("PASTE_PEQUIA_ID_HERE"),
- *       userId: ObjectId("PASTE_USER_ID_HERE"),
- *       status: "completed",
- *       validated: true
+ *       senderoId: ObjectId("PASTE_PEQUIA_ID_HERE"),
+ *       usuarioId: ObjectId("PASTE_USER_ID_HERE"),
+ *       estado: "completada",
+ *       valida: true
  *     }
  *   },
  *   {
  *     $group: {
- *       _id: "$userId",
- *       bestMs: { $min: "$durationMs" },
- *       validDescents: { $sum: 1 }
+ *       _id: "$usuarioId",
+ *       mejorTiempo: { $min: "$duracion" },
+ *       bajadasValidas: { $sum: 1 }
  *     }
  *   },
- *   { $project: { _id: 0, bestMs: 1, validDescents: 1 } }
+ *   { $project: { _id: 0, mejorTiempo: 1, bajadasValidas: 1 } }
  * ]
  *
  * Stages:
  * - $match: keeps only this rider's completed and validated descents on this trail
  *   (an SOS or an invalid time can never be a personal best).
- * - $group: puts all those descents in ONE group (same userId) and computes the
- *   minimum durationMs ($min) and how many there are ($sum: 1 adds 1 per document).
+ * - $group: puts all those descents in ONE group (same usuarioId) and computes the
+ *   minimum duracion ($min) and how many there are ($sum: 1 adds 1 per document).
  * - $project: hides the group _id and returns only the two computed values.
  */
 
 export interface PersonalBest {
-  bestMs: number;
-  validDescents: number;
+  mejorTiempo: number;
+  bajadasValidas: number;
 }
 
 export async function getPersonalBest(
@@ -49,9 +49,9 @@ export async function getPersonalBest(
 ): Promise<PersonalBest | null> {
   const db = getDb();
 
-  // Step 1: find the ids (descents store trailId and userId, not names).
-  const trail = await db.collection("trails").findOne({ slug }, { projection: { _id: 1 } });
-  const user = await db.collection("users").findOne({ displayName }, { projection: { _id: 1 } });
+  // Step 1: find the ids (descents store senderoId and usuarioId, not names).
+  const trail = await db.collection("senderos").findOne({ codigo: slug }, { projection: { _id: 1 } });
+  const user = await db.collection("usuarios").findOne({ nombre: displayName }, { projection: { _id: 1 } });
   if (!trail || !user) {
     return null;
   }
@@ -60,23 +60,23 @@ export async function getPersonalBest(
   const pipeline = [
     {
       $match: {
-        trailId: trail._id,
-        userId: user._id,
-        status: "completed",
-        validated: true,
+        senderoId: trail._id,
+        usuarioId: user._id,
+        estado: "completada",
+        valida: true,
       },
     },
     {
       $group: {
-        _id: "$userId",
-        bestMs: { $min: "$durationMs" },
-        validDescents: { $sum: 1 },
+        _id: "$usuarioId",
+        mejorTiempo: { $min: "$duracion" },
+        bajadasValidas: { $sum: 1 },
       },
     },
-    { $project: { _id: 0, bestMs: 1, validDescents: 1 } },
+    { $project: { _id: 0, mejorTiempo: 1, bajadasValidas: 1 } },
   ];
 
-  const results = await db.collection("descents").aggregate<PersonalBest>(pipeline).toArray();
+  const results = await db.collection("bajadas").aggregate<PersonalBest>(pipeline).toArray();
   // No valid descents → no personal best yet.
   return results[0] ?? null;
 }

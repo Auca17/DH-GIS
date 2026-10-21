@@ -11,7 +11,7 @@ import { getDb, isDbAvailable } from "@/lib/mongodb";
  * would let anyone find out which emails have an account.
  *
  * Compass equivalent of the lookup (unique index on email):
- *   db.users.findOne({ email: "augu@mail.com" })
+ *   db.usuarios.findOne({ email: "augu@mail.com" })
  */
 
 const WRONG = { ok: false, message: "Email o contraseña incorrectos." };
@@ -38,13 +38,13 @@ export async function POST(request: Request) {
   }
 
   const user = await getDb()
-    .collection("users")
-    .findOne({ email: check.value.email }, { projection: { passwordHash: 1, passwordSalt: 1 } });
+    .collection("usuarios")
+    .findOne({ email: check.value.email }, { projection: { hashContrasena: 1, salContrasena: 1 } });
   // Seed users have no password: they can never sign in.
-  if (!user || typeof user.passwordHash !== "string" || typeof user.passwordSalt !== "string") {
+  if (!user || typeof user.hashContrasena !== "string" || typeof user.salContrasena !== "string") {
     return Response.json(WRONG, { status: 401 });
   }
-  if (!(await verifyPassword(check.value.password, user.passwordHash, user.passwordSalt))) {
+  if (!(await verifyPassword(check.value.password, user.hashContrasena, user.salContrasena))) {
     return Response.json(WRONG, { status: 401 });
   }
 

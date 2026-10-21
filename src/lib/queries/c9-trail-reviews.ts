@@ -6,84 +6,84 @@ import { getDb } from "@/lib/mongodb";
  * What it does: returns the reviews of a trail, newest first, with the name
  * of the person who wrote each one.
  *
- * Course concept: $match + $sort over the index { trailId, createdAt: -1 },
- * and a relation between collections with $lookup (reviews.userId → users._id).
+ * Course concept: $match + $sort over the index { senderoId, fecha: -1 },
+ * and a relation between collections with $lookup (resenas.usuarioId → usuarios._id).
  *
- * Compass (collection `reviews` → Aggregations → paste).
- * Replace the ObjectId with Pequia's _id (copy it from the `trails` collection):
+ * Compass (collection `resenas` → Aggregations → paste).
+ * Replace the ObjectId with Pequia's _id (copy it from the `senderos` collection):
  *
  * [
- *   { $match: { trailId: ObjectId("PASTE_PEQUIA_ID_HERE") } },
- *   { $sort: { createdAt: -1 } },
+ *   { $match: { senderoId: ObjectId("PASTE_PEQUIA_ID_HERE") } },
+ *   { $sort: { fecha: -1 } },
  *   {
  *     $lookup: {
- *       from: "users",
- *       localField: "userId",
+ *       from: "usuarios",
+ *       localField: "usuarioId",
  *       foreignField: "_id",
- *       as: "user"
+ *       as: "usuario"
  *     }
  *   },
- *   { $unwind: "$user" },
+ *   { $unwind: "$usuario" },
  *   {
  *     $project: {
  *       _id: 0,
- *       author: "$user.displayName",
- *       comment: 1,
- *       rating: 1,
- *       createdAt: 1
+ *       autor: "$usuario.nombre",
+ *       comentario: 1,
+ *       calificacion: 1,
+ *       fecha: 1
  *     }
  *   }
  * ]
  *
  * Stages:
  * - $match: keeps only the reviews of this trail (first field of the index).
- * - $sort: newest first. The index already stores createdAt in descending
+ * - $sort: newest first. The index already stores fecha in descending
  *   order, so Mongo does not sort in memory.
- * - $lookup: brings the user whose _id equals the review's userId, like a JOIN.
- *   The result is an array called `user` with one element.
+ * - $lookup: brings the user whose _id equals the review's usuarioId, like a JOIN.
+ *   The result is an array called `usuario` with one element.
  * - $unwind: turns that one-element array into a plain object.
  * - $project: returns only what the screen shows: author, comment, rating, date.
  */
 
 export interface TrailReview {
-  author: string;
-  comment: string;
-  rating: number;
-  createdAt: Date;
+  autor: string;
+  comentario: string;
+  calificacion: number;
+  fecha: Date;
 }
 
 export async function getTrailReviews(slug: string): Promise<TrailReview[]> {
   const db = getDb();
 
-  // Step 1: find the trail _id from its slug (the reviews store trailId).
-  const trail = await db.collection("trails").findOne({ slug }, { projection: { _id: 1 } });
+  // Step 1: find the trail _id from its codigo (the reviews store senderoId).
+  const trail = await db.collection("senderos").findOne({ codigo: slug }, { projection: { _id: 1 } });
   if (!trail) {
     return [];
   }
 
   // Step 2: the aggregation shown above.
   const pipeline = [
-    { $match: { trailId: trail._id } },
-    { $sort: { createdAt: -1 } },
+    { $match: { senderoId: trail._id } },
+    { $sort: { fecha: -1 } },
     {
       $lookup: {
-        from: "users",
-        localField: "userId",
+        from: "usuarios",
+        localField: "usuarioId",
         foreignField: "_id",
-        as: "user",
+        as: "usuario",
       },
     },
-    { $unwind: "$user" },
+    { $unwind: "$usuario" },
     {
       $project: {
         _id: 0,
-        author: "$user.displayName",
-        comment: 1,
-        rating: 1,
-        createdAt: 1,
+        autor: "$usuario.nombre",
+        comentario: 1,
+        calificacion: 1,
+        fecha: 1,
       },
     },
   ];
 
-  return db.collection("reviews").aggregate<TrailReview>(pipeline).toArray();
+  return db.collection("resenas").aggregate<TrailReview>(pipeline).toArray();
 }

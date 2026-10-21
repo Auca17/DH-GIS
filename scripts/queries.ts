@@ -53,7 +53,7 @@ async function main() {
   title("C11 Descents per city");
   console.table(await getDescentsPerCity());
 
-  title("C12 Valid descents per bike type (joins the bikes collection)");
+  title("C12 Valid descents per bike type (joins the bicis collection)");
   console.table(await getStatsPerBikeType());
 }
 

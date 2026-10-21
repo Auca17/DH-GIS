@@ -41,9 +41,9 @@ use dh
 En esta guía usamos variables para no copiar ObjectIds a mano. **Pegalas primero cada vez que abras la shell:**
 
 ```js
-const pequia = db.trails.findOne({ slug: "circuito-dh-pequia" })
-const lucas  = db.users.findOne({ displayName: "Lucas R." })
-const demo   = db.users.findOne({ displayName: "Demo rider" })
+const pequia = db.senderos.findOne({ codigo: "circuito-dh-pequia" })
+const lucas  = db.usuarios.findOne({ nombre: "Lucas R." })
+const demo   = db.usuarios.findOne({ nombre: "Demo rider" })
 // Salida de Pequia en formato GeoJSON: [longitud, latitud]
 const salidaPequia = [-68.89533, -32.8959]
 ```
@@ -58,15 +58,15 @@ En la pestaña **Aggregations** de Compass se pega solo el array `[ ... ]` del p
 
 | Colección | Qué guarda | Campos clave |
 |---|---|---|
-| `users` | Riders (11, incluye "Demo rider") | `displayName` (único), `createdAt`, `source` |
-| `trails` | Senderos (4; solo Pequia es real) | `slug` (único), `name`, `difficulty` (`facil`/`intermedia`/`dificil`), `terrain`, `start`/`end` (GeoJSON Point), `path` (GeoJSON LineString), `segments[]` (embebidos: `difficulty`, `points[]`), `stats` (`lengthM`, `dropM`, `avgGradePct`, `avgTimeS`), `minValidTimeS`, `startRadiusM`, `endRadiusM`, `isPlaceholder`, `visibleOnMap` |
-| `descents` | Cada bajada | `trailId` → trails, `userId` → users, `startedAt`, `durationMs`, `avgSpeedKmh`, `elevationChangeM`, `bikeType` (`DH`/`Enduro`/`Trail`, o `null` en las de la app), `status` (`completed`/`interrupted`), `validated`, `invalidReason`, `source` (`seed`/`app`), `isDemo`, `runId` |
-| `reviews` | Opiniones | `trailId` → trails, `userId` → users, `rating` (1–5), `comment`, `createdAt`, `source` |
+| `usuarios` | Riders (incluye "Demo rider") | `nombre` (único), `email` (solo las cuentas reales; los riders del seed no tienen), `nivel`, `ciudad`, `fechaCreacion` |
+| `senderos` | Senderos | `codigo` (único), `nombre`, `dificultad` (`facil`/`intermedia`/`dificil`), `terreno`, `inicio`/`fin` (GeoJSON Point), `tramos[]` (embebidos: `dificultad`, `puntos[]` con `ubicacion` y `elevacionM`), `estadisticas` (`largoM`, `desnivelM`, `pendientePromedioPct`, `tiempoPromedioS`), `tiempoMinimoS` |
+| `bajadas` | Cada bajada | `senderoId` → senderos, `usuarioId` → usuarios, `biciId` → bicis, `fechaInicio`, `duracion` (en milisegundos), `velocidadPromedioKmh`, `desnivelM`, `tipoBici` (`DH`/`Enduro`/`Trail`; no está si la bajada no tiene bici), `estado` (`completada`/`interrumpida`), `valida`, `motivoInvalida` (solo en las inválidas), `esDemo`, `idCorrida` |
+| `resenas` | Opiniones | `senderoId` → senderos, `usuarioId` → usuarios, `bajadaId` → bajadas, `calificacion` (1–5), `comentario`, `fecha` |
 
 **Decisión de diseño:**
 
-- **Embebemos lo que se lee junto.** Los tramos (`segments`) viven dentro del sendero.
-- **Referenciamos lo que crece sin límite.** `descents` y `reviews` guardan `trailId` y `userId`, y se unen con `$lookup`.
+- **Embebemos lo que se lee junto.** Los tramos (`tramos`) viven dentro del sendero.
+- **Referenciamos lo que crece sin límite.** `bajadas` y `resenas` guardan `senderoId` y `usuarioId`, y se unen con `$lookup`.
 
 ---
 
@@ -78,28 +78,27 @@ En la pestaña **Aggregations** de Compass se pega solo el array `[ ... ]` del p
 ```js
 show collections
 
-db.users.countDocuments()
-db.trails.countDocuments()
-db.descents.countDocuments()
-db.reviews.countDocuments()
+db.usuarios.countDocuments()
+db.senderos.countDocuments()
+db.bajadas.countDocuments()
+db.resenas.countDocuments()
 
 // Un documento de ejemplo de cada colección
-db.trails.findOne({}, { segments: 0, path: 0 })   // sin los campos pesados
-db.descents.findOne()
+db.senderos.findOne({}, { tramos: 0 })   // sin el campo pesado
+db.bajadas.findOne()
 
 // Valores distintos de un campo
-db.descents.distinct("bikeType")
-db.descents.distinct("invalidReason")
-db.descents.distinct("source")
+db.bajadas.distinct("tipoBici")
+db.bajadas.distinct("motivoInvalida")
 
 // Qué índices tiene cada colección
-db.trails.getIndexes()
-db.descents.getIndexes()
-db.reviews.getIndexes()
-db.users.getIndexes()
+db.senderos.getIndexes()
+db.bajadas.getIndexes()
+db.resenas.getIndexes()
+db.usuarios.getIndexes()
 ```
 
-> `distinct("invalidReason")` muestra `"SOS"` (seed) y `"sos"` (app) escritos distinto. Es un buen ejemplo de por qué conviene validar el esquema (sección 9).
+> `distinct("motivoInvalida")` muestra `"SOS"` (seed) y `"sos"` (app) escritos distinto. Es un buen ejemplo de por qué conviene validar el esquema (sección 9).
 
 ---
 
@@ -111,28 +110,28 @@ db.users.getIndexes()
 **Concepto:** filtro por igualdad + proyección (`1` incluye, `0` excluye).
 
 ```js
-db.trails.find(
-  { slug: "circuito-dh-pequia" },
-  { _id: 0, name: 1, difficulty: 1, terrain: 1, stats: 1 }
+db.senderos.find(
+  { codigo: "circuito-dh-pequia" },
+  { _id: 0, nombre: 1, dificultad: 1, terreno: 1, estadisticas: 1 }
 )
 ```
 
 ### 4.2 Comparación: `$gt`, `$gte`, `$lt`, `$lte`, `$ne`
 
 **Responde:** los descensos de más de 60 segundos.
-**Concepto:** operadores de comparación.
+**Concepto:** operadores de comparación. `duracion` está en **milisegundos** (60 s = 60000).
 
 ```js
-db.descents.find(
-  { durationMs: { $gt: 60000 } },
-  { _id: 0, durationMs: 1, bikeType: 1, status: 1 }
+db.bajadas.find(
+  { duracion: { $gt: 60000 } },
+  { _id: 0, duracion: 1, tipoBici: 1, estado: 1 }
 )
 ```
 
 **Responde:** los descensos entre 50 y 55 segundos.
 
 ```js
-db.descents.find({ durationMs: { $gte: 50000, $lte: 55000 } })
+db.bajadas.find({ duracion: { $gte: 50000, $lte: 55000 } })
 ```
 
 ### 4.3 `$in` y `$nin`
@@ -141,7 +140,7 @@ db.descents.find({ durationMs: { $gte: 50000, $lte: 55000 } })
 **Concepto:** pertenencia a un conjunto.
 
 ```js
-db.descents.find({ bikeType: { $in: ["DH", "Enduro"] } }).count()
+db.bajadas.find({ tipoBici: { $in: ["DH", "Enduro"] } }).count()
 ```
 
 ### 4.4 `$and`, `$or`, `$not`
@@ -150,21 +149,21 @@ db.descents.find({ bikeType: { $in: ["DH", "Enduro"] } }).count()
 **Concepto:** operadores lógicos.
 
 ```js
-db.descents.find({
-  $or: [ { validated: false }, { status: "interrupted" } ]
-}, { _id: 0, durationMs: 1, status: 1, validated: 1, invalidReason: 1 })
+db.bajadas.find({
+  $or: [ { valida: false }, { estado: "interrumpida" } ]
+}, { _id: 0, duracion: 1, estado: 1, valida: 1, motivoInvalida: 1 })
 ```
 
-> Dos condiciones sobre campos distintos en el mismo objeto ya son un AND implícito: `{ status: "completed", validated: true }`.
+> Dos condiciones sobre campos distintos en el mismo objeto ya son un AND implícito: `{ estado: "completada", valida: true }`.
 
 ### 4.5 `$exists` y `$type`
 
-**Responde:** los descensos guardados desde la app (los únicos que tienen `runId`).
+**Responde:** los descensos guardados desde la app (los únicos que tienen `idCorrida`).
 **Concepto:** esquema flexible, porque no todos los documentos tienen los mismos campos.
 
 ```js
-db.descents.find({ runId: { $exists: true } })
-db.descents.find({ bikeType: { $type: "null" } })   // las corridas de la app guardan bikeType: null
+db.bajadas.find({ idCorrida: { $exists: true } })
+db.bajadas.find({ tipoBici: { $exists: false } })   // las bajadas sin bici no tienen tipoBici
 ```
 
 ### 4.6 `$regex`
@@ -173,7 +172,7 @@ db.descents.find({ bikeType: { $type: "null" } })   // las corridas de la app gu
 **Concepto:** búsqueda por patrón.
 
 ```js
-db.trails.find({ name: { $regex: "^bajada", $options: "i" } }, { _id: 0, name: 1 })
+db.senderos.find({ nombre: { $regex: "^bajada", $options: "i" } }, { _id: 0, nombre: 1 })
 ```
 
 ### 4.7 Campos embebidos (notación punto)
@@ -182,7 +181,7 @@ db.trails.find({ name: { $regex: "^bajada", $options: "i" } }, { _id: 0, name: 1
 **Concepto:** consultar dentro de subdocumentos.
 
 ```js
-db.trails.find({ "stats.lengthM": { $gt: 1000 } }, { _id: 0, name: 1, "stats.lengthM": 1 })
+db.senderos.find({ "estadisticas.largoM": { $gt: 1000 } }, { _id: 0, nombre: 1, "estadisticas.largoM": 1 })
 ```
 
 ### 4.8 Arrays de subdocumentos: `$elemMatch` y `$size`
@@ -191,16 +190,16 @@ db.trails.find({ "stats.lengthM": { $gt: 1000 } }, { _id: 0, name: 1, "stats.len
 **Concepto:** consultar dentro de arrays embebidos.
 
 ```js
-db.trails.find({ "segments.difficulty": "dificil" }, { _id: 0, name: 1 })
+db.senderos.find({ "tramos.dificultad": "dificil" }, { _id: 0, nombre: 1 })
 
 // $elemMatch: un MISMO elemento del array cumple todas las condiciones
-db.trails.find(
-  { segments: { $elemMatch: { difficulty: "dificil" } } },
-  { _id: 0, name: 1 }
+db.senderos.find(
+  { tramos: { $elemMatch: { dificultad: "dificil" } } },
+  { _id: 0, nombre: 1 }
 )
 
 // Senderos con exactamente 3 tramos
-db.trails.find({ segments: { $size: 3 } }, { _id: 0, name: 1 })
+db.senderos.find({ tramos: { $size: 3 } }, { _id: 0, nombre: 1 })
 ```
 
 ### 4.9 Fechas
@@ -209,8 +208,8 @@ db.trails.find({ segments: { $size: 3 } }, { _id: 0, name: 1 })
 **Concepto:** rangos de fechas con `ISODate`.
 
 ```js
-db.descents.find({
-  startedAt: { $gte: ISODate("2026-09-01T00:00:00-03:00"), $lt: ISODate("2026-10-01T00:00:00-03:00") }
+db.bajadas.find({
+  fechaInicio: { $gte: ISODate("2026-09-01T00:00:00-03:00"), $lt: ISODate("2026-10-01T00:00:00-03:00") }
 }).count()
 ```
 
@@ -220,8 +219,8 @@ db.descents.find({
 **Concepto:** orden y paginación.
 
 ```js
-db.descents.find({ validated: true }, { _id: 0, durationMs: 1 }).sort({ durationMs: 1 }).limit(5)
-db.descents.find({ validated: true }, { _id: 0, durationMs: 1 }).sort({ durationMs: 1 }).skip(5).limit(5)
+db.bajadas.find({ valida: true }, { _id: 0, duracion: 1 }).sort({ duracion: 1 }).limit(5)
+db.bajadas.find({ valida: true }, { _id: 0, duracion: 1 }).sort({ duracion: 1 }).skip(5).limit(5)
 ```
 
 ### 4.11 Usando una referencia
@@ -230,14 +229,14 @@ db.descents.find({ validated: true }, { _id: 0, durationMs: 1 }).sort({ duration
 **Concepto:** las referencias son ObjectIds. Primero buscás el `_id` y después filtrás.
 
 ```js
-db.descents.find({ userId: lucas._id }, { _id: 0, durationMs: 1, startedAt: 1, validated: 1 })
+db.bajadas.find({ usuarioId: lucas._id }, { _id: 0, duracion: 1, fechaInicio: 1, valida: 1 })
 ```
 
 ---
 
 ## 5. Geoespaciales (GIS)
 
-El proyecto tiene un índice **2dsphere** en `trails.start`. Sin ese índice, `$near`, `$nearSphere` y `$geoNear` **fallan**. En cambio, `$geoWithin` y `$geoIntersects` funcionan sin índice, aunque más lento.
+El proyecto tiene un índice **2dsphere** en `senderos.inicio`. Sin ese índice, `$near`, `$nearSphere` y `$geoNear` **fallan**. En cambio, `$geoWithin` y `$geoIntersects` funcionan sin índice, aunque más lento.
 
 ### 5.1 `$near`: senderos más cercanos a un punto
 
@@ -245,16 +244,16 @@ El proyecto tiene un índice **2dsphere** en `trails.start`. Sin ese índice, `$
 **Concepto:** consulta de proximidad sobre índice 2dsphere. Las distancias van en **metros**.
 
 ```js
-db.trails.find(
+db.senderos.find(
   {
-    start: {
+    inicio: {
       $near: {
         $geometry: { type: "Point", coordinates: salidaPequia },
         $maxDistance: 5000
       }
     }
   },
-  { _id: 0, name: 1 }
+  { _id: 0, nombre: 1 }
 )
 ```
 
@@ -264,9 +263,9 @@ db.trails.find(
 **Concepto:** diferencia entre geometría plana y esférica. Con GeoJSON y 2dsphere, los dos dan lo mismo.
 
 ```js
-db.trails.find(
-  { start: { $nearSphere: { $geometry: { type: "Point", coordinates: salidaPequia }, $maxDistance: 5000 } } },
-  { _id: 0, name: 1 }
+db.senderos.find(
+  { inicio: { $nearSphere: { $geometry: { type: "Point", coordinates: salidaPequia }, $maxDistance: 5000 } } },
+  { _id: 0, nombre: 1 }
 )
 ```
 
@@ -276,19 +275,19 @@ db.trails.find(
 **Concepto:** pertenencia a un área. `$centerSphere` usa el radio en **radianes**: `metros / 6378100`.
 
 ```js
-db.trails.find({
-  slug: "circuito-dh-pequia",
-  start: { $geoWithin: { $centerSphere: [ salidaPequia, 30 / 6378100 ] } }
-}, { _id: 0, name: 1 })
+db.senderos.find({
+  codigo: "circuito-dh-pequia",
+  inicio: { $geoWithin: { $centerSphere: [ salidaPequia, 30 / 6378100 ] } }
+}, { _id: 0, nombre: 1 })
 // Un resultado = adentro. Cero resultados = afuera.
 ```
 
 Para ver el caso "afuera", probá con un punto a unos 100 m de distancia:
 
 ```js
-db.trails.find({
-  slug: "circuito-dh-pequia",
-  start: { $geoWithin: { $centerSphere: [ [-68.8943, -32.8959], 30 / 6378100 ] } }
+db.senderos.find({
+  codigo: "circuito-dh-pequia",
+  inicio: { $geoWithin: { $centerSphere: [ [-68.8943, -32.8959], 30 / 6378100 ] } }
 }).count()
 ```
 
@@ -304,36 +303,36 @@ const zonaMendoza = {
     [-69.5, -33.5], [-68.5, -33.5], [-68.5, -32.5], [-69.5, -32.5], [-69.5, -33.5]
   ]]
 }
-db.trails.find({ start: { $geoWithin: { $geometry: zonaMendoza } } }, { _id: 0, name: 1 })
+db.senderos.find({ inicio: { $geoWithin: { $geometry: zonaMendoza } } }, { _id: 0, nombre: 1 })
 ```
 
-### 5.5 `$geoIntersects`: ¿el trazado cruza una zona?
+### 5.5 `$geoIntersects`: ¿la salida cae en una zona?
 
-**Responde:** qué senderos tienen su recorrido (`path`, una LineString) cruzando la zona.
-**Concepto:** intersección entre geometrías, línea contra polígono.
+**Responde:** qué senderos tienen la salida (`inicio`, un Point) tocando la zona.
+**Concepto:** intersección entre geometrías, punto contra polígono. Con un punto da lo mismo que `$geoWithin`; la diferencia aparece con líneas o polígonos que cruzan el borde.
 
 ```js
-db.trails.find({ path: { $geoIntersects: { $geometry: zonaMendoza } } }, { _id: 0, name: 1 })
+db.senderos.find({ inicio: { $geoIntersects: { $geometry: zonaMendoza } } }, { _id: 0, nombre: 1 })
 ```
 
 ### 5.6 `$geoNear` en una aggregation, con distancia calculada
 
-**Responde:** los senderos cercanos con su distancia en km y solo los visibles en el mapa.
+**Responde:** los senderos cercanos con su distancia en km, solo los de dificultad `dificil`.
 **Concepto:** `$geoNear` tiene que ser la **primera etapa** del pipeline. Agrega el campo con la distancia y ya ordena.
 
 ```js
-db.trails.aggregate([
+db.senderos.aggregate([
   {
     $geoNear: {
       near: { type: "Point", coordinates: [-68.85, -32.89] },
-      key: "start",
+      key: "inicio",
       distanceField: "distanciaKm",
       distanceMultiplier: 0.001,          // metros → km
-      query: { visibleOnMap: true },       // filtro extra
+      query: { dificultad: "dificil" },    // filtro extra
       spherical: true
     }
   },
-  { $project: { _id: 0, name: 1, distanciaKm: { $round: ["$distanciaKm", 2] } } }
+  { $project: { _id: 0, nombre: 1, distanciaKm: { $round: ["$distanciaKm", 2] } } }
 ])
 ```
 
@@ -349,8 +348,8 @@ Un pipeline es una cadena de etapas, y cada etapa recibe lo que devolvió la ant
 **Concepto:** agrupar y contar.
 
 ```js
-db.descents.aggregate([
-  { $group: { _id: "$bikeType", total: { $sum: 1 } } },
+db.bajadas.aggregate([
+  { $group: { _id: "$tipoBici", total: { $sum: 1 } } },
   { $sort: { total: -1 } }
 ])
 ```
@@ -361,14 +360,14 @@ db.descents.aggregate([
 **Concepto:** acumuladores estadísticos.
 
 ```js
-db.descents.aggregate([
-  { $match: { validated: true } },
+db.bajadas.aggregate([
+  { $match: { valida: true } },
   {
     $group: {
-      _id: "$trailId",
-      promedioMs: { $avg: "$durationMs" },
-      mejorMs:    { $min: "$durationMs" },
-      peorMs:     { $max: "$durationMs" },
+      _id: "$senderoId",
+      promedioMs: { $avg: "$duracion" },
+      mejorMs:    { $min: "$duracion" },
+      peorMs:     { $max: "$duracion" },
       cantidad:   { $sum: 1 }
     }
   }
@@ -381,12 +380,12 @@ db.descents.aggregate([
 **Concepto:** relación entre colecciones, el equivalente a un JOIN.
 
 ```js
-db.descents.aggregate([
-  { $match: { validated: true } },
-  { $group: { _id: "$trailId", promedioMs: { $avg: "$durationMs" }, cantidad: { $sum: 1 } } },
-  { $lookup: { from: "trails", localField: "_id", foreignField: "_id", as: "trail" } },
+db.bajadas.aggregate([
+  { $match: { valida: true } },
+  { $group: { _id: "$senderoId", promedioMs: { $avg: "$duracion" }, cantidad: { $sum: 1 } } },
+  { $lookup: { from: "senderos", localField: "_id", foreignField: "_id", as: "trail" } },
   { $unwind: "$trail" },
-  { $project: { _id: 0, sendero: "$trail.name", promedioS: { $round: [{ $divide: ["$promedioMs", 1000] }, 1] }, cantidad: 1 } },
+  { $project: { _id: 0, sendero: "$trail.nombre", promedioS: { $round: [{ $divide: ["$promedioMs", 1000] }, 1] }, cantidad: 1 } },
   { $sort: { promedioS: 1 } }
 ])
 ```
@@ -394,18 +393,18 @@ db.descents.aggregate([
 ### 6.4 `$lookup` con pipeline: incluir los que tienen cero
 
 **Responde:** cada sendero con su cantidad de descensos válidos, **incluidos los que no tienen ninguno**.
-**Concepto:** `$lookup` con `let` + `pipeline`. Arrancar desde `trails` (y no desde `descents`, como C6) hace que aparezcan los senderos sin descensos.
+**Concepto:** `$lookup` con `let` + `pipeline`. Arrancar desde `senderos` (y no desde `bajadas`, como C6) hace que aparezcan los senderos sin descensos.
 
 ```js
-db.trails.aggregate([
+db.senderos.aggregate([
   {
     $lookup: {
-      from: "descents",
+      from: "bajadas",
       let: { idSendero: "$_id" },
       pipeline: [
         { $match: { $expr: { $and: [
-          { $eq: ["$trailId", "$$idSendero"] },
-          { $eq: ["$validated", true] }
+          { $eq: ["$senderoId", "$$idSendero"] },
+          { $eq: ["$valida", true] }
         ] } } },
         { $count: "n" }
       ],
@@ -414,7 +413,7 @@ db.trails.aggregate([
   },
   { $project: {
       _id: 0,
-      sendero: "$name",
+      sendero: "$nombre",
       descensosValidos: { $ifNull: [ { $arrayElemAt: ["$validos.n", 0] }, 0 ] }
   } },
   { $sort: { descensosValidos: -1 } }
@@ -427,12 +426,12 @@ db.trails.aggregate([
 **Concepto:** desarmar un array embebido para agrupar sus elementos.
 
 ```js
-db.trails.aggregate([
-  { $unwind: "$segments" },
+db.senderos.aggregate([
+  { $unwind: "$tramos" },
   { $group: {
-      _id: "$segments.difficulty",
+      _id: "$tramos.dificultad",
       tramos: { $sum: 1 },
-      puntos: { $sum: { $size: "$segments.points" } }
+      puntos: { $sum: { $size: "$tramos.puntos" } }
   } },
   { $sort: { tramos: -1 } }
 ])
@@ -444,14 +443,14 @@ db.trails.aggregate([
 **Concepto:** campos calculados y comparación entre colecciones.
 
 ```js
-db.descents.aggregate([
-  { $lookup: { from: "trails", localField: "trailId", foreignField: "_id", as: "t" } },
+db.bajadas.aggregate([
+  { $lookup: { from: "senderos", localField: "senderoId", foreignField: "_id", as: "t" } },
   { $unwind: "$t" },
   { $addFields: {
-      segundos: { $round: [{ $divide: ["$durationMs", 1000] }, 1] },
-      superaMinimo: { $gte: [{ $divide: ["$durationMs", 1000] }, "$t.minValidTimeS"] }
+      segundos: { $round: [{ $divide: ["$duracion", 1000] }, 1] },
+      superaMinimo: { $gte: [{ $divide: ["$duracion", 1000] }, "$t.tiempoMinimoS"] }
   } },
-  { $project: { _id: 0, sendero: "$t.name", segundos: 1, minimo: "$t.minValidTimeS", superaMinimo: 1, validated: 1 } }
+  { $project: { _id: 0, sendero: "$t.nombre", segundos: 1, minimo: "$t.tiempoMinimoS", superaMinimo: 1, valida: 1 } }
 ])
 ```
 
@@ -461,9 +460,9 @@ db.descents.aggregate([
 **Concepto:** `$match` + `$group` + normalización con `$toLower`.
 
 ```js
-db.descents.aggregate([
-  { $match: { validated: false } },
-  { $group: { _id: { $toLower: "$invalidReason" }, cantidad: { $sum: 1 } } }
+db.bajadas.aggregate([
+  { $match: { valida: false } },
+  { $group: { _id: { $toLower: "$motivoInvalida" }, cantidad: { $sum: 1 } } }
 ])
 ```
 
@@ -473,9 +472,9 @@ db.descents.aggregate([
 **Concepto:** agrupar por fecha formateada, con zona horaria.
 
 ```js
-db.descents.aggregate([
+db.bajadas.aggregate([
   { $group: {
-      _id: { $dateToString: { format: "%Y-%m", date: "$startedAt", timezone: "America/Argentina/Mendoza" } },
+      _id: { $dateToString: { format: "%Y-%m", date: "$fechaInicio", timezone: "America/Argentina/Mendoza" } },
       descensos: { $sum: 1 }
   } },
   { $sort: { _id: 1 } }
@@ -488,9 +487,9 @@ db.descents.aggregate([
 **Concepto:** agrupar por rangos.
 
 ```js
-db.descents.aggregate([
+db.bajadas.aggregate([
   { $bucket: {
-      groupBy: "$durationMs",
+      groupBy: "$duracion",
       boundaries: [0, 30000, 60000, 90000, 120000],
       default: "120 s o más",
       output: { cantidad: { $sum: 1 } }
@@ -504,12 +503,12 @@ db.descents.aggregate([
 **Concepto:** pipelines paralelos sobre la misma entrada.
 
 ```js
-db.descents.aggregate([
+db.bajadas.aggregate([
   { $facet: {
-      porEstado: [ { $group: { _id: "$status", n: { $sum: 1 } } } ],
-      porBici:   [ { $group: { _id: "$bikeType", n: { $sum: 1 } } } ],
-      top3:      [ { $match: { validated: true } }, { $sort: { durationMs: 1 } }, { $limit: 3 },
-                   { $project: { _id: 0, durationMs: 1 } } ]
+      porEstado: [ { $group: { _id: "$estado", n: { $sum: 1 } } } ],
+      porBici:   [ { $group: { _id: "$tipoBici", n: { $sum: 1 } } } ],
+      top3:      [ { $match: { valida: true } }, { $sort: { duracion: 1 } }, { $limit: 3 },
+                   { $project: { _id: 0, duracion: 1 } } ]
   } }
 ])
 ```
@@ -520,8 +519,8 @@ db.descents.aggregate([
 **Concepto:** contar al final de un pipeline.
 
 ```js
-db.descents.aggregate([
-  { $match: { trailId: pequia._id, validated: true } },
+db.bajadas.aggregate([
+  { $match: { senderoId: pequia._id, valida: true } },
   { $count: "descensosValidos" }
 ])
 ```
@@ -532,10 +531,10 @@ db.descents.aggregate([
 **Concepto:** `$lookup` + filtrar por array vacío, el equivalente a un LEFT JOIN … WHERE NULL.
 
 ```js
-db.users.aggregate([
-  { $lookup: { from: "descents", localField: "_id", foreignField: "userId", as: "d" } },
+db.usuarios.aggregate([
+  { $lookup: { from: "bajadas", localField: "_id", foreignField: "usuarioId", as: "d" } },
   { $match: { d: { $size: 0 } } },
-  { $project: { _id: 0, displayName: 1 } }
+  { $project: { _id: 0, nombre: 1 } }
 ])
 ```
 
@@ -543,10 +542,10 @@ db.users.aggregate([
 **Concepto:** dos `$lookup` sobre colecciones distintas.
 
 ```js
-db.users.aggregate([
-  { $lookup: { from: "descents", localField: "_id", foreignField: "userId", as: "d" } },
-  { $lookup: { from: "reviews",  localField: "_id", foreignField: "userId", as: "r" } },
-  { $project: { _id: 0, rider: "$displayName", descensos: { $size: "$d" }, opiniones: { $size: "$r" } } },
+db.usuarios.aggregate([
+  { $lookup: { from: "bajadas", localField: "_id", foreignField: "usuarioId", as: "d" } },
+  { $lookup: { from: "resenas",  localField: "_id", foreignField: "usuarioId", as: "r" } },
+  { $project: { _id: 0, rider: "$nombre", descensos: { $size: "$d" }, opiniones: { $size: "$r" } } },
   { $sort: { descensos: -1 } }
 ])
 ```
@@ -555,23 +554,23 @@ db.users.aggregate([
 **Concepto:** `$lookup` con dos condiciones, sendero **y** usuario. Es la regla de negocio de las opiniones.
 
 ```js
-db.reviews.aggregate([
+db.resenas.aggregate([
   { $lookup: {
-      from: "descents",
-      let: { t: "$trailId", u: "$userId" },
+      from: "bajadas",
+      let: { t: "$senderoId", u: "$usuarioId" },
       pipeline: [
         { $match: { $expr: { $and: [
-          { $eq: ["$trailId", "$$t"] },
-          { $eq: ["$userId", "$$u"] },
-          { $eq: ["$validated", true] }
+          { $eq: ["$senderoId", "$$t"] },
+          { $eq: ["$usuarioId", "$$u"] },
+          { $eq: ["$valida", true] }
         ] } } },
         { $limit: 1 }
       ],
       as: "valido"
   } },
-  { $lookup: { from: "users", localField: "userId", foreignField: "_id", as: "u" } },
+  { $lookup: { from: "usuarios", localField: "usuarioId", foreignField: "_id", as: "u" } },
   { $unwind: "$u" },
-  { $project: { _id: 0, autor: "$u.displayName", rating: 1, tieneDescensoValido: { $gt: [{ $size: "$valido" }, 0] } } }
+  { $project: { _id: 0, autor: "$u.nombre", calificacion: 1, tieneDescensoValido: { $gt: [{ $size: "$valido" }, 0] } } }
 ])
 ```
 
@@ -581,12 +580,12 @@ db.reviews.aggregate([
 **Concepto:** funciones de ventana (MongoDB 5.0+).
 
 ```js
-db.descents.aggregate([
-  { $match: { trailId: pequia._id, validated: true } },
-  { $setWindowFields: { sortBy: { durationMs: 1 }, output: { puesto: { $rank: {} } } } },
-  { $lookup: { from: "users", localField: "userId", foreignField: "_id", as: "u" } },
+db.bajadas.aggregate([
+  { $match: { senderoId: pequia._id, valida: true } },
+  { $setWindowFields: { sortBy: { duracion: 1 }, output: { puesto: { $rank: {} } } } },
+  { $lookup: { from: "usuarios", localField: "usuarioId", foreignField: "_id", as: "u" } },
   { $unwind: "$u" },
-  { $project: { _id: 0, puesto: 1, rider: "$u.displayName", durationMs: 1 } }
+  { $project: { _id: 0, puesto: 1, rider: "$u.nombre", duracion: 1 } }
 ])
 ```
 
@@ -601,11 +600,11 @@ Son las mismas que usa la app (`src/lib/queries/`), escritas para la shell. Ante
 **Concepto:** proximidad sobre el índice 2dsphere.
 
 ```js
-db.trails.aggregate([
-  { $geoNear: { near: { type: "Point", coordinates: [-68.8953, -32.8959] }, key: "start",
-                distanceField: "distanceM", maxDistance: 10000, spherical: true } },
+db.senderos.aggregate([
+  { $geoNear: { near: { type: "Point", coordinates: [-68.8953, -32.8959] }, key: "inicio",
+                distanceField: "distanciaM", maxDistance: 10000, spherical: true } },
   { $limit: 5 },
-  { $project: { slug: 1, name: 1, difficulty: 1, distanceM: { $round: ["$distanceM", 0] } } }
+  { $project: { codigo: 1, nombre: 1, dificultad: 1, distanciaM: { $round: ["$distanciaM", 0] } } }
 ])
 ```
 
@@ -614,55 +613,55 @@ db.trails.aggregate([
 **Concepto:** círculo esférico con el radio en radianes.
 
 ```js
-db.trails.aggregate([
-  { $match: { slug: "circuito-dh-pequia",
-              start: { $geoWithin: { $centerSphere: [salidaPequia, 30 / 6378100] } } } },
-  { $project: { _id: 0, slug: 1, name: 1 } }
+db.senderos.aggregate([
+  { $match: { codigo: "circuito-dh-pequia",
+              inicio: { $geoWithin: { $centerSphere: [salidaPequia, 30 / 6378100] } } } },
+  { $project: { _id: 0, codigo: 1, nombre: 1 } }
 ])
 ```
 
 ### C3 — Ranking top 10 de un sendero, una fila por rider
 
-**Concepto:** `$match` + `$sort` sobre el índice compuesto, `$group` + `$first` y `$lookup` a `users`.
+**Concepto:** `$match` + `$sort` sobre el índice compuesto, `$group` + `$first` y `$lookup` a `usuarios`.
 
 ```js
-db.descents.aggregate([
-  { $match: { trailId: pequia._id, status: "completed", validated: true } },
-  { $sort: { durationMs: 1 } },
-  { $group: { _id: "$userId", durationMs: { $first: "$durationMs" }, avgSpeedKmh: { $first: "$avgSpeedKmh" },
-              bikeType: { $first: "$bikeType" }, startedAt: { $first: "$startedAt" }, isDemo: { $first: "$isDemo" } } },
-  { $sort: { durationMs: 1 } },
+db.bajadas.aggregate([
+  { $match: { senderoId: pequia._id, estado: "completada", valida: true } },
+  { $sort: { duracion: 1 } },
+  { $group: { _id: "$usuarioId", duracion: { $first: "$duracion" }, velocidadPromedioKmh: { $first: "$velocidadPromedioKmh" },
+              tipoBici: { $first: "$tipoBici" }, fechaInicio: { $first: "$fechaInicio" }, esDemo: { $first: "$esDemo" } } },
+  { $sort: { duracion: 1 } },
   { $limit: 10 },
-  { $lookup: { from: "users", localField: "_id", foreignField: "_id", as: "user" } },
-  { $unwind: "$user" },
-  { $project: { _id: 0, rider: "$user.displayName", durationMs: 1, avgSpeedKmh: 1, bikeType: 1, startedAt: 1, isDemo: 1 } }
+  { $lookup: { from: "usuarios", localField: "_id", foreignField: "_id", as: "usuario" } },
+  { $unwind: "$usuario" },
+  { $project: { _id: 0, ciclista: "$usuario.nombre", duracion: 1, velocidadPromedioKmh: 1, tipoBici: 1, fechaInicio: 1, esDemo: 1 } }
 ])
 ```
 
-> Para dejar afuera las corridas demo, agregá `isDemo: { $ne: true }` al `$match`.
+> Para dejar afuera las corridas demo, agregá `esDemo: { $ne: true }` al `$match`.
 
 ### C4 — Mejor tiempo personal (`$group` + `$min`)
 
 **Concepto:** acumuladores.
 
 ```js
-db.descents.aggregate([
-  { $match: { trailId: pequia._id, userId: lucas._id, status: "completed", validated: true } },
-  { $group: { _id: "$userId", bestMs: { $min: "$durationMs" }, validDescents: { $sum: 1 } } },
-  { $project: { _id: 0, bestMs: 1, validDescents: 1 } }
+db.bajadas.aggregate([
+  { $match: { senderoId: pequia._id, usuarioId: lucas._id, estado: "completada", valida: true } },
+  { $group: { _id: "$usuarioId", mejorTiempo: { $min: "$duracion" }, bajadasValidas: { $sum: 1 } } },
+  { $project: { _id: 0, mejorTiempo: 1, bajadasValidas: 1 } }
 ])
-// Esperado con el seed: bestMs 49800, validDescents 3
+// Esperado con el seed: mejorTiempo 49800 (milisegundos), bajadasValidas 3
 ```
 
 ### C5 — Promedio de calificación por sendero (`$avg` + `$lookup`)
 
 ```js
-db.reviews.aggregate([
-  { $group: { _id: "$trailId", avgRating: { $avg: "$rating" }, reviews: { $sum: 1 } } },
-  { $lookup: { from: "trails", localField: "_id", foreignField: "_id", as: "trail" } },
-  { $unwind: "$trail" },
-  { $project: { _id: 0, trail: "$trail.name", slug: "$trail.slug", avgRating: { $round: ["$avgRating", 1] }, reviews: 1 } },
-  { $sort: { avgRating: -1, trail: 1 } }
+db.resenas.aggregate([
+  { $group: { _id: "$senderoId", promedio: { $avg: "$calificacion" }, cantidad: { $sum: 1 } } },
+  { $lookup: { from: "senderos", localField: "_id", foreignField: "_id", as: "sendero" } },
+  { $unwind: "$sendero" },
+  { $project: { _id: 0, sendero: "$sendero.nombre", codigo: "$sendero.codigo", promedio: { $round: ["$promedio", 1] }, cantidad: 1 } },
+  { $sort: { promedio: -1, sendero: 1 } }
 ])
 ```
 
@@ -671,45 +670,45 @@ db.reviews.aggregate([
 **Concepto:** `$cond` funciona como un if/else dentro de un acumulador.
 
 ```js
-db.descents.aggregate([
-  { $group: { _id: "$trailId", totalDescents: { $sum: 1 }, validDescents: { $sum: { $cond: ["$validated", 1, 0] } } } },
-  { $lookup: { from: "trails", localField: "_id", foreignField: "_id", as: "trail" } },
-  { $unwind: "$trail" },
-  { $project: { _id: 0, trail: "$trail.name", totalDescents: 1, validDescents: 1 } },
-  { $sort: { totalDescents: -1, trail: 1 } }
+db.bajadas.aggregate([
+  { $group: { _id: "$senderoId", totalBajadas: { $sum: 1 }, bajadasValidas: { $sum: { $cond: ["$valida", 1, 0] } } } },
+  { $lookup: { from: "senderos", localField: "_id", foreignField: "_id", as: "sendero" } },
+  { $unwind: "$sendero" },
+  { $project: { _id: 0, sendero: "$sendero.nombre", totalBajadas: 1, bajadasValidas: 1 } },
+  { $sort: { totalBajadas: -1, sendero: 1 } }
 ])
 ```
 
 ### C7 — Lista de senderos
 
 ```js
-db.trails.find({}, { segments: 0, path: 0 }).sort({ name: 1 })
+db.senderos.find({}, { tramos: 0 }).sort({ nombre: 1 })
 ```
 
-### C8 — Sendero por slug (usa el índice único)
+### C8 — Sendero por codigo (usa el índice único)
 
 ```js
-db.trails.findOne({ slug: "circuito-dh-pequia" })
+db.senderos.findOne({ codigo: "circuito-dh-pequia" })
 ```
 
 ### C9 — Opiniones de un sendero, la más nueva primero
 
-**Concepto:** `$match` + `$sort` sobre el índice `{trailId, createdAt: -1}` y `$lookup`.
+**Concepto:** `$match` + `$sort` sobre el índice `{senderoId, fecha: -1}` y `$lookup`.
 
 ```js
-db.reviews.aggregate([
-  { $match: { trailId: pequia._id } },
-  { $sort: { createdAt: -1 } },
-  { $lookup: { from: "users", localField: "userId", foreignField: "_id", as: "user" } },
-  { $unwind: "$user" },
-  { $project: { _id: 0, author: "$user.displayName", comment: 1, rating: 1, createdAt: 1 } }
+db.resenas.aggregate([
+  { $match: { senderoId: pequia._id } },
+  { $sort: { fecha: -1 } },
+  { $lookup: { from: "usuarios", localField: "usuarioId", foreignField: "_id", as: "usuario" } },
+  { $unwind: "$usuario" },
+  { $project: { _id: 0, autor: "$usuario.nombre", comentario: 1, calificacion: 1, fecha: 1 } }
 ])
 ```
 
 ### C10 / C11 — Pendientes, los escribe el equipo
 
-- **C10 `hasValidDescent`:** ¿el usuario tiene al menos un descenso `completed` y `validated: true` en ese sendero? Pista: `find` o `countDocuments` con `trailId`, `userId`, `status` y `validated`, y después `limit(1)`.
-- **C11 `insertReview`:** `insertOne` en `reviews` con `trailId`, `userId`, `rating`, `comment`, `createdAt: new Date()` y `source: "app"`.
+- **C10 `hasValidDescent`:** ¿el usuario tiene al menos un descenso `completada` y `valida: true` en ese sendero? Pista: `find` o `countDocuments` con `senderoId`, `usuarioId`, `estado` y `valida`, y después `limit(1)`.
+- **C11 `insertReview`:** `insertOne` en `resenas` con `senderoId`, `usuarioId`, `calificacion`, `comentario` y `fecha: new Date()`.
 
 ---
 
@@ -719,12 +718,12 @@ db.reviews.aggregate([
 
 | Índice | Lo usa | Por qué |
 |---|---|---|
-| `trails { start: "2dsphere" }` | C1, C2, `$near` | Sin él, las consultas de proximidad no funcionan |
-| `trails { slug: 1 }` único | C8 y todas las pantallas | Acceso directo por URL; la base rechaza slugs repetidos |
-| `users { displayName: 1 }` único | seed, guardado | Nombres de rider sin duplicados |
-| `descents { trailId, status, validated, durationMs }` | C3 | Primero los campos de igualdad y al final el de orden: Mongo lee los mejores tiempos **ya ordenados** |
-| `descents { runId: 1 }` único **parcial** | POST /api/descents | Cada corrida se guarda una sola vez; solo indexa los documentos que tienen `runId` |
-| `reviews { trailId: 1, createdAt: -1 }` | C9 | Opiniones de un sendero, ya ordenadas por fecha |
+| `senderos { inicio: "2dsphere" }` | C1, C2, `$near` | Sin él, las consultas de proximidad no funcionan |
+| `senderos { codigo: 1 }` único | C8 y todas las pantallas | Acceso directo por URL; la base rechaza slugs repetidos |
+| `usuarios { nombre: 1 }` único | seed, guardado | Nombres de rider sin duplicados |
+| `bajadas { senderoId, estado, valida, duracion }` | C3 | Primero los campos de igualdad y al final el de orden: Mongo lee los mejores tiempos **ya ordenados** |
+| `bajadas { idCorrida: 1 }` único **parcial** | POST /api/descents | Cada corrida se guarda una sola vez; solo indexa los documentos que tienen `idCorrida` |
+| `resenas { senderoId: 1, fecha: -1 }` | C9 | Opiniones de un sendero, ya ordenadas por fecha |
 
 ### 8.2 `explain("executionStats")`: con índice vs. sin índice
 
@@ -733,16 +732,16 @@ Para ver el "antes" **no hace falta borrar el índice**. Con `hint({ $natural: 1
 **Con índice:**
 
 ```js
-db.descents.find({ trailId: pequia._id, status: "completed", validated: true })
-  .sort({ durationMs: 1 })
+db.bajadas.find({ senderoId: pequia._id, estado: "completada", valida: true })
+  .sort({ duracion: 1 })
   .explain("executionStats")
 ```
 
 **Sin índice (forzado):**
 
 ```js
-db.descents.find({ trailId: pequia._id, status: "completed", validated: true })
-  .sort({ durationMs: 1 })
+db.bajadas.find({ senderoId: pequia._id, estado: "completada", valida: true })
+  .sort({ duracion: 1 })
   .hint({ $natural: 1 })
   .explain("executionStats")
 ```
@@ -762,9 +761,9 @@ db.descents.find({ trailId: pequia._id, status: "completed", validated: true })
 **Explain de una aggregation:**
 
 ```js
-db.descents.explain("executionStats").aggregate([
-  { $match: { trailId: pequia._id, status: "completed", validated: true } },
-  { $sort: { durationMs: 1 } },
+db.bajadas.explain("executionStats").aggregate([
+  { $match: { senderoId: pequia._id, estado: "completada", valida: true } },
+  { $sort: { duracion: 1 } },
   { $limit: 10 }
 ])
 ```
@@ -774,8 +773,8 @@ db.descents.explain("executionStats").aggregate([
 **C9 con y sin índice:**
 
 ```js
-db.reviews.find({ trailId: pequia._id }).sort({ createdAt: -1 }).explain("executionStats")
-db.reviews.find({ trailId: pequia._id }).sort({ createdAt: -1 }).hint({ $natural: 1 }).explain("executionStats")
+db.resenas.find({ senderoId: pequia._id }).sort({ fecha: -1 }).explain("executionStats")
+db.resenas.find({ senderoId: pequia._id }).sort({ fecha: -1 }).hint({ $natural: 1 }).explain("executionStats")
 ```
 
 ### 8.3 ¿Se usan los índices?
@@ -784,7 +783,7 @@ db.reviews.find({ trailId: pequia._id }).sort({ createdAt: -1 }).hint({ $natural
 **Concepto:** monitoreo de índices (solo lectura).
 
 ```js
-db.descents.aggregate([ { $indexStats: {} } ])
+db.bajadas.aggregate([ { $indexStats: {} } ])
 ```
 
 ---
@@ -798,24 +797,23 @@ Antes de aplicar un validador, revisá qué documentos **no** lo cumplirían. Es
 ```js
 const esquemaDescents = {
   bsonType: "object",
-  required: ["trailId", "userId", "startedAt", "durationMs", "status", "validated"],
+  required: ["senderoId", "usuarioId", "fechaInicio", "duracion", "estado", "valida"],
   properties: {
-    trailId:       { bsonType: "objectId" },
-    userId:        { bsonType: "objectId" },
-    startedAt:     { bsonType: "date" },
-    durationMs:    { bsonType: "number", minimum: 1 },
-    avgSpeedKmh:   { bsonType: "number", minimum: 0 },
-    status:        { enum: ["completed", "interrupted"] },
-    validated:     { bsonType: "bool" },
-    bikeType:      { enum: ["DH", "Enduro", "Trail", null] },   // las de la app guardan null
-    invalidReason: { bsonType: ["string", "null"] },
-    isDemo:        { bsonType: "bool" },
-    source:        { enum: ["seed", "app"] }
+    senderoId:       { bsonType: "objectId" },
+    usuarioId:        { bsonType: "objectId" },
+    fechaInicio:     { bsonType: "date" },
+    duracion:    { bsonType: "number", minimum: 1 },
+    velocidadPromedioKmh:   { bsonType: "number", minimum: 0 },
+    estado:        { enum: ["completada", "interrumpida"] },
+    valida:     { bsonType: "bool" },
+    tipoBici:      { enum: ["DH", "Enduro", "Trail"] },   // no está si la bajada no tiene bici
+    motivoInvalida: { bsonType: "string" },                // solo en las inválidas
+    esDemo:        { bsonType: "bool" }
   }
 }
 
 // Documentos que NO cumplen el esquema (debería dar 0)
-db.descents.find({ $nor: [ { $jsonSchema: esquemaDescents } ] }).count()
+db.bajadas.find({ $nor: [ { $jsonSchema: esquemaDescents } ] }).count()
 ```
 
 ### 9.2 Aplicarlo (escribe la configuración de la colección)
@@ -824,17 +822,17 @@ Esto **no** borra datos, pero cambia la colección. Hacelo cuando el equipo lo d
 
 ```js
 db.runCommand({
-  collMod: "descents",
+  collMod: "bajadas",
   validator: { $jsonSchema: esquemaDescents },
   validationLevel: "moderate",   // no revalida documentos viejos que ya no cumplen
   validationAction: "warn"       // primero "warn" (solo registra); cuando esté probado, "error"
 })
 
 // Ver el validador aplicado
-db.getCollectionInfos({ name: "descents" })[0].options
+db.getCollectionInfos({ name: "bajadas" })[0].options
 ```
 
-Hacé lo mismo para `trails`. Como mínimo: `slug` y `name` string, `difficulty` en `["facil","intermedia","dificil"]`, `start` objeto con `type: "Point"`, y `minValidTimeS` number.
+Hacé lo mismo para `senderos`. Como mínimo: `codigo` y `nombre` string, `dificultad` en `["facil","intermedia","dificil"]`, `inicio` objeto con `type: "Point"`, y `tiempoMinimoS` number.
 
 ---
 
@@ -844,10 +842,10 @@ Hacé lo mismo para `trails`. Como mínimo: `slug` y `name` string, `difficulty`
 
 ```js
 use dh
-db.trails.aggregate([   { $out: { db: "dh_practica", coll: "trails" } } ])
-db.users.aggregate([    { $out: { db: "dh_practica", coll: "users" } } ])
-db.descents.aggregate([ { $out: { db: "dh_practica", coll: "descents" } } ])
-db.reviews.aggregate([  { $out: { db: "dh_practica", coll: "reviews" } } ])
+db.senderos.aggregate([   { $out: { db: "dh_practica", coll: "senderos" } } ])
+db.usuarios.aggregate([    { $out: { db: "dh_practica", coll: "usuarios" } } ])
+db.bajadas.aggregate([ { $out: { db: "dh_practica", coll: "bajadas" } } ])
+db.resenas.aggregate([  { $out: { db: "dh_practica", coll: "resenas" } } ])
 
 use dh_practica
 ```
@@ -857,19 +855,19 @@ use dh_practica
 ### 10.1 `insertOne`: guardar una opinión (lo que hará C11)
 
 ```js
-const p = db.trails.findOne({ slug: "circuito-dh-pequia" })
-const u = db.users.findOne({ displayName: "Lucas R." })
-db.reviews.insertOne({
-  trailId: p._id, userId: u._id, rating: 5,
-  comment: "Prueba de inserción", createdAt: new Date(), source: "practica"
+const p = db.senderos.findOne({ codigo: "circuito-dh-pequia" })
+const u = db.usuarios.findOne({ nombre: "Lucas R." })
+db.resenas.insertOne({
+  senderoId: p._id, usuarioId: u._id, calificacion: 5,
+  comentario: "Prueba de inserción", fecha: new Date()
 })
 ```
 
 ### 10.2 `updateOne` con `$set` e `$inc`
 
 ```js
-db.reviews.updateOne({ source: "practica" }, { $set: { comment: "Comentario editado" } })
-db.trails.updateOne({ slug: "circuito-dh-pequia" }, { $inc: { "stats.avgTimeS": 1 } })
+db.resenas.updateOne({ comentario: "Prueba de inserción" }, { $set: { comentario: "Comentario editado" } })
+db.senderos.updateOne({ codigo: "circuito-dh-pequia" }, { $inc: { "estadisticas.tiempoPromedioS": 1 } })
 ```
 
 ### 10.3 Upsert idempotente (como `POST /api/descents`)
@@ -877,10 +875,10 @@ db.trails.updateOne({ slug: "circuito-dh-pequia" }, { $inc: { "stats.avgTimeS": 
 Si corrés esto dos veces, el segundo intento **no** duplica, porque `$setOnInsert` solo escribe cuando el documento es nuevo.
 
 ```js
-db.descents.updateOne(
-  { runId: "practica-1" },
-  { $setOnInsert: { trailId: p._id, userId: u._id, startedAt: new Date(), durationMs: 50000,
-                    status: "completed", validated: true, source: "practica" } },
+db.bajadas.updateOne(
+  { idCorrida: "practica-1" },
+  { $setOnInsert: { senderoId: p._id, usuarioId: u._id, fechaInicio: new Date(), duracion: 50000,
+                    estado: "completada", valida: true } },
   { upsert: true }
 )
 ```
@@ -888,8 +886,8 @@ db.descents.updateOne(
 ### 10.4 Recrear un índice (en `dh_practica`)
 
 ```js
-db.descents.createIndex({ trailId: 1, status: 1, validated: 1, durationMs: 1 })
-db.trails.createIndex({ start: "2dsphere" })
+db.bajadas.createIndex({ senderoId: 1, estado: 1, valida: 1, duracion: 1 })
+db.senderos.createIndex({ inicio: "2dsphere" })
 ```
 
 ---
@@ -903,9 +901,9 @@ Intentá resolverlos antes de abrir la respuesta. Corrélos en `dh` (son solo le
 <details><summary>Respuesta</summary>
 
 ```js
-db.descents.aggregate([
-  { $match: { userId: demo._id } },
-  { $group: { _id: null, total: { $sum: 1 }, validos: { $sum: { $cond: ["$validated", 1, 0] } } } }
+db.bajadas.aggregate([
+  { $match: { usuarioId: demo._id } },
+  { $group: { _id: null, total: { $sum: 1 }, validos: { $sum: { $cond: ["$valida", 1, 0] } } } }
 ])
 ```
 </details>
@@ -915,7 +913,7 @@ db.descents.aggregate([
 <details><summary>Respuesta</summary>
 
 ```js
-db.trails.find({}, { _id: 0, name: 1, "stats.avgGradePct": 1 }).sort({ "stats.avgGradePct": -1 }).limit(1)
+db.senderos.find({}, { _id: 0, nombre: 1, "estadisticas.pendientePromedioPct": 1 }).sort({ "estadisticas.pendientePromedioPct": -1 }).limit(1)
 ```
 </details>
 
@@ -924,9 +922,9 @@ db.trails.find({}, { _id: 0, name: 1, "stats.avgGradePct": 1 }).sort({ "stats.av
 <details><summary>Respuesta</summary>
 
 ```js
-db.descents.aggregate([
-  { $match: { validated: true, bikeType: { $ne: null } } },
-  { $group: { _id: "$bikeType", vel: { $avg: "$avgSpeedKmh" } } },
+db.bajadas.aggregate([
+  { $match: { valida: true, tipoBici: { $exists: true } } },
+  { $group: { _id: "$tipoBici", vel: { $avg: "$velocidadPromedioKmh" } } },
   { $project: { vel: { $round: ["$vel", 1] } } },
   { $sort: { vel: -1 } }
 ])
@@ -938,14 +936,14 @@ db.descents.aggregate([
 <details><summary>Respuesta</summary>
 
 ```js
-db.descents.aggregate([
-  { $match: { status: "completed", validated: true } },
-  { $sort: { durationMs: 1 } },
-  { $group: { _id: "$trailId", userId: { $first: "$userId" }, mejorMs: { $first: "$durationMs" } } },
-  { $lookup: { from: "trails", localField: "_id", foreignField: "_id", as: "t" } },
-  { $lookup: { from: "users", localField: "userId", foreignField: "_id", as: "u" } },
+db.bajadas.aggregate([
+  { $match: { estado: "completada", valida: true } },
+  { $sort: { duracion: 1 } },
+  { $group: { _id: "$senderoId", usuarioId: { $first: "$usuarioId" }, mejorMs: { $first: "$duracion" } } },
+  { $lookup: { from: "senderos", localField: "_id", foreignField: "_id", as: "t" } },
+  { $lookup: { from: "usuarios", localField: "usuarioId", foreignField: "_id", as: "u" } },
   { $unwind: "$t" }, { $unwind: "$u" },
-  { $project: { _id: 0, sendero: "$t.name", rider: "$u.displayName", mejorMs: 1 } }
+  { $project: { _id: 0, sendero: "$t.nombre", rider: "$u.nombre", mejorMs: 1 } }
 ])
 ```
 </details>
@@ -955,11 +953,11 @@ db.descents.aggregate([
 <details><summary>Respuesta</summary>
 
 ```js
-db.trails.aggregate([
-  { $geoNear: { near: { type: "Point", coordinates: salidaPequia }, key: "start",
+db.senderos.aggregate([
+  { $geoNear: { near: { type: "Point", coordinates: salidaPequia }, key: "inicio",
                 distanceField: "d", maxDistance: 20000, spherical: true,
-                query: { slug: { $ne: "circuito-dh-pequia" } } } },
-  { $project: { _id: 0, name: 1, km: { $round: [{ $divide: ["$d", 1000] }, 1] } } }
+                query: { codigo: { $ne: "circuito-dh-pequia" } } } },
+  { $project: { _id: 0, nombre: 1, km: { $round: [{ $divide: ["$d", 1000] }, 1] } } }
 ])
 ```
 </details>
@@ -969,12 +967,12 @@ db.trails.aggregate([
 <details><summary>Respuesta</summary>
 
 ```js
-db.descents.aggregate([
-  { $group: { _id: "$userId", senderos: { $addToSet: "$trailId" } } },
+db.bajadas.aggregate([
+  { $group: { _id: "$usuarioId", senderos: { $addToSet: "$senderoId" } } },
   { $match: { $expr: { $gt: [{ $size: "$senderos" }, 1] } } },
-  { $lookup: { from: "users", localField: "_id", foreignField: "_id", as: "u" } },
+  { $lookup: { from: "usuarios", localField: "_id", foreignField: "_id", as: "u" } },
   { $unwind: "$u" },
-  { $project: { _id: 0, rider: "$u.displayName", cantidadSenderos: { $size: "$senderos" } } }
+  { $project: { _id: 0, rider: "$u.nombre", cantidadSenderos: { $size: "$senderos" } } }
 ])
 ```
 </details>
@@ -983,7 +981,7 @@ db.descents.aggregate([
 
 <details><summary>Respuesta</summary>
 
-`{ trailId: 1, userId: 1, validated: 1, durationMs: 1 }`: igualdad en los tres primeros campos y `durationMs` al final para el `$min`. Probalo en `dh_practica` creando el índice y comparando `totalDocsExamined` con y sin `hint({ $natural: 1 })`. Ojo con el **trade-off**: cada índice extra hace más lenta cada escritura y ocupa espacio.
+`{ senderoId: 1, usuarioId: 1, valida: 1, duracion: 1 }`: igualdad en los tres primeros campos y `duracion` al final para el `$min`. Probalo en `dh_practica` creando el índice y comparando `totalDocsExamined` con y sin `hint({ $natural: 1 })`. Ojo con el **trade-off**: cada índice extra hace más lenta cada escritura y ocupa espacio.
 </details>
 
 **8.** ¿Qué porcentaje de los descensos de cada sendero es válido?
@@ -991,11 +989,11 @@ db.descents.aggregate([
 <details><summary>Respuesta</summary>
 
 ```js
-db.descents.aggregate([
-  { $group: { _id: "$trailId", total: { $sum: 1 }, validos: { $sum: { $cond: ["$validated", 1, 0] } } } },
-  { $lookup: { from: "trails", localField: "_id", foreignField: "_id", as: "t" } },
+db.bajadas.aggregate([
+  { $group: { _id: "$senderoId", total: { $sum: 1 }, validos: { $sum: { $cond: ["$valida", 1, 0] } } } },
+  { $lookup: { from: "senderos", localField: "_id", foreignField: "_id", as: "t" } },
   { $unwind: "$t" },
-  { $project: { _id: 0, sendero: "$t.name",
+  { $project: { _id: 0, sendero: "$t.nombre",
                 porcentajeValido: { $round: [{ $multiply: [{ $divide: ["$validos", "$total"] }, 100] }, 0] } } }
 ])
 ```

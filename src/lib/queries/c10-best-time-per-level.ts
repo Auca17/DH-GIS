@@ -8,26 +8,26 @@ import { getDb } from "@/lib/mongodb";
  * each level has. Shows if the levels people pick match how fast they ride.
  *
  * Course concept: $lookup to bring a field of another collection (the level lives
- * in `users`, the time in `descents`) and then $group by that joined field.
+ * in `usuarios`, the time in `bajadas`) and then $group by that joined field.
  *
- * Compass (collection `descents` → Aggregations → paste, with Pequia's trail _id):
+ * Compass (collection `bajadas` → Aggregations → paste, with Pequia's trail _id):
  *
  * [
- *   { $match: { trailId: ObjectId("PASTE_TRAIL_ID_HERE"), status: "completed", validated: true } },
- *   { $lookup: { from: "users", localField: "userId", foreignField: "_id", as: "user" } },
- *   { $unwind: "$user" },
- *   { $match: { "user.level": { $exists: true } } },
- *   { $sort: { durationMs: 1 } },
+ *   { $match: { senderoId: ObjectId("PASTE_TRAIL_ID_HERE"), estado: "completada", valida: true } },
+ *   { $lookup: { from: "usuarios", localField: "usuarioId", foreignField: "_id", as: "usuario" } },
+ *   { $unwind: "$usuario" },
+ *   { $match: { "usuario.nivel": { $exists: true } } },
+ *   { $sort: { duracion: 1 } },
  *   {
  *     $group: {
- *       _id: "$user.level",
- *       bestMs: { $first: "$durationMs" },
- *       rider: { $first: "$user.displayName" },
- *       validDescents: { $sum: 1 }
+ *       _id: "$usuario.nivel",
+ *       mejorTiempo: { $first: "$duracion" },
+ *       ciclista: { $first: "$usuario.nombre" },
+ *       bajadasValidas: { $sum: 1 }
  *     }
  *   },
- *   { $project: { _id: 0, level: "$_id", bestMs: 1, rider: 1, validDescents: 1 } },
- *   { $sort: { bestMs: 1 } }
+ *   { $project: { _id: 0, nivel: "$_id", mejorTiempo: 1, ciclista: 1, bajadasValidas: 1 } },
+ *   { $sort: { mejorTiempo: 1 } }
  * ]
  *
  * Stages:
@@ -40,34 +40,34 @@ import { getDb } from "@/lib/mongodb";
  */
 
 export interface LevelBest {
-  level: string;
-  bestMs: number;
-  rider: string;
-  validDescents: number;
+  nivel: string;
+  mejorTiempo: number;
+  ciclista: string;
+  bajadasValidas: number;
 }
 
 export async function getBestTimePerLevel(slug: string): Promise<LevelBest[]> {
   const db = getDb();
-  const trail = await db.collection("trails").findOne({ slug }, { projection: { _id: 1 } });
+  const trail = await db.collection("senderos").findOne({ codigo: slug }, { projection: { _id: 1 } });
   if (!trail) return [];
 
   const pipeline = [
-    { $match: { trailId: trail._id, status: "completed", validated: true } },
-    { $lookup: { from: "users", localField: "userId", foreignField: "_id", as: "user" } },
-    { $unwind: "$user" },
-    { $match: { "user.level": { $exists: true } } },
-    { $sort: { durationMs: 1 } },
+    { $match: { senderoId: trail._id, estado: "completada", valida: true } },
+    { $lookup: { from: "usuarios", localField: "usuarioId", foreignField: "_id", as: "usuario" } },
+    { $unwind: "$usuario" },
+    { $match: { "usuario.nivel": { $exists: true } } },
+    { $sort: { duracion: 1 } },
     {
       $group: {
-        _id: "$user.level",
-        bestMs: { $first: "$durationMs" },
-        rider: { $first: "$user.displayName" },
-        validDescents: { $sum: 1 },
+        _id: "$usuario.nivel",
+        mejorTiempo: { $first: "$duracion" },
+        ciclista: { $first: "$usuario.nombre" },
+        bajadasValidas: { $sum: 1 },
       },
     },
-    { $project: { _id: 0, level: "$_id", bestMs: 1, rider: 1, validDescents: 1 } },
-    { $sort: { bestMs: 1 } },
+    { $project: { _id: 0, nivel: "$_id", mejorTiempo: 1, ciclista: 1, bajadasValidas: 1 } },
+    { $sort: { mejorTiempo: 1 } },
   ];
 
-  return db.collection("descents").aggregate<LevelBest>(pipeline).toArray();
+  return db.collection("bajadas").aggregate<LevelBest>(pipeline).toArray();
 }

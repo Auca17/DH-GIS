@@ -28,12 +28,19 @@ Las dos tienen los mismos datos de partida, cargados por el mismo script (el *se
 
 | Colección | Qué guarda | Cantidad (seed) | Apunta a |
 |---|---|---|---|
-| `users` | Riders: nombre, nivel, ciudad, desde qué año anda | 70 | — |
-| `bikes` | Las bicis de cada rider (tipo, marca, recorrido) | 105 | `userId` → `users` |
-| `trails` | Los senderos, con sus **tramos embebidos** y la salida/meta como puntos GPS | 3 | — |
-| `descents` | Cada bajada: tiempo, velocidad, si es válida, el rastro GPS | 20.017 | `trailId`, `userId`, `bikeId` |
-| `reviews` | Calificaciones de 1 a 5 estrellas de un sendero | 306 | `trailId`, `userId` (y `descentId` si vino de la app) |
-| `sessions` | Las sesiones abiertas (login) | las que haya | `userId` → `users` |
+| `usuarios` | Riders: nombre, nivel, ciudad, desde qué año anda | 70 | — |
+| `bicis` | Las bicis de cada rider (tipo, marca, recorrido) | 105 | `usuarioId` → `usuarios` |
+| `senderos` | Los senderos, con sus **tramos embebidos** y la salida/meta como puntos GPS (`inicio`, `fin`) | 3 | — |
+| `bajadas` | Cada bajada: tiempo, velocidad, si es válida, el rastro GPS | 20.017 | `senderoId`, `usuarioId`, `biciId` |
+| `resenas` | Calificaciones de 1 a 5 estrellas de un sendero | 306 | `senderoId`, `usuarioId` (y `bajadaId` si vino de la app) |
+| `sesiones` | Las sesiones abiertas (login) | las que haya | `usuarioId` → `usuarios` |
+
+**`_id` y los campos como `usuarioId`** (otra pregunta segura):
+- `_id` es la **clave primaria** del propio documento. MongoDB lo crea siempre, aunque no lo pidamos.
+- `usuarioId` es la **clave foránea**: guarda el `_id` de un documento de **otra** colección (en este caso, de
+  `usuarios`). Es el campo sobre el que se une con `$lookup` (`localField: "usuarioId"`, `foreignField: "_id"`).
+- Es lo mismo que en SQL una tabla `bicis` con `id` (PK) y `usuario_id` (FK). Por eso una bici tiene su propio
+  `_id` y además `usuarioId`.
 
 **Embebido vs. referenciado** (pregunta segura en la defensa):
 - Los **tramos** van **dentro** del sendero porque siempre se leen juntos y no crecen.
@@ -51,16 +58,16 @@ arriba tiene un comentario con el pipeline listo para **copiar y pegar en Compas
 |---|---|---|---|
 | **C1** | ¿Qué senderos hay cerca de donde estoy? | `$geoNear` (índice 2dsphere) | Mapa |
 | **C2** | ¿El rider arrancó dentro del círculo de salida? | `$geoWithin` | Servidor, al guardar un descenso (anti-trampa) |
-| **C3** | ¿Quiénes son los 10 más rápidos de un sendero? | `$match` + `$sort` + `$group` + `$limit` + `$lookup` a `users` | Ranking |
+| **C3** | ¿Quiénes son los 10 más rápidos de un sendero? | `$match` + `$sort` + `$group` + `$limit` + `$lookup` a `usuarios` | Ranking |
 | **C4** | ¿Cuál es el mejor tiempo de un rider en un sendero? | `$group` con `$min` y `$sum` | Solo Compass / `npm run queries` |
 | **C5** | ¿Cuántas estrellas tiene en promedio cada sendero? | `$group` con `$avg` | Página del sendero |
-| **C6** | ¿Cuántos descensos tiene cada sendero (totales y válidos)? | `$group` + `$lookup` a `trails` | Solo Compass |
+| **C6** | ¿Cuántos descensos tiene cada sendero (totales y válidos)? | `$group` + `$lookup` a `senderos` | Solo Compass |
 | **C7** | Lista de senderos | `find` con `sort` | Mapa |
-| **C8** | Un sendero por su nombre de URL | `findOne` por índice único (`slug`) | Página del sendero |
+| **C8** | Un sendero por su nombre de URL | `findOne` por índice único (`codigo`) | Página del sendero |
 | **C9** | Reseñas de un sendero, las más nuevas primero | `$match` + `$sort` + `$lookup` | Página del sendero |
-| **C10** | Mejor tiempo por nivel (principiante, intermedio, avanzado) | `$lookup` a `users` + `$group` por nivel | Solo Compass |
+| **C10** | Mejor tiempo por nivel (principiante, intermedio, avanzado) | `$lookup` a `usuarios` + `$group` por nivel | Solo Compass |
 | **C11** | ¿Cuántos descensos hay por ciudad y cuántos riders distintos? | `$lookup` + `$group` + `$addToSet` / `$size` | Solo Compass |
-| **C12** | Descensos válidos y tiempo promedio por tipo de bici | `$lookup` a `bikes` + `$avg` | Solo Compass |
+| **C12** | Descensos válidos y tiempo promedio por tipo de bici | `$lookup` a `bicis` + `$avg` | Solo Compass |
 | **C13** | Perfil de un rider con todas sus bicis | `$lookup` con `pipeline` | Mi perfil |
 
 ## 5. Índices: qué son y cuáles tenemos
@@ -69,28 +76,28 @@ Un índice es como el índice de un libro: en vez de leer página por página bu
 
 | Índice | Para qué |
 |---|---|
-| `trails.start` **2dsphere** | Búsquedas geográficas (C1, C2). Sin él, `$geoNear` ni siquiera corre. |
-| `trails.slug` único | Encontrar un sendero por su URL y que no haya dos iguales. |
-| `descents` `{trailId, status, validated, durationMs}` | El ranking (C3): filtra y ya lee los tiempos ordenados. |
-| `descents.runId` único parcial | Que la misma corrida no se guarde dos veces (doble click, reintento). |
-| `reviews` `{trailId, createdAt: -1}` | Reseñas de un sendero, las más nuevas primero (C9). |
-| `reviews.descentId` único parcial | Una sola reseña por descenso. |
-| `users.displayName` único / `users.email` único parcial | Nombres y emails sin repetir. |
-| `bikes` `{userId, isPrimary: -1}` | Las bicis de un rider, la principal primero. |
-| `bikes.userId` único parcial (solo `isPrimary: true`) | **Una sola bici principal por rider**, la base lo garantiza. |
-| `sessions.tokenHash` único | Encontrar la sesión del login. |
-| `sessions.expiresAt` **TTL** | Mongo borra solo las sesiones vencidas. |
+| `senderos.inicio` **2dsphere** | Búsquedas geográficas (C1, C2). Sin él, `$geoNear` ni siquiera corre. |
+| `senderos.codigo` único | Encontrar un sendero por su URL y que no haya dos iguales. |
+| `bajadas` `{senderoId, estado, valida, duracion}` | El ranking (C3): filtra y ya lee los tiempos ordenados. |
+| `bajadas.idCorrida` único parcial | Que la misma corrida no se guarde dos veces (doble click, reintento). |
+| `resenas` `{senderoId, fecha: -1}` | Reseñas de un sendero, las más nuevas primero (C9). |
+| `resenas.bajadaId` único parcial (`una_resena_por_bajada`) | Una sola reseña por bajada. |
+| `usuarios.nombre` único / `usuarios.email` único parcial | Nombres y emails sin repetir. |
+| `bicis` `{usuarioId, principal: -1}` | Las bicis de un rider, la principal primero. |
+| `bicis.usuarioId` único parcial (solo `principal: true`, `una_bici_principal_por_usuario`) | **Una sola bici principal por rider**, la base lo garantiza. |
+| `sesiones.hashToken` único | Encontrar la sesión del login. |
+| `sesiones.venceEn` **TTL** | Mongo borra solo las sesiones vencidas. |
 
 **La prueba de que sirven**: `docs/explain.md`. El ranking (C3) sin índice lee los 20.028 descensos; con
 índice lee **10**. Se genera con `npm run explain`.
 
 "Parcial" = el índice solo cubre los documentos que cumplen una condición (por ejemplo, solo los que tienen
-`runId`). "Único" = la base rechaza un segundo documento con el mismo valor.
+`idCorrida`). "Único" = la base rechaza un segundo documento con el mismo valor.
 
 ## 6. Validación (`$jsonSchema`)
 
 Todas las colecciones tienen reglas: qué campos son obligatorios, de qué tipo y qué valores aceptan (por ejemplo,
-`rating` entre 1 y 5, `type` de bici solo DH, Enduro o Trail). Si alguien intenta guardar algo mal, **la base lo
+`calificacion` entre 1 y 5, `tipo` de bici solo DH, Enduro o Trail). Si alguien intenta guardar algo mal, **la base lo
 rechaza** (error 121), aunque venga de Compass. Las reglas están en `scripts/seed.ts` (`VALIDATORS`).
 
 ## 7. Qué podemos hacer cada uno
@@ -102,13 +109,13 @@ rechaza** (error 121), aunque venga de Compass. Las reglas están en `scripts/se
    comentario y corrélo en Compass. Después cambiale algo (otro sendero, otro límite, sacá una etapa) y mirá qué pasa.
 4. Probá `explain("executionStats")` vos mismo:
    ```js
-   const pequia = db.trails.findOne({ slug: "circuito-dh-pequia" })._id
-   db.descents.find({ trailId: pequia, status: "completed", validated: true })
-     .sort({ durationMs: 1 }).limit(10).explain("executionStats")
+   const pequia = db.senderos.findOne({ codigo: "circuito-dh-pequia" })._id
+   db.bajadas.find({ senderoId: pequia, estado: "completada", valida: true })
+     .sort({ duracion: 1 }).limit(10).explain("executionStats")
    ```
    Mirá `totalDocsExamined` (da 10). Después agregale `.hint({ $natural: 1 })` antes del `.explain` y compará
-   (da unos 20.000). Ojo: si sacás `trailId` del filtro, el índice no se puede usar, porque **empieza** por
-   `trailId`. Es como buscar en una guía telefónica ordenada por apellido cuando solo sabés el nombre.
+   (da unos 20.000). Ojo: si sacás `senderoId` del filtro, el índice no se puede usar, porque **empieza** por
+   `senderoId`. Es como buscar en una guía telefónica ordenada por apellido cuando solo sabés el nombre.
 
 **Comandos útiles** (en la carpeta del proyecto):
 

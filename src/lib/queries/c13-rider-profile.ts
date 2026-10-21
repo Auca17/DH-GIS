@@ -8,66 +8,67 @@ import type { Bici, NivelRider, PerfilRider, RodadoBici, TipoBici } from "@/lib/
  * What it does: returns one rider and, inside it, all their bikes (main bike first).
  * The "Mi perfil" screen and the bike picker read it through GET /api/me.
  *
- * Course concept: one-to-many relation with references. `bikes` stores userId
+ * Course concept: one-to-many relation with references. `bicis` stores usuarioId
  * (bikes grow, so they are not embedded in the user); $lookup with a pipeline
  * joins them back and sorts them inside the join.
  *
- * Compass (collection `users` → Aggregations → paste, with a real _id):
+ * Compass (collection `usuarios` → Aggregations → paste, with a real _id):
  *
  * [
  *   { $match: { _id: ObjectId("PASTE_USER_ID_HERE") } },
  *   {
  *     $lookup: {
- *       from: "bikes",
+ *       from: "bicis",
  *       localField: "_id",
- *       foreignField: "userId",
- *       pipeline: [{ $sort: { isPrimary: -1, createdAt: 1 } }],
- *       as: "bikes"
+ *       foreignField: "usuarioId",
+ *       pipeline: [{ $sort: { principal: -1, _id: 1 } }],
+ *       as: "bicis"
  *     }
  *   },
- *   { $project: { passwordHash: 0, passwordSalt: 0 } }
+ *   { $project: { hashContrasena: 0, salContrasena: 0 } }
  * ]
  *
  * Stages:
  * - $match: the signed-in rider (the _id comes from the session, never from the client).
- * - $lookup: every bike whose userId is this rider's _id. The inner $sort puts the
- *   main bike first and then the oldest. It can use the { userId, isPrimary } index.
+ * - $lookup: every bike whose usuarioId is this rider's _id. The inner $sort puts the
+ *   main bike first and then the oldest (an ObjectId starts with its creation time,
+ *   so sorting by _id is sorting by creation). It can use the { usuarioId, principal } index.
  * - $project: never send the password hash or salt out of the database.
  */
 
 interface UserDoc {
   _id: ObjectId;
-  displayName: string;
+  nombre: string;
   email: string;
-  level: NivelRider;
-  city: string;
-  ridingSinceYear: number;
-  bikes: BikeDoc[];
+  nivel: NivelRider;
+  ciudad: string;
+  anioInicio: number;
+  bicis: BikeDoc[];
 }
 
 interface BikeDoc {
   _id: ObjectId;
-  type: TipoBici;
-  brand: string;
-  model: string;
-  year: number;
-  wheelSize: RodadoBici;
-  travelFrontMm: number;
-  travelRearMm: number;
-  isPrimary: boolean;
+  tipo: TipoBici;
+  marca: string;
+  modelo: string;
+  anio: number;
+  rodado: RodadoBici;
+  recorridoDelanteroMm: number;
+  recorridoTraseroMm: number;
+  principal: boolean;
 }
 
 export function toBici(doc: BikeDoc): Bici {
   return {
     id: doc._id.toHexString(),
-    tipo: doc.type,
-    marca: doc.brand,
-    modelo: doc.model,
-    anio: doc.year,
-    rodado: doc.wheelSize,
-    recorridoDelanteroMm: doc.travelFrontMm,
-    recorridoTraseroMm: doc.travelRearMm,
-    principal: doc.isPrimary,
+    tipo: doc.tipo,
+    marca: doc.marca,
+    modelo: doc.modelo,
+    anio: doc.anio,
+    rodado: doc.rodado,
+    recorridoDelanteroMm: doc.recorridoDelanteroMm,
+    recorridoTraseroMm: doc.recorridoTraseroMm,
+    principal: doc.principal,
   };
 }
 
@@ -78,28 +79,28 @@ export async function getRiderProfile(
     { $match: { _id: userId } },
     {
       $lookup: {
-        from: "bikes",
+        from: "bicis",
         localField: "_id",
-        foreignField: "userId",
-        pipeline: [{ $sort: { isPrimary: -1, createdAt: 1 } }],
-        as: "bikes",
+        foreignField: "usuarioId",
+        pipeline: [{ $sort: { principal: -1, _id: 1 } }],
+        as: "bicis",
       },
     },
-    { $project: { passwordHash: 0, passwordSalt: 0 } },
+    { $project: { hashContrasena: 0, salContrasena: 0 } },
   ];
 
-  const [doc] = await getDb().collection("users").aggregate<UserDoc>(pipeline).toArray();
+  const [doc] = await getDb().collection("usuarios").aggregate<UserDoc>(pipeline).toArray();
   if (!doc) return null;
 
   return {
     usuario: {
       id: doc._id.toHexString(),
-      nombre: doc.displayName,
+      nombre: doc.nombre,
       email: doc.email,
-      nivel: doc.level,
-      ciudad: doc.city,
-      andaDesde: doc.ridingSinceYear,
+      nivel: doc.nivel,
+      ciudad: doc.ciudad,
+      andaDesde: doc.anioInicio,
     },
-    bicis: doc.bikes.map(toBici),
+    bicis: doc.bicis.map(toBici),
   };
 }

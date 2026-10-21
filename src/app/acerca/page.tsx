@@ -19,50 +19,55 @@ const EQUIPO = [
 
 const COLECCIONES = [
   {
-    nombre: "trails",
+    nombre: "senderos",
     descripcion: "Los senderos. Los tramos van embebidos porque siempre se leen junto con el sendero.",
-    campos: ["slug", "start (GeoJSON)", "path", "segments[ ]", "stats"],
+    campos: ["codigo", "inicio (GeoJSON)", "tramos[ ]", "estadisticas"],
   },
   {
-    nombre: "descents",
-    descripcion: "Cada bajada. Crece sin límite, así que referencia al sendero y al rider.",
-    campos: ["trailId → trails", "userId → users", "durationMs", "validated"],
+    nombre: "bajadas",
+    descripcion: "Cada bajada. Crece sin límite, así que referencia al sendero, al rider y a la bici.",
+    campos: ["senderoId → senderos", "usuarioId → usuarios", "biciId → bicis", "duracion", "valida"],
   },
   {
-    nombre: "reviews",
+    nombre: "resenas",
     descripcion: "Las opiniones, también referenciadas para no inflar el documento del sendero.",
-    campos: ["trailId → trails", "userId → users", "rating", "createdAt"],
+    campos: ["senderoId → senderos", "usuarioId → usuarios", "calificacion", "fecha"],
   },
   {
-    nombre: "users",
-    descripcion: "Los riders. Se unen a descensos y opiniones con $lookup.",
-    campos: ["displayName (único)", "createdAt"],
+    nombre: "usuarios",
+    descripcion: "Los riders. Se unen a bajadas, opiniones y bicis con $lookup.",
+    campos: ["nombre (único)", "nivel", "ciudad"],
+  },
+  {
+    nombre: "bicis",
+    descripcion: "Las bicis de cada rider. Un rider puede tener varias, una sola principal.",
+    campos: ["usuarioId → usuarios", "tipo", "principal"],
   },
 ];
 
 const INDICES = [
   {
-    indice: "trails { start: \"2dsphere\" }",
+    indice: "senderos { inicio: \"2dsphere\" }",
     porque: "Búsquedas por cercanía ($geoNear) y \"¿estoy dentro del radio de salida?\" ($geoWithin).",
   },
   {
-    indice: "trails { slug: 1 } único",
-    porque: "Abrir un sendero directo desde la URL; la base rechaza dos slugs iguales.",
+    indice: "senderos { codigo: 1 } único",
+    porque: "Abrir un sendero directo desde la URL; la base rechaza dos códigos iguales.",
   },
   {
-    indice: "descents { trailId, status, validated, durationMs }",
+    indice: "bajadas { senderoId, estado, valida, duracion }",
     porque: "El ranking: primero los campos de igualdad y al final el de orden, así los mejores tiempos salen ya ordenados.",
   },
   {
-    indice: "descents { runId: 1 } único parcial",
+    indice: "bajadas { idCorrida: 1 } único parcial",
     porque: "Cada corrida se guarda una sola vez aunque el pedido llegue repetido.",
   },
   {
-    indice: "reviews { trailId: 1, createdAt: -1 }",
+    indice: "resenas { senderoId: 1, fecha: -1 }",
     porque: "Las opiniones de un sendero, la más nueva primero, sin ordenar en memoria.",
   },
   {
-    indice: "users { displayName: 1 } único",
+    indice: "usuarios { nombre: 1 } único",
     porque: "Nombres de rider sin duplicados.",
   },
 ];

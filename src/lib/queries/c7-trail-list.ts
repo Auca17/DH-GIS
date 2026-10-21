@@ -8,45 +8,40 @@ import { getDb } from "@/lib/mongodb";
  * screens use it to know which trails exist.
  *
  * Course concept: a simple find() with a sort. It also defines `TrailDoc`,
- * the shape of a document in the `trails` collection (trails embed their
- * segments, so one read brings everything the screen needs).
+ * the shape of a document in the `senderos` collection (trails embed their
+ * tramos, so one read brings everything the screen needs).
  *
- * Compass (collection `trails` → Documents → Options):
+ * Compass (collection `senderos` → Documents → Options):
  *   Filter:  {}
- *   Sort:    { name: 1 }
+ *   Sort:    { nombre: 1 }
  *
  * Same thing in the Aggregations tab:
- *   [ { $sort: { name: 1 } } ]
+ *   [ { $sort: { nombre: 1 } } ]
  *
  * Steps:
  * - find({}): no filter, so all trails come back.
- * - sort({ name: 1 }): alphabetical order (1 = ascending).
+ * - sort({ nombre: 1 }): alphabetical order (1 = ascending).
  */
 
 export interface TrailDoc {
   _id: ObjectId;
-  slug: string;
-  name: string;
-  description: string;
-  difficulty: "facil" | "intermedia" | "dificil";
-  terrain: string;
+  codigo: string;
+  nombre: string;
+  descripcion: string;
+  dificultad: "facil" | "intermedia" | "dificil";
+  terreno: string;
   // GeoJSON points use [longitude, latitude] (Mongo order, the opposite of Leaflet).
-  start: { type: "Point"; coordinates: [number, number] };
-  end: { type: "Point"; coordinates: [number, number] };
-  segments: {
-    difficulty: "facil" | "intermedia" | "dificil";
-    points: { location: { type: "Point"; coordinates: [number, number] }; elevationM: number }[];
+  inicio: { type: "Point"; coordinates: [number, number] };
+  fin: { type: "Point"; coordinates: [number, number] };
+  tramos: {
+    dificultad: "facil" | "intermedia" | "dificil";
+    puntos: { ubicacion: { type: "Point"; coordinates: [number, number] }; elevacionM: number }[];
   }[];
-  startRadiusM: number;
-  endRadiusM: number;
   // Older documents may not have it (treated as 0 = every time is valid).
-  minValidTimeS?: number;
-  stats: { lengthM: number; dropM: number; avgGradePct: number; avgTimeS: number };
-  isPlaceholder: boolean;
-  visibleOnMap: boolean;
-  dataSource: { nombre: string; url: string } | null;
+  tiempoMinimoS?: number;
+  estadisticas: { largoM: number; desnivelM: number; pendientePromedioPct: number; tiempoPromedioS: number };
 }
 
 export async function listTrails(): Promise<TrailDoc[]> {
-  return getDb().collection<TrailDoc>("trails").find({}).sort({ name: 1 }).toArray();
+  return getDb().collection<TrailDoc>("senderos").find({}).sort({ nombre: 1 }).toArray();
 }

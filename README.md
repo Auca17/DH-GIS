@@ -79,10 +79,10 @@ Por eso, para usar nuestro hardware, cada uno tiene que tener la base **en su co
 Sí. El seed genera **siempre exactamente los mismos datos** (`scripts/seed-volume.ts` usa números "al azar" pero fijos). Si a vos C10 te da que el mejor avanzado en Pequia hizo 37,5 s, a tus compañeros también. Lo único que cambia son los `_id` (los inventa Mongo en cada compu) y las fechas de creación.
 
 **¿Atlas tiene los mismos datos que mi base local?**
-Sí, los datos de práctica son los mismos (se cargaron con el mismo seed). Además, Atlas tiene lo que guardó la app publicada: cuentas creadas y descensos reales, con `source: "app"`.
+Sí, los datos de práctica son los mismos (se cargaron con el mismo seed). Además, Atlas tiene lo que guardó la app publicada: cuentas creadas (las que tienen email) y descensos reales.
 
 **¿Puedo correr el seed contra Atlas?**
-Solo Augustus, y solo si hace falta. El seed borra y vuelve a cargar los datos de práctica (`source: "seed"`), pero **nunca toca lo que guardó la app** (`source: "app"`).
+Solo Augustus, y solo si hace falta. El seed borra y vuelve a cargar los datos de práctica (los de los riders sin email), pero **nunca toca lo que guardaron las cuentas reales** (las que tienen email).
 
 **Me registré en la app local y no puedo entrar en la publicada (o al revés). ¿Está roto?**
 No. Son dos bases distintas: una cuenta creada en local existe solo en tu compu, y una creada en la app publicada existe solo en Atlas.
@@ -98,15 +98,15 @@ El código es el mismo para las dos bases: lo único que cambia es `MONGODB_URI`
 | Cargar el seed en Atlas | `.env.production` | la misma dirección de Atlas |
 
 - La dirección de Atlas **tiene que terminar en `/dh`** (antes del `?`). Sin eso, el driver usa la base `test`.
-- `npm run seed` carga la base local; `npm run seed:prod` carga Atlas. Es el mismo script con los mismos datos de partida (`src/lib/mock-data.ts`). Solo borra y vuelve a insertar los descensos y reseñas con `source: "seed"`; lo que guarda la app (`source: "app"`) no se toca.
+- `npm run seed` carga la base local; `npm run seed:prod` carga Atlas. Es el mismo script con los mismos datos de partida (`src/lib/mock-data.ts`). Solo borra y vuelve a insertar las bicis, bajadas y reseñas de los riders del seed (los usuarios sin email); lo de las cuentas reales (con email) no se toca.
 - Además de los datos de ejemplo, el seed genera volumen para practicar consultas (`scripts/seed-volume.ts`): 60 riders con nivel y ciudad, de 1 a 3 bicis cada uno, 20.000 descensos de los últimos 18 meses (alrededor del 5 % inválidos, cada uno con su motivo) y 300 reseñas. Siempre genera exactamente lo mismo, así la base local y Atlas quedan iguales.
 - `/api/health` muestra a qué base está conectada la app.
-- El seed también aplica la validación `$jsonSchema` de `users`, `bikes`, `sessions`, `trails`, `descents` y `reviews` (comando `collMod`). En Atlas, un usuario de base con permiso "Read and write" no puede correr `collMod`: el seed avisa y sigue sin validación. Para aplicarla, dale temporalmente el rol "Atlas admin" en Database Access y corré `npm run seed:prod` otra vez.
+- El seed también aplica la validación `$jsonSchema` de `usuarios`, `bicis`, `sesiones`, `senderos`, `bajadas` y `resenas` (comando `collMod`). En Atlas, un usuario de base con permiso "Read and write" no puede correr `collMod`: el seed avisa y sigue sin validación. Para aplicarla, dale temporalmente el rol "Atlas admin" en Database Access y corré `npm run seed:prod` otra vez.
 
 ## Cuentas y bicis
 
 - Registro con nombre visible, email, contraseña, nivel, ciudad, año en que empezó a andar y una primera bici (`/registro`). En "Mi perfil" (`/perfil`) se agregan más bicis y se elige la principal.
-- La contraseña se guarda como hash scrypt con sal propia; la sesión es una cookie httpOnly y en `sessions` queda solo el hash del token. Un índice TTL borra solas las sesiones vencidas.
+- La contraseña se guarda como hash scrypt con sal propia; la sesión es una cookie httpOnly y en `sesiones` queda solo el hash del token (`hashToken`). Un índice TTL borra solas las sesiones vencidas.
 - Sin cuenta se puede ver el mapa, el ranking y usar el modo demo. Para guardar un descenso con GPS real hace falta una cuenta.
 - Consultas nuevas para Compass: C10 (mejor tiempo por nivel), C11 (descensos por ciudad), C12 (descensos por tipo de bici) y C13 (perfil con sus bicis). `npm run queries` imprime C10 a C12.
 - Los archivos `.env*` no se suben a git (salvo `.env.example`).
@@ -115,7 +115,7 @@ El código es el mismo para las dos bases: lo único que cambia es `MONGODB_URI`
 
 - Después de un descenso **válido con GPS real** y con cuenta, la pantalla de resultado deja calificar el sendero (1 a 5 estrellas y un comentario opcional de hasta 500 caracteres). En modo demo no aparece.
 - `POST /api/reviews` vuelve a controlar todo en el servidor: que el descenso sea del rider de la sesión, que sea válido y que no sea demo.
-- Una sola reseña por descenso: índice único parcial `one_review_per_descent` en `reviews.descentId`. El promedio por sendero no se guarda: lo calcula C5 con `$avg`.
+- Una sola reseña por descenso: índice único parcial `una_resena_por_bajada` en `resenas.bajadaId`. El promedio por sendero no se guarda: lo calcula C5 con `$avg`.
 
 ## Índices: antes y después (explain)
 

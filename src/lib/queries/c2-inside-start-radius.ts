@@ -7,33 +7,33 @@ import { getDb } from "@/lib/mongodb";
  * the start of one trail. The timer's play button is enabled only when this is true.
  *
  * Course concept: geospatial filter with $geoWithin + $centerSphere (a circle on
- * the sphere). It can use the 2dsphere index on `start`. We use $geoWithin instead
+ * the sphere). It can use the 2dsphere index on `inicio`. We use $geoWithin instead
  * of $near because $near is not allowed inside an aggregation $match.
  *
  * $centerSphere takes the radius in RADIANS, not meters:
  *   radians = meters / 6378100   (Earth radius in meters)
  *   30 m    = 30 / 6378100 = 0.0000047036
  *
- * Compass (collection `trails` → Aggregations → paste):
+ * Compass (collection `senderos` → Aggregations → paste):
  *
  * [
  *   {
  *     $match: {
- *       slug: "circuito-dh-pequia",
- *       start: {
+ *       codigo: "circuito-dh-pequia",
+ *       inicio: {
  *         $geoWithin: {
  *           $centerSphere: [[-68.89533, -32.8959], 0.0000047036]
  *         }
  *       }
  *     }
  *   },
- *   { $project: { _id: 0, slug: 1, name: 1 } }
+ *   { $project: { _id: 0, codigo: 1, nombre: 1 } }
  * ]
  *
  * Stages:
- * - $match: keeps the trail with that slug ONLY if its `start` point falls inside
+ * - $match: keeps the trail with that codigo ONLY if its `inicio` point falls inside
  *   a 30 m circle centered on my position ([longitude, latitude]).
- * - $project: returns just the slug and name. One result means "inside",
+ * - $project: returns just the codigo and nombre. One result means "inside",
  *   no results means "outside".
  */
 
@@ -48,17 +48,17 @@ export async function isInsideStartRadius(
   const pipeline = [
     {
       $match: {
-        slug,
-        start: {
+        codigo: slug,
+        inicio: {
           $geoWithin: {
             $centerSphere: [[lng, lat], radiusM / EARTH_RADIUS_M],
           },
         },
       },
     },
-    { $project: { _id: 0, slug: 1, name: 1 } },
+    { $project: { _id: 0, codigo: 1, nombre: 1 } },
   ];
 
-  const results = await getDb().collection("trails").aggregate(pipeline).toArray();
+  const results = await getDb().collection("senderos").aggregate(pipeline).toArray();
   return results.length > 0;
 }

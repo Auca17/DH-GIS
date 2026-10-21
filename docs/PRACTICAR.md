@@ -105,15 +105,15 @@ Termina imprimiendo esto:
 
 ```text
 Database: dh
-users:    70
-trails:   3
-bikes:    105 (seed)
-descents: 20017 (seed)
-reviews:  306 (seed)
+usuarios: 70
+senderos: 3
+bicis:    105 (seed)
+bajadas:  20017 (seed)
+resenas:  306 (seed)
 ```
 
 Volvé a Compass y tocá el botón de recargar (↻) al lado de la lista de bases: apareció **`dh`** con las colecciones
-`bikes`, `descents`, `reviews`, `sessions`, `trails` y `users`.
+`bajadas`, `bicis`, `resenas`, `senderos`, `sesiones` y `usuarios`.
 
 ---
 
@@ -143,14 +143,14 @@ Ya está todo. Ahora, a lo que importa:
    ("Open MongoDB shell"). En versiones viejas de Compass es la barra **">_ MONGOSH"** abajo de todo.
    Escribí `use dh` y Enter. Probá:
    ```js
-   db.trails.find({}, { name: 1, difficulty: 1 })
-   db.descents.countDocuments({ validated: true })
+   db.senderos.find({}, { nombre: 1, dificultad: 1 })
+   db.bajadas.countDocuments({ valida: true })
    ```
 3. **Seguí [consultas-mongo.md](consultas-mongo.md)**: es la guía de ejercicios, de lo más simple a lo más complejo.
 4. **Copiá las consultas del proyecto**: abrí un archivo de `src/lib/queries/` (por ejemplo `c3-leaderboard.ts`).
    Arriba tiene un comentario con el pipeline. En Compass, entrá a la colección que dice el comentario →
    pestaña **Aggregations** → ícono de **"</> TEXT"** → pegalo. Donde dice `PASTE_..._ID_HERE`, poné el `_id` real
-   (lo copiás de la colección `trails` o `users`).
+   (lo copiás de la colección `senderos` o `usuarios`).
 5. **Rompé cosas**: cambiá filtros, sacá etapas, creá y borrá índices, insertá documentos mal hechos para ver cómo los
    rechaza la validación. Es tu base, no le hace nada a nadie.
 
@@ -208,7 +208,7 @@ nuevo y mirá qué dice.
 
 **Una consulta copiada de `src/lib/queries/` no devuelve nada.**
 Seguro quedó un `ObjectId("PASTE_..._ID_HERE")` sin reemplazar, o pegaste un `_id` de otra colección. El `_id` de
-un sendero sale de `trails` y el de un rider de `users`.
+un sendero sale de `senderos` y el de un rider de `usuarios`.
 
 **Nada de esto.**
 Mandá en el grupo: qué paso estabas haciendo, el comando exacto que escribiste y una captura del error completo.
