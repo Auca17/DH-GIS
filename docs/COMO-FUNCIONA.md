@@ -62,6 +62,23 @@ Las dos tienen **los mismos datos**, porque los carga el mismo script (`scripts/
 es idéntico para las dos: lo único que cambia es la variable `MONGODB_URI`. El nombre de la base (`dh`) sale
 del final de esa cadena (`.../dh`).
 
+### 2.1 Las otras bases que aparecen en Compass
+
+Además de `dh`, Compass muestra bases que **crea MongoDB solo** y que nosotros no usamos:
+
+- **`admin`**: guarda cosas internas, como los usuarios y roles de la base de datos (`system.users`,
+  `system.roles`). Compass esconde las colecciones `system.*`, así que se ve vacía. En Atlas, los usuarios de
+  base se manejan desde el panel (Database Access).
+- **`local`**: el nombre confunde, **no es tu compu**. En Atlas tiene `oplog.rs` (*operations log*), el registro
+  de cada escritura. Un cluster de Atlas son **3 servidores** (un *replica set*): uno principal que recibe las
+  escrituras y dos copias que leen el `oplog` y repiten las mismas operaciones. Si se cae el principal, una copia
+  toma su lugar. Tu MongoDB local es un solo servidor (*standalone*), sin copias, así que no tiene `oplog`.
+- **`config`**: configuración interna del servidor.
+
+**Consecuencia en el código:** MongoDB solo permite **transacciones** (varias escrituras que se guardan todas o
+ninguna) en un replica set. Como la base local no lo es, el registro guarda el usuario y después la bici, y si la
+bici falla borra el usuario a mano (`src/app/api/auth/register/route.ts`).
+
 ## 3. Cómo pensamos el modelo de datos
 
 ### 3.1 Primero, las entidades y cómo se relacionan
@@ -578,6 +595,15 @@ Al registrarte, la contraseña pasa por **scrypt** (viene con Node.js, `node:cry
 3. En cada pedido, el servidor toma la cookie, calcula su SHA-256 y busca en `sesiones` (índice único en
    `hashToken`) una que no esté vencida. De ahí saca el `usuarioId`.
 4. La sesión dura **30 días**. Al vencer, el índice **TTL** la borra sola. Cerrar sesión la borra en el momento.
+
+**¿Por qué en MongoDB y no en la memoria del servidor?** En Vercel el servidor no vive todo el tiempo: cada pedido
+lo puede atender una instancia nueva que arranca de cero. Si la sesión estuviera en memoria, se perdería entre un
+clic y el siguiente. Guardada en `sesiones`, cualquier instancia la encuentra con el `hashToken` de la cookie.
+Por eso la colección existe aunque esté vacía: el seed la crea con su validador y sus índices, y se llena cuando
+alguien se loguea (en Atlas si es la app publicada, en la local si es `npm run dev` contra la local).
+
+**Las 6 colecciones tienen 3 índices** por casualidad: el de `_id` (automático, en toda colección) más dos
+nuestros cada una (tabla de la sección 5.5).
 
 ### 8.3 Qué puede hacer cada uno en la app
 
