@@ -8,7 +8,8 @@ practicar en la shell de Compass.
 La instalación paso a paso está aparte, en [PRACTICAR.md](PRACTICAR.md).
 
 **Cómo leerlo:** la **Parte I** (secciones 1 a 9) se lee de corrido y es lo que hay que saber explicar. La
-**Parte II** (secciones 10 a 19) es para practicar con la shell abierta.
+**Parte II** (secciones 10 a 19) es para practicar con la shell abierta. La **Parte III** (sección 20) es la
+política de resguardo.
 
 ---
 
@@ -39,6 +40,10 @@ La instalación paso a paso está aparte, en [PRACTICAR.md](PRACTICAR.md).
 18. [Escrituras (en `dh_practica`)](#18-escrituras-con-cuidado-en-dh_practica)
 19. [Ejercicios](#19-ejercicios)
 
+**Parte III — Resguardo**
+
+20. [Política de resguardo (backups)](#20-política-de-resguardo-backups)
+
 [Glosario](#glosario)
 
 ---
@@ -55,6 +60,29 @@ publicada en **https://dh-gis.vercel.app**.
 Lo que se evalúa en la materia **no es la app, es la base**: consultas, aggregations, relaciones entre
 colecciones, `$lookup`, índices (incluidos los geoespaciales) y validación. La app demuestra que todo eso se
 usa de verdad y no es un ejercicio suelto.
+
+### 1.1 Qué tiene que resolver (requisitos)
+
+**El problema:** los riders de DH quieren comparar sus tiempos en un mismo sendero, pero hoy lo miden cada uno con
+su reloj y no hay forma de saber si un tiempo es real. Necesitamos medir la bajada con GPS, validarla y guardar
+un ranking confiable.
+
+Cada requisito tiene algo en la base que lo resuelve:
+
+| Requisito | Cómo lo resuelve la base |
+|---|---|
+| Ver los senderos cercanos y saber si estoy en la salida | Índice 2dsphere en `senderos.inicio`, C1 y C2 |
+| Ranking de cada sendero | C3, con el índice `{senderoId, estado, valida, duracion}` |
+| Mi mejor tiempo | C4 (`$group` + `$min`) |
+| Opinar y calificar un sendero | Colección `resenas`, C5 y C9; una sola reseña por bajada (índice único parcial en `bajadaId`) |
+| Cuentas con sus bicis | `usuarios` (nombre y email únicos) y `bicis` (una sola principal, índice único parcial) |
+| Estadísticas cruzadas (por ciudad, nivel, tipo de bici) | `$lookup` entre colecciones: C6, C10, C11 y C12 |
+| **No funcional:** que no se pueda hacer trampa | El servidor valida cada bajada y guarda `valida` y `motivoInvalida` (sección 7) |
+| **No funcional:** no duplicar una bajada si se reenvía | Índice único parcial en `idCorrida` |
+| **No funcional:** datos consistentes | `$jsonSchema` en todas las colecciones (sección 6) |
+| **No funcional:** sesiones que vencen solas | Índice TTL en `sesiones.venceEn` |
+| **No funcional:** no perder datos | Política de resguardo (sección 20) |
+| **No funcional:** poder mostrarla sin cuenta ni GPS | Modo demo |
 
 ## 2. Las dos bases: local y Atlas
 
@@ -1726,6 +1754,143 @@ db.bajadas.aggregate([
 ])
 ```
 </details>
+
+---
+
+# Parte III — Resguardo
+
+## 20. Política de resguardo (backups)
+
+Una copia de seguridad sirve para una sola cosa: **volver a tener los datos** después de un error (un
+`deleteMany` sin filtro, un seed corrido contra la base equivocada), una falla del disco o una cuenta comprometida.
+Esta política dice qué copiamos, cómo, cada cuánto, cuánto tiempo lo guardamos y cómo lo recuperamos.
+
+Usamos las **MongoDB Database Tools** (`mongodump` y `mongorestore`), que se instalan aparte del servidor. Las
+dos funcionan igual contra la base local y contra Atlas: solo cambia la `--uri`.
+
+### 20.1 Ámbito de aplicación
+
+**Qué se respalda:**
+
+| Elemento | ¿Se respalda? | Por qué |
+|---|---|---|
+| Base `dh` en **Atlas** (las 6 colecciones) | Sí, es lo más importante | Ahí escriben los usuarios reales de la app publicada. Esos datos **no se pueden regenerar**. |
+| Base `dh` **local** (las 6 colecciones) | Sí | Es la base que se evalúa. Se puede volver a cargar con `npm run seed`, pero se pierde lo que hayamos probado a mano. |
+| Índices y validadores `$jsonSchema` | Sí, van solos | `mongodump` guarda en cada colección un archivo de metadatos con sus índices y sus opciones (incluido el validador). `mongorestore` los vuelve a crear. |
+| Bases `admin`, `local`, `config` | No | Son internas de MongoDB (sección 2.1). En Atlas las maneja el servicio. |
+| Código y scripts | No (ya están) | Viven en GitHub, con todo su historial. |
+| `.env.local` (contraseña de Atlas) | No | Es un secreto: nunca se copia junto a los datos. Si se pierde, se genera una contraseña nueva en Atlas. |
+
+**Quiénes:** los cuatro integrantes del equipo. Cada semana hay **un responsable** (rota en el orden Augustus,
+Nicolas, Ariel, Josefina) que corre las copias y anota el resultado. Los archivos de respaldo contienen emails y
+hashes de contraseñas, así que **solo los ve el equipo**: no se suben al repositorio ni se comparten por fuera.
+
+### 20.2 Mecanismos de copia según infraestructura
+
+Seguimos la **regla 3-2-1**: 3 copias de los datos, en 2 medios distintos, 1 fuera del lugar.
+
+| Copia | Medio | Cómo |
+|---|---|---|
+| 1 | La base misma (Atlas o local) | Los datos originales. |
+| 2 | **Disco** de la compu del responsable, fuera del repo: `C:\respaldos\dh\` | `mongodump` comprimido en un solo archivo. |
+| 3 | **Nube**: carpeta compartida del equipo en Google Drive | Se sube el mismo archivo. Si se rompe o se roba la compu, la copia sigue existiendo. |
+
+Lo que **no** usamos, y por qué:
+
+- **Cintas:** son para volúmenes de terabytes y guardado por años. Nuestra base comprimida pesa unos pocos MB.
+- **Servidor dedicado de backups:** no tenemos uno, y para este volumen un disco más la nube cubren lo mismo.
+- **El replica set de Atlas como "backup":** los 3 servidores de Atlas (sección 2.1) protegen contra que se caiga
+  una máquina, **no contra un error nuestro**. Si alguien corre `db.bajadas.deleteMany({})`, el borrado se copia
+  a los 3 servidores en un segundo. Replicar no es respaldar.
+- **Las copias automáticas de Atlas:** el plan gratuito (M0) no las incluye. Por eso hacemos el `mongodump` nosotros.
+
+Los comandos (en PowerShell; `--gzip --archive` deja todo en un único archivo comprimido):
+
+```powershell
+# Base local
+$fecha = Get-Date -Format yyyy-MM-dd
+mongodump --uri="mongodb://127.0.0.1:27017/dh" --gzip --archive="C:\respaldos\dh\local-$fecha.gz"
+
+# Atlas (la cadena es la del .env.local, termina en /dh)
+mongodump --uri="mongodb+srv://USUARIO:CONTRASEÑA@dh.35crots.mongodb.net/dh" --gzip --archive="C:\respaldos\dh\atlas-$fecha.gz"
+```
+
+### 20.3 Periodicidad de ejecución
+
+La frecuencia depende de **cuánto cambia la base y cuánto nos duele perder un día**:
+
+| Base | Cuándo | Por qué |
+|---|---|---|
+| Atlas | **Todos los días**, a la noche | Recibe datos reales que no se pueden recrear. Perder como mucho un día es aceptable para el proyecto. |
+| Local | **Una vez por semana** (domingo) | Cambia poco y casi todo sale del seed. |
+| Las dos | **Antes de cualquier operación riesgosa** | Correr el seed, cambiar un validador, renombrar o borrar colecciones (por ejemplo, borrar las colecciones viejas en inglés). Es el momento en que más fácil se pierde algo. |
+
+Todas las copias son **completas** (toda la base), no incrementales: con este tamaño tardan segundos, y para
+recuperar alcanza con un solo archivo, sin tener que encadenar varios.
+
+### 20.4 Período de retención
+
+| Tipo de copia | Cuántas se guardan | Qué pasa con las viejas |
+|---|---|---|
+| Diaria (Atlas) | Las últimas **7** | La de hace 8 días se borra. |
+| Semanal (local y la del domingo de Atlas) | Las últimas **4** | La de hace 5 semanas se borra. |
+| Antes de una operación riesgosa | Hasta la siguiente copia semanal verificada | Se borra cuando hay una semanal más nueva que restauró bien. |
+| Final del ciclo lectivo | **1**, hasta que la materia esté aprobada por los cuatro | Después se destruye. |
+
+Se guardan 7 diarias porque un error puede tardar días en notarse (por ejemplo, un ranking que "se ve raro").
+Destruir significa borrar el archivo del disco, vaciar la papelera y borrarlo también de Google Drive (incluida
+su papelera).
+
+**Marco legal:** la base tiene datos personales (nombre de usuario, email, ciudad). La Ley 25.326 de Protección
+de Datos Personales pide guardarlos con seguridad y **no conservarlos más tiempo del necesario** para lo que
+fueron recolectados. Por eso la retención es corta y tiene fecha de fin: terminado el proyecto, las copias se
+destruyen. Como no somos una empresa, no hay una norma de auditoría que nos obligue a guardar años.
+
+### 20.5 Disponibilidad y recuperación
+
+Una copia que nunca se probó **no es una copia**: puede estar vacía, cortada o ser de la base equivocada. Por eso:
+
+- **Prueba mensual:** el responsable restaura la última copia en una base aparte, `dh_restore`, sin tocar `dh`, y
+  comprueba que esté completa.
+- **Objetivos:** perder como mucho **1 día** de datos en Atlas y **1 semana** en local (RPO), y volver a tener la
+  base andando en **menos de 30 minutos** (RTO). Con unos pocos MB, la restauración real tarda segundos; el resto
+  es encontrar el archivo y verificar.
+
+**Probar una copia** (restaura en `dh_restore`, la base `dh` no se toca):
+
+```powershell
+mongorestore --uri="mongodb://127.0.0.1:27017" --gzip --archive="C:\respaldos\dh\local-2026-10-26.gz" `
+  --nsFrom="dh.*" --nsTo="dh_restore.*"
+```
+
+Y en la shell de Compass, comparar contra la original:
+
+```js
+// Cantidad de documentos por colección: tiene que dar igual en dh y en dh_restore
+const r = db.getSiblingDB("dh_restore")
+r.getCollectionNames().forEach(c =>
+  print(c, r[c].countDocuments(), db.getSiblingDB("dh")[c].countDocuments()))
+
+// Los índices y el validador también volvieron
+r.senderos.getIndexes()
+r.getCollectionInfos({ name: "bajadas" })[0].options.validator
+
+// Al terminar, borrar la base de prueba
+r.dropDatabase()
+```
+
+**Recuperar de verdad** (ante un desastre en `dh`): `--drop` borra cada colección antes de cargarla, así queda
+igual a la copia y no se mezclan documentos viejos y nuevos.
+
+```powershell
+mongorestore --uri="mongodb://127.0.0.1:27017" --gzip --archive="C:\respaldos\dh\local-2026-10-26.gz" --drop
+```
+
+Para Atlas es el mismo comando con su `--uri`. Después de restaurar, se abre la app y se revisa que el ranking de
+un sendero muestre datos.
+
+Si no hay ninguna copia que sirva, el último recurso es `npm run seed`: recupera la estructura (colecciones,
+índices, validadores) y los datos de prueba, pero **no** las cuentas ni las bajadas reales.
 
 ---
 
