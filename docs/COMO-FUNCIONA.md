@@ -1815,6 +1815,9 @@ mongodump --uri="mongodb://127.0.0.1:27017/dh" --gzip --archive="C:\respaldos\dh
 mongodump --uri="mongodb+srv://USUARIO:CONTRASEÑA@dh.35crots.mongodb.net/dh" --gzip --archive="C:\respaldos\dh\atlas-$fecha.gz"
 ```
 
+En la práctica no se escriben a mano: los corre el script `scripts/backup.ps1` (sección 20.6), que además
+verifica la copia, la anota y borra las viejas.
+
 ### 20.3 Periodicidad de ejecución
 
 La frecuencia depende de **cuánto cambia la base y cuánto nos duele perder un día**:
@@ -1891,6 +1894,54 @@ un sendero muestre datos.
 
 Si no hay ninguna copia que sirva, el último recurso es `npm run seed`: recupera la estructura (colecciones,
 índices, validadores) y los datos de prueba, pero **no** las cuentas ni las bajadas reales.
+
+### 20.6 El script de backup (`scripts/backup.ps1`)
+
+El script hace en un solo paso todo lo de las secciones 20.2 a 20.4: la copia, la verificación, el registro y
+la retención. Es PowerShell porque las cuatro compus del equipo son Windows.
+
+**Cómo se usa:**
+
+```powershell
+# Base local (o: npm run backup)
+powershell -ExecutionPolicy Bypass -File scripts/backup.ps1
+
+# Atlas: la cadena va en una variable de entorno, nunca escrita en el script
+$env:ATLAS_URI = "mongodb+srv://USUARIO:CONTRASEÑA@dh.35crots.mongodb.net/dh"
+powershell -ExecutionPolicy Bypass -File scripts/backup.ps1 -Base atlas
+```
+
+Deja `C:\respaldos\dh\local-2026-10-26.gz` (o `atlas-…`) y una línea en `C:\respaldos\dh\backup.log`. Ese
+archivo es la anotación del responsable de la semana (sección 20.1).
+
+**Qué hace, parte por parte:**
+
+| Parte | Código | Qué hace |
+|---|---|---|
+| Parámetros | `param([ValidateSet("local","atlas")] $Base = "local", $Destino = "C:\respaldos\dh")` | Qué base copiar y dónde dejar la copia. `ValidateSet` rechaza cualquier otro valor. |
+| 1. Conexión | `$uri = "mongodb://127.0.0.1:27017/dh"` o `$env:ATLAS_URI` | La de Atlas tiene la contraseña: sale de una variable de entorno. Si falta, el script avisa y termina. |
+| Chequeo previo | `Get-Command mongodump` | Si las Database Tools no están instaladas, lo dice claro en vez de fallar con un error raro. |
+| 2. Nombre | `"$Base-$fecha.gz"` en `$Destino` | Un archivo por base y por día, fuera del repo. `New-Item -Force` crea la carpeta si no existe. |
+| 3. Copia | `mongodump --uri=... --gzip --archive=...` | Copia las 6 colecciones con sus índices y validadores, comprimidas en un solo archivo. |
+| 4. Verificación | `$LASTEXITCODE -ne 0`, `Test-Path`, `Length -eq 0` | `mongodump` devuelve 0 si salió bien. Si no, o si el archivo no existe o está vacío, anota `ERROR` y **termina sin borrar nada**: una corrida fallida nunca puede eliminar las copias buenas. |
+| Registro | `Add-Content $log "... OK ... KB"` | Fecha, base, archivo y tamaño en `backup.log`. |
+| 5. Retención | `Get-ChildItem` + `Remove-Item` | Atlas: guarda las de los últimos 7 días y las de los domingos de las últimas 4 semanas. Local: las de las últimas 4 semanas. El resto se borra y queda anotado (`DELETED`). |
+
+**Programarlo para que corra solo** (Programador de tareas de Windows, una vez por compu):
+
+```powershell
+# Atlas todas las noches (la variable ATLAS_URI tiene que estar guardada en el usuario de Windows)
+schtasks /create /tn "Backup DH Atlas" /sc daily /st 23:00 /tr "powershell -ExecutionPolicy Bypass -File C:\ruta\al\proyecto\scripts\backup.ps1 -Base atlas"
+
+# Local los domingos
+schtasks /create /tn "Backup DH local" /sc weekly /d SUN /st 23:00 /tr "powershell -ExecutionPolicy Bypass -File C:\ruta\al\proyecto\scripts\backup.ps1"
+```
+
+Para guardar la variable en el usuario de Windows (así la ve la tarea programada):
+`[Environment]::SetEnvironmentVariable("ATLAS_URI", "mongodb+srv://…/dh", "User")`.
+
+**Lo que el script no hace** (queda a cargo del responsable): subir el archivo a la carpeta de Google Drive
+(copia 3 de la regla 3-2-1) y la prueba mensual de restauración en `dh_restore` (sección 20.5).
 
 ---
 

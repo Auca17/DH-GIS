@@ -11,6 +11,7 @@
     "seed:prod": "tsx --env-file=.env.production scripts/seed.ts",
     "queries": "tsx --env-file=.env.local scripts/queries.ts",
     "explain": "tsx scripts/explain.ts",
+    "backup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/backup.ps1",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
