@@ -139,30 +139,3 @@ export interface ResultadoDescenso {
   guardadoEn: number;
 }
 
-export interface PuntoFreeride {
-  lat: number;
-  lng: number;
-  elevacionM: number | null;
-  accuracyM: number | null;
-  timestampMs: number;
-  velocidadKmh: number;
-  distanciaAcumuladaM: number;
-}
-
-export interface SesionFreeride {
-  id: string;
-  titulo: string;
-  startedAt: number;
-  endedAt: number;
-  tiempoTotalMs: number;
-  distanciaTotalM: number;
-  velocidadPromedioKmh: number;
-  velocidadMaximaKmh: number;
-  desnivelPositivoM: number;
-  desnivelNegativoM: number;
-  puntos: PuntoFreeride[];
-  guardadoEn: number;
-  /** Label of the bike used ("Specialized Demo 2024 · DH · 29"). Missing = no account or older session. */
-  bici?: string;
-}
-

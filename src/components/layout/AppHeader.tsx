@@ -9,7 +9,6 @@ import { useSesion } from "@/providers/session-provider";
 
 const NAV_LINKS = [
   { href: "/mapa", label: "Mapa" },
-  { href: "/freeride", label: "Freeride" },
   { href: "/acerca", label: "Nosotros" },
 ];
 

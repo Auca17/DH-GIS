@@ -11,7 +11,7 @@ import {
 } from "react";
 import type { Bici, PerfilRider } from "@/lib/types";
 
-// Who is signed in, shared by every screen (header, start panel, freeride, profile).
+// Who is signed in, shared by every screen (header, start panel, profile).
 // It asks GET /api/me once when the app opens; after signing in, signing up,
 // adding a bike or signing out, the screen calls `recargar()` to ask again.
 //

@@ -4,7 +4,7 @@ import { Select } from "@/components/ui/Select";
 import { etiquetaBici } from "@/lib/bikes/bike-label";
 import type { Bici } from "@/lib/types";
 
-// "¿Con qué bici bajás?" before a trail run or a freeride.
+// "¿Con qué bici bajás?" before a trail run.
 // With 0 or 1 bike there is nothing to choose: it renders nothing.
 
 interface BikePickerProps {
