@@ -107,13 +107,14 @@ Termina imprimiendo esto:
 Database: dh
 usuarios: 70
 senderos: 3
-bicis:    105 (seed)
+bicis:    105 (seed, embedded in usuarios)
 bajadas:  20017 (seed)
-resenas:  306 (seed)
+resenas:  153 (seed, embedded in bajadas)
+migrated: bikes of 0 accounts, 0 old reviews
 ```
 
 Volvé a Compass y tocá el botón de recargar (↻) al lado de la lista de bases: apareció **`dh`** con las colecciones
-`bajadas`, `bicis`, `resenas`, `senderos`, `sesiones` y `usuarios`.
+`bajadas`, `senderos`, `sesiones` y `usuarios`. Las bicis están adentro de cada usuario (`bicis`) y las reseñas adentro de cada bajada (`resena`).
 
 ---
 

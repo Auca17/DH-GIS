@@ -51,7 +51,7 @@ Abrí [http://localhost:3000](http://localhost:3000).
 1. Instalá **MongoDB Community Server** y **MongoDB Compass** (los links están en "Cómo levantar la base").
 2. Cloná el repo y corré `npm install`.
 3. Copiá `.env.example` a `.env.local`. Tiene que decir `MONGODB_URI=mongodb://127.0.0.1:27017/dh` (la base local).
-4. Corré `npm run seed`. Carga en tu compu: 70 riders, 105 bicis, 20.017 descensos y 306 reseñas.
+4. Corré `npm run seed`. Carga en tu compu: 70 riders, 105 bicis, 20.017 descensos y 153 reseñas.
 5. Abrí Compass, conectate a `mongodb://127.0.0.1:27017` y entrá a la base `dh`.
 6. Practicá en la pestaña **Aggregations** de cada colección. Las consultas del proyecto (C1 a C13) están en `src/lib/queries/`, cada una con un comentario listo para copiar y pegar en Compass.
 7. ¿Rompiste algo? Corré `npm run seed` de nuevo y vuelve todo a como estaba.
@@ -98,14 +98,14 @@ El código es el mismo para las dos bases: lo único que cambia es `MONGODB_URI`
 | Cargar el seed en Atlas | `.env.production` | la misma dirección de Atlas |
 
 - La dirección de Atlas **tiene que terminar en `/dh`** (antes del `?`). Sin eso, el driver usa la base `test`.
-- `npm run seed` carga la base local; `npm run seed:prod` carga Atlas. Es el mismo script con los mismos datos de partida (`src/lib/mock-data.ts`). Solo borra y vuelve a insertar las bicis, bajadas y reseñas de los riders del seed (los usuarios sin email); lo de las cuentas reales (con email) no se toca.
-- Además de los datos de ejemplo, el seed genera volumen para practicar consultas (`scripts/seed-volume.ts`): 60 riders con nivel y ciudad, de 1 a 3 bicis cada uno, 20.000 descensos de los últimos 18 meses (alrededor del 5 % inválidos, cada uno con su motivo) y 300 reseñas. Siempre genera exactamente lo mismo, así la base local y Atlas quedan iguales.
+- `npm run seed` carga la base local; `npm run seed:prod` carga Atlas. Es el mismo script con los mismos datos de partida (`src/lib/mock-data.ts`). Solo reemplaza las bicis (embebidas en `usuarios`) y las bajadas (con su reseña embebida) de los riders del seed (los usuarios sin email); lo de las cuentas reales (con email) no se toca. Si una cuenta real todavía tiene bicis o reseñas en las colecciones viejas `bicis`/`resenas`, el seed las copia a su lugar nuevo (no borra nada); después esas dos colecciones se pueden borrar a mano desde Compass.
+- Además de los datos de ejemplo, el seed genera volumen para practicar consultas (`scripts/seed-volume.ts`): 60 riders con nivel y ciudad, de 1 a 3 bicis cada uno, 20.000 descensos de los últimos 18 meses (alrededor del 5 % inválidos, cada uno con su motivo) y 300 reseñas (quedan 153: una por rider por sendero, cada una dentro de una bajada válida suya). Siempre genera exactamente lo mismo, así la base local y Atlas quedan iguales.
 - `/api/health` muestra a qué base está conectada la app.
-- El seed también aplica la validación `$jsonSchema` de `usuarios`, `bicis`, `sesiones`, `senderos`, `bajadas` y `resenas` (comando `collMod`). En Atlas, un usuario de base con permiso "Read and write" no puede correr `collMod`: el seed avisa y sigue sin validación. Para aplicarla, dale temporalmente el rol "Atlas admin" en Database Access y corré `npm run seed:prod` otra vez.
+- El seed también aplica la validación `$jsonSchema` de `usuarios`, `sesiones`, `senderos` y `bajadas` (comando `collMod`). En `usuarios` suma una regla `$expr`: como mucho una bici principal. En Atlas, un usuario de base con permiso "Read and write" no puede correr `collMod`: el seed avisa y sigue sin validación. Para aplicarla, dale temporalmente el rol "Atlas admin" en Database Access y corré `npm run seed:prod` otra vez.
 
 ## Cuentas y bicis
 
-- Registro con nombre visible, email, contraseña, nivel, ciudad, año en que empezó a andar y una primera bici (`/registro`). En "Mi perfil" (`/perfil`) se agregan más bicis y se elige la principal.
+- Registro con nombre visible, email, contraseña, nivel, ciudad, año en que empezó a andar y una primera bici (`/registro`). En "Mi perfil" (`/perfil`) se agregan más bicis (hasta 5) y se elige la principal. Las bicis van embebidas en el usuario (`usuarios.bicis`); cada una tiene su `_id` y las bajadas la apuntan con `biciId`.
 - La contraseña se guarda como hash scrypt con sal propia; la sesión es una cookie httpOnly y en `sesiones` queda solo el hash del token (`hashToken`). Un índice TTL borra solas las sesiones vencidas.
 - Sin cuenta se puede ver el mapa, el ranking y usar el modo demo. Para guardar un descenso con GPS real hace falta una cuenta.
 - Consultas nuevas para Compass: C10 (mejor tiempo por nivel), C11 (descensos por ciudad), C12 (descensos por tipo de bici) y C13 (perfil con sus bicis). `npm run queries` imprime C10 a C12.
@@ -115,7 +115,7 @@ El código es el mismo para las dos bases: lo único que cambia es `MONGODB_URI`
 
 - Después de un descenso **válido con GPS real** y con cuenta, la pantalla de resultado deja calificar el sendero (1 a 5 estrellas y un comentario opcional de hasta 500 caracteres). En modo demo no aparece.
 - `POST /api/reviews` vuelve a controlar todo en el servidor: que el descenso sea del rider de la sesión, que sea válido y que no sea demo.
-- Una sola reseña por descenso: índice único parcial `una_resena_por_bajada` en `resenas.bajadaId`. El promedio por sendero no se guarda: lo calcula C5 con `$avg`.
+- La reseña va embebida en la bajada (`bajadas.resena`): una por descenso. Además, una sola por rider en cada sendero: índice único parcial `una_resena_por_usuario_y_sendero` en `bajadas { usuarioId, senderoId }` (solo cubre las bajadas con reseña). El promedio por sendero no se guarda: lo calcula C5 con `$avg`.
 
 ## Índices: antes y después (explain)
 

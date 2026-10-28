@@ -1,16 +1,16 @@
 # Índices: explain("executionStats") sin y con índice
 
-Generado con `npm run explain` sobre la base local (2026-10-21).
+Generado con `npm run explain` sobre la base local (2026-10-27).
 "Sin índice" obliga a leer toda la colección con `hint({ $natural: 1 })`; "con índice" deja que MongoDB elija.
 
 | Consulta | Modo | Plan | Docs leídos | Claves leídas | Devueltos | Tiempo (ms) |
 |---|---|---|---|---|---|---|
-| C3 leaderboard | sin índice | `SORT > COLLSCAN` | 20017 | 0 | 10 | 15 |
-| C4 personal best | sin índice | `COLLSCAN` | 20017 | 0 | 3 | 12 |
-| C9 reviews | sin índice | `SORT > COLLSCAN` | 306 | 0 | 107 | 0 |
+| C3 leaderboard | sin índice | `SORT > COLLSCAN` | 20017 | 0 | 10 | 19 |
+| C4 personal best | sin índice | `COLLSCAN` | 20017 | 0 | 3 | 38 |
+| C9 reviews | sin índice | `SORT > COLLSCAN` | 20017 | 0 | 52 | 36 |
 | C3 leaderboard | con índice | `LIMIT > FETCH > IXSCAN` | 10 | 10 | 10 | 0 |
-| C4 personal best | con índice | `FETCH > IXSCAN` | 8598 | 8598 | 3 | 14 |
-| C9 reviews | con índice | `FETCH > IXSCAN` | 107 | 107 | 107 | 0 |
+| C4 personal best | con índice | `FETCH > IXSCAN` | 8598 | 8598 | 3 | 47 |
+| C9 reviews | con índice | `FETCH > IXSCAN` | 52 | 52 | 52 | 1 |
 
 ## Cómo leerlo
 

@@ -1,7 +1,7 @@
 # Contexto de sesión: DH Leaderboard (MongoDB local + Atlas, publicado en Vercel)
 
 > Archivo para retomar el trabajo en otra sesión. Leelo entero antes de seguir.
-> Última actualización: 2026-10-19. Rama de trabajo: `main` (publicado en **https://dh-gis.vercel.app**).
+> Última actualización: 2026-10-27. Rama de trabajo: `main` (publicado en **https://dh-gis.vercel.app**).
 
 ## 1. Qué es el proyecto
 
@@ -51,10 +51,12 @@ Documentos de referencia en el repo:
 - Consultas C1–C13 en `src/lib/queries/` (tabla en `docs/COMO-FUNCIONA.md`, sección 9). 170 tests (`npx vitest run`), `tsc` limpio.
 - **2026-10-21 (`feat/espanol-db`, mergeado):** base en español (`usuarios`, `senderos`, `bajadas`, `resenas`, `bicis`, `sesiones`; campos como `usuarioId`, `duracion`, `principal`, `estado: "completada"`). Sin `source` (riders del seed = usuarios sin email), sin `createdAt` en bicis, sin `path`/radios/`visibleOnMap`/`dataSource` en senderos, sin `null` en bajadas sin bici. El código y los cuerpos de la API siguen en inglés. Pendiente del usuario: borrar las colecciones viejas en inglés (local y Atlas) y volver a registrar sus cuentas.
 
+- **2026-10-27 (`feat/embebidos`):** se sacó freeride (vivía en `localStorage`). Bicis embebidas en `usuarios.bicis` (máx. 5 por `"bicis.4": {$exists:false}` + `maxItems`; principal con un update `arrayFilters` en `src/lib/bikes/set-primary-bike.ts` + regla `$expr` en el validador). Reseña embebida en `bajadas.resena` (una por bajada; una por rider por sendero con el índice único parcial `una_resena_por_usuario_y_sendero`). C5, C9, C12, C13, seed, `explain`, docs actualizados. Seed local: 153 reseñas. Verificado de punta a punta en la base local (API en el puerto 3100). El seed migra bicis/reseñas de cuentas reales desde las colecciones viejas sin borrar.
+
 ## 5. Lo que falta
 
 1. **El usuario:** probar su cuenta y una corrida con GPS real en el cerro.
-2. Freeride guardado en Mongo (colección `rides` con `LineString`), opción B acordada.
+2. Después de mergear `feat/embebidos` y que Vercel publique: correr el seed contra Atlas y borrar a mano `bicis` y `resenas` (viejas) en local y Atlas.
 3. Después de la presentación: sacar `0.0.0.0/0` de Atlas y cambiar la contraseña del usuario de la base (y en Vercel).
 
 ## 6. Cómo retomar

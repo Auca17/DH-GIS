@@ -18,20 +18,20 @@ Contexto de la última sesión (qué se hizo, en qué paso estamos y qué falta)
    - Excepción (2026-10-17): para publicar en Vercel se usa MongoDB Atlas, **solo** por variable de entorno (`MONGODB_URI` en Vercel y en `.env.production`, ambos fuera de git). El código no cambia: es el mismo driver y las mismas consultas. Desarrollo y evaluación de la cátedra siguen en local.
    - Cambiar de base = cambiar solo `MONGODB_URI` (tabla en `README.md`, sección "Base local o MongoDB Atlas"). Presentación: app en Vercel + Compass conectado a Atlas; plan B: `npm start` contra la base local. `npm run seed:prod` (lee `.env.production`) carga Atlas con el mismo script y los mismos datos que `npm run seed`. La URI de Atlas tiene que terminar en `/dh`.
 2. Driver oficial `mongodb`, sin Mongoose, así las consultas quedan visibles y se parecen a lo que escribimos en Compass.
-3. Colecciones y campos **en español** (2026-10-21): `usuarios`, `senderos`, `bajadas`, `resenas`, `bicis`, `sesiones`. Embebemos lo que se lee junto (`tramos` dentro de `senderos`) y referenciamos lo que crece (`bajadas`, `resenas` apuntan a `senderoId`/`usuarioId`; `bicis` apunta a `usuarioId`; `bajadas` apunta a `biciId`). Todas tienen validación `$jsonSchema` (se aplica en `scripts/seed.ts`). Sin campo `source`: los riders del seed son los `usuarios` sin email. El código (variables, funciones, cuerpos de la API) sigue en inglés; solo la base y las salidas de las consultas van en español.
-4. Índices (con comentario de por qué cada uno): `senderos` 2dsphere en `inicio`, único en `codigo`; `bajadas` `{senderoId, estado, valida, duracion}` y único parcial en `idCorrida`; `resenas` `{senderoId, fecha: -1}` y único parcial en `bajadaId`; `usuarios` único en `nombre` y único parcial en `email`; `bicis` `{usuarioId, principal: -1}` y único parcial en `usuarioId` con `principal: true` (una sola bici principal); `sesiones` único en `hashToken` y TTL en `venceEn`.
+3. Colecciones y campos **en español** (2026-10-21): `usuarios`, `senderos`, `bajadas`, `sesiones`. Embebemos lo que está acotado y se lee junto: `tramos` dentro de `senderos`, `bicis` dentro de `usuarios` (máximo 5, cada una con su `_id`) y `resena` dentro de `bajadas` (una por bajada) (2026-10-27). Referenciamos lo que crece: `bajadas` apunta a `senderoId`/`usuarioId` y a `biciId` (= `usuarios.bicis._id`). Todas tienen validación `$jsonSchema` (se aplica en `scripts/seed.ts`); `usuarios` suma una regla `$expr` (una sola bici principal). Freeride se sacó (2026-10-27). Sin campo `source`: los riders del seed son los `usuarios` sin email. El código (variables, funciones, cuerpos de la API) sigue en inglés; solo la base y las salidas de las consultas van en español.
+4. Índices (con comentario de por qué cada uno): `senderos` 2dsphere en `inicio`, único en `codigo`; `bajadas` `{senderoId, estado, valida, duracion}`, único parcial en `idCorrida`, parcial `{senderoId, "resena.fecha": -1}` (solo bajadas con reseña) y único parcial `{usuarioId, senderoId}` (una reseña por rider por sendero); `usuarios` único en `nombre`, único parcial en `email` y multikey en `bicis._id`; `sesiones` único en `hashToken` y TTL en `venceEn`.
    - Registro con contraseña (scrypt de `node:crypto`), sesión en cookie httpOnly. Mongo no tiene RLS: cada ruta filtra por el `userId` de la sesión, nunca por uno que mande el cliente.
 5. Las consultas importantes viven en `src/lib/queries/`, una función por consulta, con un comentario arriba que diga: qué hace, en lenguaje de Compass (el pipeline equivalente) y qué concepto de la materia ilustra:
    - C1 senderos cercanos (`$geoNear`)
    - C2 ¿estoy dentro del radio de salida? (`$near` / `$geoWithin`)
-   - C3 ranking top-N por sendero (`$match` + `$sort` + `$limit` + `$lookup` a `users`)
+   - C3 ranking top-N por sendero (`$match` + `$sort` + `$limit` + `$lookup` a `usuarios`)
    - C4 mejor tiempo personal (`$group`)
-   - C5 promedio de calificación por sendero (`$group` + `$avg`)
+   - C5 promedio de calificación por sendero (`$group` + `$avg` sobre `bajadas.resena`)
    - C6 cantidad de descensos por sendero (`$lookup` + `$count` / `$group`)
-   - C10 mejor tiempo por nivel en un sendero (`$lookup` a `users` + `$group` por nivel)
+   - C10 mejor tiempo por nivel en un sendero (`$lookup` a `usuarios` + `$group` por nivel)
    - C11 descensos por ciudad (`$lookup` + `$group` + `$addToSet`/`$size`)
-   - C12 descensos válidos por tipo de bici (`$lookup` a `bikes` + `$avg`)
-   - C13 perfil con sus bicis (`$lookup` con `pipeline` de `users` a `bikes`)
+   - C12 descensos válidos por tipo de bici (`$lookup` a `usuarios` por `bicis._id` + `$filter` + `$avg`)
+   - C13 perfil con sus bicis (embebidas: `$match` + `$sortArray`, sin `$lookup`)
 
    Cada consulta debe poder copiarse y pegarse en Compass (pestaña Aggregations).
 6. Código simple y legible: somos estudiantes y tenemos que poder explicar cada línea. Claridad antes que "elegancia".

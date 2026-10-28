@@ -11,6 +11,36 @@ La instalación paso a paso está aparte, en [PRACTICAR.md](PRACTICAR.md).
 **Parte II** (secciones 10 a 19) es para practicar con la shell abierta. La **Parte III** (sección 20) es la
 política de resguardo.
 
+> **Cambios del 27/10/2026** (rama `feat/embebidos`). Si ya leíste una versión anterior, esto es lo nuevo:
+>
+> - **Freeride, afuera.** Se sacó la página `/freeride` (guardaba en el navegador, no en Mongo).
+> - **Las bicis ahora van embebidas en `usuarios`** (array `bicis`, máximo 5). Es una relación uno a pocos,
+>   con tope, y siempre se lee junto con el rider (perfil, selector de bici): una sola lectura, sin `$lookup`.
+>   Cada bici conserva su `_id`, y `bajadas.biciId` apunta a `usuarios.bicis._id`. La colección `bicis` ya no se usa.
+> - **Tope de 5 bicis, controlado dos veces:** el `$push` filtra `"bicis.4": { $exists: false }` (atómico: no hay
+>   lugar para una sexta) y el validador tiene `maxItems: 5`. Antes eran 10 con `countDocuments` (no atómico).
+> - **Una sola bici principal:** un índice único ya no sirve (compara documentos distintos, no elementos de un
+>   mismo array). Ahora cambiar la principal es **un solo `updateOne` con `arrayFilters`**, y el validador de
+>   `usuarios` tiene una regla `$expr` que rechaza dos principales (error 121).
+> - **El registro es una sola escritura:** `insertOne` del usuario con `bicis: [primeraBici]`. Ya no hace falta
+>   "borrar el usuario a mano si falla la bici".
+> - **La reseña ahora va embebida en su bajada** (subdocumento `resena`). Es uno a uno (0 o 1) y se escribe
+>   junto con la bajada, que ya tiene `senderoId` y `usuarioId`. La colección `resenas` ya no se usa. **No** la
+>   embebimos en `senderos`: ese array crecería sin límite con cada rider (anti-patrón, tope de 16 MB).
+> - **Regla de negocio nueva: una reseña por rider y por sendero** (antes era una por bajada). Lo controla la
+>   base con el índice único parcial `una_resena_por_usuario_y_sendero`; el segundo intento da 409 *"Ya dejaste
+>   una reseña para este sendero."*
+> - **Índices:** nuevos `usuarios { "bicis._id": 1 }` (multikey, para C12), `resenas_por_sendero` y
+>   `una_resena_por_usuario_y_sendero` en `bajadas`. Se fueron los de `bicis` y `resenas`.
+> - **Consultas:** C5 y C9 ahora leen `bajadas` filtrando `resena: { $exists: true }`; C12 hace `$lookup` a
+>   `usuarios` por `bicis._id` + `$filter`; C13 ya no usa `$lookup` (`$sortArray`).
+> - **explain de C9:** sin índice `SORT > COLLSCAN` con 20.017 docs leídos; con índice `FETCH > IXSCAN` con
+>   52 claves / 52 docs / 52 resultados.
+> - **Seed:** 70 usuarios, 105 bicis (embebidas), 3 senderos, 20.017 bajadas, **153 reseñas** (antes 306: ahora
+>   va una por rider y sendero). Las cuentas reales se migran solas desde las colecciones viejas `bicis` y
+>   `resenas`, que después se pueden borrar a mano en Compass (`db.bicis.drop()`, `db.resenas.drop()`). Eso lo
+>   decide el usuario.
+
 ---
 
 ## Índice
@@ -74,8 +104,8 @@ Cada requisito tiene algo en la base que lo resuelve:
 | Ver los senderos cercanos y saber si estoy en la salida | Índice 2dsphere en `senderos.inicio`, C1 y C2 |
 | Ranking de cada sendero | C3, con el índice `{senderoId, estado, valida, duracion}` |
 | Mi mejor tiempo | C4 (`$group` + `$min`) |
-| Opinar y calificar un sendero | Colección `resenas`, C5 y C9; una sola reseña por bajada (índice único parcial en `bajadaId`) |
-| Cuentas con sus bicis | `usuarios` (nombre y email únicos) y `bicis` (una sola principal, índice único parcial) |
+| Opinar y calificar un sendero | Subdocumento `resena` dentro de `bajadas`, C5 y C9; una sola reseña por rider y sendero (índice único parcial `una_resena_por_usuario_y_sendero`) |
+| Cuentas con sus bicis | `usuarios` (nombre y email únicos) con el array `bicis` adentro (hasta 5, una sola principal por la regla `$expr` del validador) |
 | Estadísticas cruzadas (por ciudad, nivel, tipo de bici) | `$lookup` entre colecciones: C6, C10, C11 y C12 |
 | **No funcional:** que no se pueda hacer trampa | El servidor valida cada bajada y guarda `valida` y `motivoInvalida` (sección 7) |
 | **No funcional:** no duplicar una bajada si se reenvía | Índice único parcial en `idCorrida` |
@@ -109,8 +139,10 @@ Además de `dh`, Compass muestra bases que **crea MongoDB solo** y que nosotros 
 - **`config`**: configuración interna del servidor.
 
 **Consecuencia en el código:** MongoDB solo permite **transacciones** (varias escrituras que se guardan todas o
-ninguna) en un replica set. Como la base local no lo es, el registro guarda el usuario y después la bici, y si la
-bici falla borra el usuario a mano (`src/app/api/auth/register/route.ts`).
+ninguna) en un replica set. La base local no lo es, así que no usamos transacciones. No hacen falta: **una
+escritura sobre un solo documento siempre es atómica**. Como las bicis van dentro del usuario, el registro guarda
+el usuario **con** su primera bici en un solo `insertOne` (`src/app/api/auth/register/route.ts`): o se guarda
+todo, o nada.
 
 ## 3. Cómo pensamos el modelo de datos
 
@@ -119,37 +151,43 @@ bici falla borra el usuario a mano (`src/app/api/auth/register/route.ts`).
 Antes de escribir una línea, nos preguntamos **qué cosas existen** y **cuántas de una hay por cada una de la
 otra** (la cardinalidad):
 
-- Un **usuario** tiene **muchas bicis**. Una bici es de **un solo** usuario. → **1 a N**
+- Un **usuario** tiene **pocas bicis** (hasta 5). Una bici es de **un solo** usuario. → **1 a pocos**, parte del usuario
 - Un **usuario** hace **muchas bajadas**. Cada bajada la hizo **un** usuario. → **1 a N**
 - Un **sendero** tiene **muchas bajadas**. Cada bajada es de **un** sendero. → **1 a N**
 - Una **bici** se usa en **muchas bajadas**. Cada bajada se hizo con **una** bici (o ninguna, en modo demo). → **1 a N**
-- Un **sendero** tiene **muchas reseñas**, y un **usuario** escribe **muchas reseñas**. → **1 a N** las dos
-- Una **bajada** tiene **como máximo una** reseña. → **1 a 0..1**
+- Una **bajada** tiene **como máximo una** reseña. → **1 a 0..1**, parte de la bajada
+- Un **rider** deja **como máximo una** reseña **por sendero** (regla de negocio).
 - Un **sendero** tiene **pocos tramos** (entre 12 y 26), que no existen fuera de él. → **1 a pocos**, parte del sendero
 - Un **usuario** puede tener **varias sesiones** abiertas (celular y compu). → **1 a N**
 
 ```
-                 ┌──────────┐
-       ┌────────<│ usuarios │>────────┐
-       │         └──────────┘         │
-       │ usuarioId      │ usuarioId   │ usuarioId
-  ┌────┴────┐     ┌─────┴─────┐  ┌────┴─────┐
-  │  bicis  │<────│  bajadas  │  │ sesiones │
-  └─────────┘biciId└─────┬─────┘  └──────────┘
-                    senderoId │  ▲ bajadaId
-                   ┌─────────┴┐ │
-                   │ senderos │ │
-                   │ (tramos  │ │
-                   │ adentro) │ │
-                   └────┬─────┘ │
-                 senderoId│     │
-                   ┌──────┴─────┴┐
-                   │   resenas   │ ── usuarioId → usuarios
-                   └─────────────┘
+  ┌──────────────────────┐
+  │ usuarios             │
+  │  (bicis[] adentro,   │<─────────────┐
+  │   hasta 5)           │              │ usuarioId
+  └──────────────────────┘         ┌────┴─────┐
+     ▲            ▲                │ sesiones │
+     │ usuarioId  │ biciId         └──────────┘
+     │            │ (→ usuarios.bicis._id)
+  ┌──┴────────────┴──────┐
+  │ bajadas              │
+  │  (resena{} adentro,  │
+  │   0 o 1)             │
+  └──────────┬───────────┘
+             │ senderoId
+             ▼
+  ┌──────────────────────┐
+  │ senderos             │
+  │  (tramos[] adentro)  │
+  └──────────────────────┘
 
-  Lectura: "bicis tiene un usuarioId que apunta a usuarios", etc.
+  Lectura: "bajadas tiene un senderoId que apunta a senderos", etc.
   La flecha sale del lado N (el que guarda la referencia).
+  Lo que está "adentro" (bicis, resena, tramos) está embebido: no es otra colección.
 ```
+
+Son **4 colecciones** (`usuarios`, `senderos`, `bajadas`, `sesiones`), **3 relaciones embebidas** (tramos en
+senderos, bicis en usuarios, reseña en bajadas) y el resto con referencias.
 
 ### 3.2 La gran pregunta de MongoDB: ¿embebo o referencio?
 
@@ -166,9 +204,19 @@ preguntas:
 | sendero → tramos | Sí, siempre (el mapa dibuja la pista entera) | No (12 a 26 tramos, fijos) | **Embebido**: `senderos.tramos[]` |
 | sendero → bajadas | No (la página del sendero muestra solo el top 10) | **Sí** (Pequia ya tiene 9.000) | **Referencia**: `bajadas.senderoId` |
 | usuario → bajadas | No | Sí | **Referencia**: `bajadas.usuarioId` |
-| usuario → bicis | A veces (perfil) | Poco, pero una bici tiene vida propia (se usa en bajadas) | **Referencia**: `bicis.usuarioId` |
-| bajada → bici | Solo para mostrar el tipo | — | **Referencia** `bajadas.biciId` **+ copia** de `tipoBici` |
-| sendero/usuario → reseñas | No | Sí | **Referencia**: `resenas.senderoId`, `resenas.usuarioId` |
+| usuario → bicis | Sí (perfil, elegir bici antes de bajar) | No (máximo 5) | **Embebido**: `usuarios.bicis[]`, cada una con su `_id` |
+| bajada → bici | Solo para mostrar el tipo | — | **Referencia** `bajadas.biciId` (→ `usuarios.bicis._id`) **+ copia** de `tipoBici` |
+| bajada → reseña | Sí (la reseña es de esa bajada y se escribe con ella) | No (0 o 1) | **Embebido**: `bajadas.resena` |
+| sendero → reseñas | Sí (página del sendero) | **Sí** (crece con cada rider nuevo) | **No embebido**: se buscan en `bajadas` con `resena: { $exists: true }` |
+
+**¿Por qué las reseñas no van dentro del sendero?** Se leen con el sendero, pero ese array crecería sin límite:
+cada rider nuevo agrega una. Es el anti-patrón del **array sin tope**: el documento del sendero se haría cada vez
+más pesado (y podría llegar a los 16 MB). En cambio, dentro de la bajada hay **como máximo una**, y la bajada ya
+sabe de qué sendero y de qué rider es, así que la reseña no repite `senderoId` ni `usuarioId`.
+
+**¿Y por qué las bicis sí van dentro del usuario, si se usan en bajadas?** Porque son pocas, con tope (5), y se
+leen siempre con el rider. Para que una bajada pueda apuntar a una bici embebida, cada bici guarda su propio
+`_id`: `bajadas.biciId` es ese `_id`.
 
 **¿Por qué la referencia va en el lado N?** Porque el lado N es el que crece. La bajada sabe de qué sendero
 es (`senderoId`, un solo valor que no cambia). Si fuera al revés, el sendero tendría un array con 9.000 ids
@@ -176,15 +224,15 @@ que crece con cada bajada. Es la misma regla que en SQL: la clave foránea va en
 
 **La copia de `tipoBici` (desnormalización a propósito):** cada bajada guarda `biciId` (la referencia) y
 también `tipoBici` ("DH", "Enduro"...). Es un dato repetido, pero el ranking (C3) muestra el tipo de bici de
-cada fila y así no necesita un segundo `$lookup` a `bicis`. Como el tipo de una bici no cambia, la copia nunca
+cada fila y así no necesita un segundo `$lookup` a `usuarios`. Como el tipo de una bici no cambia, la copia nunca
 queda desactualizada. Cuando sí necesitamos más datos de la bici (C12, el recorrido de suspensión), hacemos el
-`$lookup` por `biciId`.
+`$lookup` a `usuarios` por `bicis._id`.
 
 ### 3.3 Cómo se ve cada documento
 
 Estos son documentos reales de la base (los arrays largos están recortados).
 
-**`usuarios`**: una cuenta real (las del seed no tienen `email` ni contraseña).
+**`usuarios`**: una cuenta real (las del seed no tienen `email` ni contraseña), con sus bicis adentro.
 
 ```js
 {
@@ -196,19 +244,17 @@ Estos son documentos reales de la base (los arrays largos están recortados).
   nivel: "avanzado",                             // principiante | intermedio | avanzado
   ciudad: "Mendoza",
   anioInicio: 2012,
-  fechaCreacion: ISODate("2026-10-21T15:06:44Z")
-}
-```
-
-**`bicis`**: tiene su propio `_id` (la bici) **y** `usuarioId` (de quién es).
-
-```js
-{
-  _id: ObjectId("6ad8d5047c060e2bdf964739"),   // la bici
-  usuarioId: ObjectId("6ad8d5047c060e2bdf964736"), // el dueño: el _id de un documento de `usuarios`
-  tipo: "Enduro", marca: "Santa Cruz", modelo: "Megatower", anio: 2023,
-  rodado: "mullet", recorridoDelanteroMm: 170, recorridoTraseroMm: 165,
-  principal: true                                // la bici que se usa si no elegís otra
+  fechaCreacion: ISODate("2026-10-21T15:06:44Z"),
+  bicis: [                                       // embebidas: máximo 5
+    { _id: ObjectId("6ad8d5047c060e2bdf964739"), // la bici: bajadas.biciId apunta acá
+      tipo: "Enduro", marca: "Santa Cruz", modelo: "Megatower", anio: 2023,
+      rodado: "mullet", recorridoDelanteroMm: 170, recorridoTraseroMm: 165,
+      principal: true },                         // la bici que se usa si no elegís otra (una sola)
+    { _id: ObjectId("6ad8d5047c060e2bdf96473b"), // segunda bici (ejemplo ilustrativo)
+      tipo: "DH", marca: "Specialized", modelo: "Demo", anio: 2021,
+      rodado: "29", recorridoDelanteroMm: 200, recorridoTraseroMm: 200,
+      principal: false }
+  ]
 }
 ```
 
@@ -232,14 +278,14 @@ Estos son documentos reales de la base (los arrays largos están recortados).
 }
 ```
 
-**`bajadas`**: tres referencias y los datos de la corrida.
+**`bajadas`**: tres referencias, los datos de la corrida y, si el rider opinó, la reseña adentro.
 
 ```js
 {
   _id: ObjectId("6ad8d506b50902bfe11e3f94"),
   senderoId: ObjectId("6ad8d4c1b50902bfe11e3f91"),  // → senderos._id
   usuarioId: ObjectId("6ad8d5047c060e2bdf964736"),  // → usuarios._id
-  biciId:    ObjectId("6ad8d5047c060e2bdf964739"),  // → bicis._id (no está si no hubo bici)
+  biciId:    ObjectId("6ad8d5047c060e2bdf964739"),  // → usuarios.bicis._id (no está si no hubo bici)
   tipoBici: "Enduro",                               // copia del tipo de la bici
   fechaInicio: ISODate("2026-10-21T15:05:51Z"),
   duracion: 52272,                                  // milisegundos (52,27 s)
@@ -249,25 +295,18 @@ Estos son documentos reales de la base (los arrays largos están recortados).
   esDemo: false,
   recorrido: [ [-68.89533, -32.8959, 0], …, [-68.89357, -32.89347, 52272] ],  // [lng, lat, ms]
   idCorrida: "circuito-dh-pequia-1792595203488",    // evita guardar la misma corrida dos veces
-  fechaCreacion: ISODate("2026-10-21T15:06:46Z")
+  fechaCreacion: ISODate("2026-10-21T15:06:46Z"),
+  resena: {                                         // embebida: solo si el rider opinó (0 o 1)
+    calificacion: 5,                                // entero de 1 a 5
+    comentario: "Mucha piedra suelta",              // hasta 500 caracteres
+    fecha: ISODate("2026-10-21T15:07:10Z")
+  }
 }
 ```
 
 Una bajada inválida además tiene `motivoInvalida` (por ejemplo `"SOS"`). Los campos que no aplican **no
-existen** en el documento (no se guardan como `null`): una bajada demo no tiene `biciId` ni `tipoBici`.
-
-**`resenas`**
-
-```js
-{
-  _id: ObjectId("6ad8d5067c060e2bdf96473a"),
-  senderoId: ObjectId("6ad8d4c1b50902bfe11e3f91"),
-  usuarioId: ObjectId("6ad8d5047c060e2bdf964736"),
-  bajadaId:  ObjectId("6ad8d506b50902bfe11e3f94"),  // solo las reseñas hechas desde la app
-  calificacion: 5, comentario: "Mucha piedra suelta",
-  fecha: ISODate("2026-10-21T15:06:46Z")
-}
-```
+existen** en el documento (no se guardan como `null`): una bajada demo no tiene `biciId` ni `tipoBici`, y una
+bajada sin opinión no tiene `resena`. La reseña no repite `senderoId` ni `usuarioId`: los saca de su bajada.
 
 **`sesiones`**: una por login abierto.
 
@@ -281,7 +320,8 @@ existen** en el documento (no se guardan como `null`): una bajada demo no tiene 
 }
 ```
 
-**Cantidades del seed:** 70 usuarios, 105 bicis, 3 senderos, 20.017 bajadas, 306 reseñas.
+**Cantidades del seed:** 70 usuarios, 105 bicis (embebidas en los usuarios), 3 senderos, 20.017 bajadas, 153
+reseñas (embebidas en las bajadas).
 
 ## 4. Cómo se referencian los documentos (de verdad)
 
@@ -309,14 +349,15 @@ En MongoDB **no hay "claves foráneas" como en SQL**. Una referencia es, literal
 el `_id` de otro:
 
 ```js
-// la bici guarda el _id de su dueño
-bicis:    { _id: ObjectId("…739"), usuarioId: ObjectId("…736"), … }
+// la bajada guarda el _id de su rider
+bajadas:  { _id: ObjectId("…f94"), usuarioId: ObjectId("…736"), … }
 usuarios: { _id: ObjectId("…736"), nombre: "Lucas R.", … }
 ```
 
 `usuarioId` es la **clave foránea** del modelo (FK) y `_id` es la **clave primaria** (PK). Es lo mismo que una
-tabla `bicis` con `id` y `usuario_id` en SQL. La diferencia: **MongoDB no controla que la referencia exista**.
-Si borrás un usuario, sus bicis quedan apuntando a un `_id` que ya no está (no hay `ON DELETE CASCADE`).
+tabla `bajadas` con `id` y `usuario_id` en SQL. La diferencia: **MongoDB no controla que la referencia exista**.
+Si borrás un usuario, sus bajadas quedan apuntando a un `_id` que ya no está (no hay `ON DELETE CASCADE`). Por
+eso tampoco se pueden borrar bicis: hay bajadas que apuntan a su `_id`.
 
 **Entonces, ¿quién garantiza que las referencias sean correctas?**
 
@@ -331,8 +372,10 @@ Si borrás un usuario, sus bicis quedan apuntando a un `_id` que ya no está (no
    const descent = { senderoId: trail._id, usuarioId: userId, … };
    ```
 
-   El `usuarioId` sale de la sesión (sección 8) y el `biciId` de una bici buscada con su `_id` **y** el
-   `usuarioId` del que está logueado, así no se puede apuntar a la bici de otro.
+   El `usuarioId` sale de la sesión (sección 8) y el `biciId` de una bici buscada **dentro del documento del
+   que está logueado**: `findOne({ _id: usuarioDeLaSesion, "bicis._id": biciId }, { projection: { "bicis.$": 1 } })`.
+   La proyección posicional `"bicis.$"` devuelve solo la bici que coincidió. La bici de otro rider no está en
+   ese documento, así que no se puede apuntar a ella (403).
 
 ### 4.3 Cómo el seed arma las referencias
 
@@ -341,16 +384,23 @@ El seed no puede escribir los `_id` a mano porque los genera MongoDB. Hace esto,
 1. **Usuarios primero.** Por cada rider hace un *upsert* por `nombre` (si existe lo actualiza, si no lo crea)
    y guarda en un `Map` de JavaScript `nombre → _id`.
 2. **Senderos.** Lo mismo por `codigo`, y guarda `id del mock → _id`.
-3. **Bicis.** Las inserta con `insertMany`, que devuelve `insertedIds` (los `_id` nuevos en el mismo orden), y
-   arma `"Lucas R.|DH" → _id de la bici`. Cada bici lleva `usuarioId: userIds.get("Lucas R.")`.
-4. **Bajadas y reseñas.** Cada documento se arma con los tres mapas: `senderoId: trailIds.get(…)`,
+3. **Bicis.** Le genera un `_id` nuevo a cada bici (`new ObjectId()`), arma `"Lucas R.|DH" → _id de la bici`
+   y las guarda con `$set: { bicis: [...] }` **dentro** de cada rider (un solo `bulkWrite` para todos).
+4. **Bajadas.** Cada documento se arma con los tres mapas: `senderoId: trailIds.get(…)`,
    `usuarioId: userIds.get(…)`, `biciId: bikeIds.get(…)`.
+5. **Reseñas.** Cada reseña del seed se embebe en la **primera bajada válida** de ese rider en ese sendero. Si
+   el rider ya tiene una reseña en ese sendero, o no tiene ninguna bajada válida ahí, se saltea (por eso quedan
+   153 y no 306).
 
 El orden importa: no se puede crear una bajada antes de tener el `_id` de su sendero, su usuario y su bici.
 
+**Las colecciones viejas:** si existen `bicis` o `resenas` (del modelo anterior), el seed copia las bicis y
+reseñas de las **cuentas reales** a su nuevo lugar, conservando el `_id` de cada bici, y no borra nada. Después
+se pueden borrar a mano en Compass con `db.bicis.drop()` y `db.resenas.drop()`.
+
 **¿Por qué upsert y no insertar siempre?** Para que el seed se pueda correr muchas veces sin duplicar nada y
 sin cambiar los `_id` de usuarios y senderos (si cambiaran, las bajadas reales que apuntan a ellos quedarían
-huérfanas). Lo que sí se borra y se vuelve a crear son las bicis, bajadas y reseñas **de los riders del seed**,
+huérfanas). Lo que sí se reemplaza son las bicis y las bajadas (con sus reseñas) **de los riders del seed**,
 que son los usuarios **sin email**: `{ email: { $exists: false } }`. Las cuentas reales tienen email y no se tocan.
 
 ### 4.4 Cómo se vuelven a unir: `$lookup`
@@ -374,13 +424,18 @@ Por cada bajada, MongoDB busca en `usuarios` los documentos cuyo `_id` sea igual
 - **Es rápido** porque `foreignField: "_id"` tiene índice: cada búsqueda es directa.
 - **Conviene achicar antes de unir.** C3 hace `$match`, `$sort`, `$group` y `$limit: 10` **antes** del
   `$lookup`: une 10 documentos en vez de 9.000.
-- **`$lookup` con `pipeline`** (C13): además de unir, ordena dentro de la unión (la bici principal primero).
+- **`$lookup` con `let` + `pipeline`** (sección 14.4): permite poner condiciones propias dentro de la unión.
+- **`$lookup` contra un array embebido** (C12): si `foreignField` es un campo dentro de un array
+  (`"bicis._id"`), coincide con **cualquier** elemento del array. Así C12 encuentra al dueño de cada bici.
+- **Lo embebido no necesita `$lookup`:** C13 (perfil con sus bicis) lee un solo documento de `usuarios`, porque
+  las bicis ya están adentro.
 
 **Relación 1 a N en las dos direcciones:**
 
-- Desde el lado N (bajada → su usuario): `$lookup` en `bajadas` con `localField: "usuarioId"`. Devuelve 1.
-- Desde el lado 1 (usuario → sus bicis): `$lookup` en `usuarios` con `localField: "_id"`,
-  `foreignField: "usuarioId"` (C13). Devuelve N. Usa el índice `{ usuarioId, principal }` de `bicis`.
+- Desde el lado N (bajada → su usuario): `$lookup` en `bajadas` con `localField: "usuarioId"`,
+  `foreignField: "_id"` (C3, C9, C10, C11). Devuelve 1.
+- Desde el lado 1 (usuario → sus bajadas): `$lookup` en `usuarios` con `localField: "_id"`,
+  `foreignField: "usuarioId"` (sección 14.12, "riders sin ningún descenso"). Devuelve N.
 
 ## 5. Índices: cómo funcionan por dentro
 
@@ -420,8 +475,8 @@ menor a mayor**, así que para el top 10 lee 10 entradas y frena. Eso es un *ind
 | C3 ranking | con índice | `LIMIT > FETCH > IXSCAN` | **10** | 10 | 10 |
 | C4 mejor tiempo | sin índice | `COLLSCAN` | 20.017 | 0 | 3 |
 | C4 mejor tiempo | con índice | `FETCH > IXSCAN` | 8.598 | 8.598 | 3 |
-| C9 reseñas | sin índice | `SORT > COLLSCAN` | 306 | 0 | 107 |
-| C9 reseñas | con índice | `FETCH > IXSCAN` | 107 | 107 | 107 |
+| C9 reseñas | sin índice | `SORT > COLLSCAN` | 20.017 | 0 | 52 |
+| C9 reseñas | con índice | `FETCH > IXSCAN` | **52** | 52 | 52 |
 
 **Cómo leerlo:**
 
@@ -434,6 +489,9 @@ menor a mayor**, así que para el top 10 lee 10 entradas y frena. Eso es un *ind
   todas las bajadas válidas de Pequia (8.598) y después descarta las que no son de Lucas. Un índice
   `{ usuarioId: 1, senderoId: 1 }` le quedaría justo. No lo creamos porque ninguna pantalla usa C4: cada
   índice tiene un costo (siguiente punto).
+- **C9 lee de `bajadas`:** como las reseñas viven dentro de las bajadas, sin índice recorre las 20.017 para
+  encontrar las 52 reseñas de Pequia. Con el índice parcial `resenas_por_sendero` lee solo esas 52, ya
+  ordenadas por fecha.
 - **C1 no tiene versión "sin índice":** `$geoNear` sin el índice 2dsphere da error
   ("geoNear expression not allowed with $natural hint"). Necesita el índice para funcionar.
 - El informe completo se regenera con `npm run explain` (escribe `docs/explain.md`, siempre en la base local).
@@ -456,15 +514,23 @@ dentro de cada sendero por `estado`, y así. Por eso:
   lleguen al mismo milisegundo, uno de los dos falla.
 - **Parcial** (`partialFilterExpression`): el índice solo incluye los documentos que cumplen una condición.
   Así usamos un índice único para una **regla de negocio**:
-  - `bicis { usuarioId: 1 }` único, pero **solo** entre las que tienen `principal: true` → cada usuario puede
-    tener muchas bicis, pero **una sola principal**. Por eso, para cambiar la principal, primero se le saca la
-    marca a la vieja y después se le pone a la nueva; al revés, la base lo rechaza.
-  - `resenas { bajadaId: 1 }` único parcial (`una_resena_por_bajada`) → una reseña por bajada. Las del seed no
-    tienen `bajadaId` y quedan afuera del índice.
+  - `bajadas { usuarioId: 1, senderoId: 1 }` único, pero **solo** entre las bajadas que tienen `resena`
+    (`una_resena_por_usuario_y_sendero`) → un rider puede tener muchas bajadas en Pequia, pero **una sola
+    con reseña**. El segundo intento da error 11000. Las bajadas sin reseña quedan afuera del índice.
   - `bajadas { idCorrida: 1 }` único parcial → si el celular manda la misma corrida dos veces (doble clic,
     reintento por mala señal), se guarda una vez.
   - `usuarios { email: 1 }` único parcial → los riders del seed no tienen email; sin el parcial, todos "sin
     email" chocarían entre sí.
+  - **Ojo: un índice parcial solo se usa si la consulta incluye su condición.** `resenas_por_sendero`
+    (`{ senderoId: 1, "resena.fecha": -1 }`, parcial con `resena: { $exists: true }`) no tiene las bajadas
+    sin reseña. Si C9 filtrara solo por `senderoId`, MongoDB no podría usarlo (le faltarían documentos). Por
+    eso C9 filtra `resena: { $exists: true }`.
+- **Multikey** (sobre un campo dentro de un array): `usuarios { "bicis._id": 1 }` guarda **una entrada por
+  cada bici** de cada usuario. Lo usa el `$lookup` de C12 para encontrar al dueño de una bici. **No** es único.
+- **¿Por qué "una sola bici principal" ya no es un índice?** Un índice único compara **documentos distintos**,
+  no los elementos de un mismo array. Con las bicis adentro del usuario, dos bicis principales estarían en el
+  **mismo** documento y el índice no lo vería. Ahora lo cuidan dos cosas: cambiar la principal es un solo
+  `updateOne` con `arrayFilters` (sección 8.3) y el validador tiene una regla `$expr` (sección 6).
 - **TTL** (`expireAfterSeconds`): en `sesiones { venceEn: 1 }` con `expireAfterSeconds: 0`. Un proceso de
   MongoDB revisa cada ~60 segundos y **borra solo** los documentos cuya fecha ya pasó. Las sesiones vencidas
   se limpian sin código nuestro.
@@ -482,16 +548,16 @@ dentro de cada sendero por `estado`, y así. Por eso:
 | `senderos` | `{ codigo: 1 }` | único | C8: abrir un sendero desde la URL; no hay dos iguales |
 | `bajadas` | `{ senderoId, estado, valida, duracion }` | compuesto | C3 ranking, C4, C10: filtra y lee los tiempos ya ordenados |
 | `bajadas` | `{ idCorrida: 1 }` | único parcial | Que una corrida no se guarde dos veces |
-| `resenas` | `{ senderoId: 1, fecha: -1 }` | compuesto | C9: reseñas de un sendero, la más nueva primero |
-| `resenas` | `una_resena_por_bajada` `{ bajadaId: 1 }` | único parcial | Una reseña por bajada |
+| `bajadas` | `resenas_por_sendero` `{ senderoId: 1, "resena.fecha": -1 }` | compuesto parcial | C9: reseñas de un sendero, la más nueva primero |
+| `bajadas` | `una_resena_por_usuario_y_sendero` `{ usuarioId: 1, senderoId: 1 }` | único parcial | Una reseña por rider y por sendero |
 | `usuarios` | `{ nombre: 1 }` | único | El seed busca por nombre; no se repite |
 | `usuarios` | `{ email: 1 }` | único parcial | Login por email; dos cuentas no comparten email |
-| `bicis` | `{ usuarioId: 1, principal: -1 }` | compuesto | C13: las bicis de un rider, la principal primero |
-| `bicis` | `una_bici_principal_por_usuario` `{ usuarioId: 1 }` | único parcial | Una sola bici principal por rider |
+| `usuarios` | `{ "bicis._id": 1 }` | multikey | C12: encontrar al dueño de una bici en el `$lookup` |
 | `sesiones` | `{ hashToken: 1 }` | único | Encontrar la sesión en cada pedido |
 | `sesiones` | `{ venceEn: 1 }` | TTL | Borrar solas las sesiones vencidas |
 
-Además, cada colección tiene el de `_id` (automático). Por eso en Compass cada una muestra **3 índices**.
+Además, cada colección tiene el de `_id` (automático). Por eso en Compass `senderos` y `sesiones` muestran **3
+índices**, `usuarios` **4** y `bajadas` **5**.
 
 **El costo de un índice:** cada `insert` o `update` tiene que actualizar también cada índice de la colección, y
 ocupan espacio (en Atlas, los índices de `bajadas` pesan 1,7 MB contra 4,4 MB de datos). Por eso no se indexa
@@ -505,21 +571,41 @@ MongoDB revisa en cada `insert` y `update`, y si no se cumplen rechaza la escrit
 *Document failed validation*).
 
 ```js
-resenas: {
+// parte del validador de bajadas
+bajadas: {
   bsonType: "object",
-  required: ["senderoId", "usuarioId", "calificacion", "comentario", "fecha"],
+  required: ["senderoId", "usuarioId", "fechaInicio", "duracion", "estado", "valida"],
   properties: {
     senderoId: { bsonType: "objectId" },               // tiene que ser un ObjectId
-    calificacion: { bsonType: "int", minimum: 1, maximum: 5 },
-    comentario: { bsonType: "string", maxLength: 500 },
-    fecha: { bsonType: "date" }
+    resena: {                                          // opcional, pero si está tiene que ser así:
+      bsonType: "object",
+      required: ["calificacion", "comentario", "fecha"],
+      properties: {
+        calificacion: { bsonType: "int", minimum: 1, maximum: 5 },
+        comentario: { bsonType: "string", maxLength: 500 },
+        fecha: { bsonType: "date" }
+      }
+    }
   }
 }
 ```
 
 Qué controla: campos **obligatorios** (`required`), **tipos** (`bsonType`), **rangos** (`minimum`, `maximum`,
-`minLength`), **valores permitidos** (`enum: ["DH", "Enduro", "Trail"]`) y **formatos** (`pattern`, por
-ejemplo el email). Todos los validadores están en `scripts/seed.ts` (`VALIDATORS`).
+`minLength`), **valores permitidos** (`enum: ["DH", "Enduro", "Trail"]`), **formatos** (`pattern`, por
+ejemplo el email) y **tamaño de arrays** (`maxItems`: `usuarios.bicis` acepta hasta 5). Todos los validadores
+están en `scripts/seed.ts` (`VALIDATORS`).
+
+**Reglas que `$jsonSchema` no puede expresar:** "una sola bici con `principal: true`" compara elementos entre
+sí, y eso `$jsonSchema` no lo sabe hacer. Por eso el validador de `usuarios` tiene, al lado del `$jsonSchema`,
+una regla `$expr` (un operador de consulta normal):
+
+```js
+{ $expr: { $lte: [ { $size: { $filter: { input: { $ifNull: ["$bicis", []] }, cond: "$$this.principal" } } }, 1 ] } }
+// $filter deja solo las bicis principales, $size las cuenta, y tienen que ser 1 o menos.
+// $ifNull: un usuario sin bicis cuenta como array vacío.
+```
+
+Si alguien intenta guardar un usuario con dos bicis principales, la base lo rechaza con error 121 (probado).
 
 - **Se aplican de dos formas:** si la colección no existe, `createCollection(nombre, { validator })`; si ya
   existe y tiene datos, el comando `collMod`, que cambia sus reglas.
@@ -527,7 +613,7 @@ ejemplo el email). Todos los validadores están en `scripts/seed.ts` (`VALIDATOR
   última línea de defensa por si algo se escapa.
 - **Lo que no hace:** no verifica que una referencia exista (sección 4.2). Solo que sea un `ObjectId`.
 
-Ver las reglas de una colección: `db.getCollectionInfos({ name: "resenas" })[0].options.validator`.
+Ver las reglas de una colección: `db.getCollectionInfos({ name: "usuarios" })[0].options.validator`.
 
 ## 7. El código: el viaje de una bajada
 
@@ -569,7 +655,7 @@ en lugar de romperse. Si la base no anda, el mapa y el ranking muestran los dato
     { trailSlug, durationMs,            la forma correcta? (si no → 400)
       track, isDemo, runId… }        4. findOne en senderos por codigo ───────▶ IXSCAN codigo
                                      5. ¿Quién es? cookie → sesiones ─────────▶ IXSCAN hashToken
-                                        ¿Con qué bici? bicis {_id, usuarioId} ─▶
+                                        ¿Con qué bici? usuarios {_id, "bicis._id"} ▶ IXSCAN _id
                                      6. ¿Arrancó en la salida? C2 $geoWithin ──▶ 2dsphere inicio
                                         evaluarDescenso: SOS, muy rápido,
                                         no llegó al final, velocidad imposible…
@@ -635,8 +721,8 @@ clic y el siguiente. Guardada en `sesiones`, cualquier instancia la encuentra co
 Por eso la colección existe aunque esté vacía: el seed la crea con su validador y sus índices, y se llena cuando
 alguien se loguea (en Atlas si es la app publicada, en la local si es `npm run dev` contra la local).
 
-**Las 6 colecciones tienen 3 índices** por casualidad: el de `_id` (automático, en toda colección) más dos
-nuestros cada una (tabla de la sección 5.5).
+`sesiones` tiene **3 índices**: el de `_id` (automático, en toda colección) más los dos nuestros (`hashToken` y
+el TTL). La tabla completa está en la sección 5.5.
 
 ### 8.3 Qué puede hacer cada uno en la app
 
@@ -645,19 +731,28 @@ Lo resolvemos en el código con una regla: **cada consulta que toca datos de un 
 de la sesión, nunca por un id que mande el navegador**.
 
 ```js
-// PATCH /api/bikes/:id/primary — solo encuentra la bici si es tuya
-bikes.findOne({ _id: bikeId, usuarioId: userId })   // userId sale de la cookie
-// con la bici de otro, esto devuelve null → 404
+// PATCH /api/bikes/:id/primary — cambia la principal en UN solo update (src/lib/bikes/set-primary-bike.ts)
+db.usuarios.updateOne(
+  { _id: ObjectId("MY_USER_ID"), "bicis._id": ObjectId("BIKE_ID") },   // MY_USER_ID sale de la cookie
+  { $set: { "bicis.$[otra].principal": false, "bicis.$[elegida].principal": true } },
+  { arrayFilters: [{ "otra._id": { $ne: ObjectId("BIKE_ID") } }, { "elegida._id": ObjectId("BIKE_ID") }] }
+)
+// con la bici de otro, no está en tu documento: matchedCount 0 → 404
 ```
+
+`arrayFilters` le pone nombre a grupos de elementos del array: `otra` son todas las bicis menos la elegida, y
+`elegida` es la elegida. Los dos cambios pasan en la **misma** escritura, así que nunca quedan dos principales
+(ni ninguna).
 
 | Acción | Sin cuenta | Con cuenta | Cómo se controla |
 |---|---|---|---|
 | Ver senderos, mapa, ranking y reseñas | ✅ | ✅ | Lectura pública |
 | Bajada en **modo demo** | ✅ (se guarda como "Demo rider", `esDemo: true`) | ✅ | — |
-| Bajada con **GPS real** | ❌ (401) | ✅ con su bici | `usuarioId` de la sesión |
-| Agregar bicis | ❌ | ✅ hasta 10 | `countDocuments({ usuarioId })` |
-| Elegir la bici principal | ❌ | ✅ solo las suyas | `findOne({ _id, usuarioId })` + índice único parcial |
-| Reseñar | ❌ | ✅ solo su propia bajada, válida, con GPS real, una vez | `findOne({ idCorrida, usuarioId })` + `una_resena_por_bajada` |
+| Bajada con **GPS real** | ❌ (401) | ✅ con su bici | `usuarioId` de la sesión; la bici se busca con `{ _id: usuarioId, "bicis._id": biciId }` (si no es suya, 403) |
+| Agregar bicis | ❌ | ✅ hasta 5 | `$push` con filtro `{ _id: usuarioId, "bicis.4": { $exists: false } }` (atómico: no hay lugar para una sexta) + `maxItems: 5` en el validador |
+| Elegir la bici principal | ❌ | ✅ solo las suyas | `updateOne` con `arrayFilters` sobre su propio documento + regla `$expr` del validador |
+| Borrar una bici | ❌ | ❌ | No hay ruta: hay bajadas que apuntan a su `_id` |
+| Reseñar | ❌ | ✅ solo su propia bajada, válida, con GPS real; una vez por bajada y una vez por sendero | `updateOne({ _id, resena: { $exists: false } }, { $set: { resena } })` (si no coincide, 409) + índice `una_resena_por_usuario_y_sendero` (error 11000 → 409) |
 | Ver su perfil | ❌ | ✅ el propio | C13 con el `_id` de la sesión |
 | Tocar datos de otro rider | ❌ | ❌ | Todas las consultas filtran por el `usuarioId` de la sesión |
 
@@ -699,15 +794,15 @@ solo los permisos que necesita).
 | **C2** | ¿El rider arrancó dentro del círculo de salida? | `$geoWithin` + `$centerSphere` | Servidor, al guardar una bajada (anti-trampa) |
 | **C3** | ¿Quiénes son los 10 más rápidos de un sendero? | `$match` + `$sort` + `$group` + `$limit` + `$lookup` a `usuarios` | Ranking |
 | **C4** | ¿Cuál es el mejor tiempo de un rider en un sendero? | `$group` con `$min` y `$sum` | Compass / `npm run queries` |
-| **C5** | ¿Cuántas estrellas tiene en promedio cada sendero? | `$group` con `$avg` + `$lookup` a `senderos` | Página del sendero |
+| **C5** | ¿Cuántas estrellas tiene en promedio cada sendero? | `$match` de las bajadas con `resena` + `$group` con `$avg` sobre un campo embebido + `$lookup` a `senderos` | Página del sendero |
 | **C6** | ¿Cuántas bajadas tiene cada sendero (totales y válidas)? | `$group` + `$cond` + `$lookup` (conteo cruzado) | Compass |
 | **C7** | Lista de senderos | `find` con `sort` | Mapa |
 | **C8** | Un sendero por su nombre de URL | `findOne` por índice único (`codigo`) | Página del sendero |
-| **C9** | Reseñas de un sendero, las más nuevas primero | `$match` + `$sort` + `$lookup` | Página del sendero |
+| **C9** | Reseñas de un sendero, las más nuevas primero | `$match` + `$sort` sobre un índice parcial + `$lookup` a `usuarios` | Página del sendero |
 | **C10** | Mejor tiempo por nivel (principiante, intermedio, avanzado) | `$lookup` a `usuarios` + `$group` por un campo unido | Compass |
 | **C11** | ¿Cuántas bajadas hay por ciudad y cuántos riders distintos? | `$lookup` + `$group` + `$addToSet` / `$size` | Compass |
-| **C12** | Bajadas válidas, velocidad y suspensión promedio por tipo de bici | `$lookup` a `bicis` + `$avg` sobre las dos colecciones | Compass |
-| **C13** | Perfil de un rider con todas sus bicis | `$lookup` con `pipeline` (relación 1 a N desde el lado 1) | Mi perfil |
+| **C12** | Bajadas válidas, velocidad y suspensión promedio por tipo de bici | `$lookup` a un array embebido (`usuarios.bicis._id`) + `$filter` + `$avg` | Compass |
+| **C13** | Perfil de un rider con todas sus bicis | Embebido: un solo documento, sin `$lookup`; `$sortArray` ordena dentro del documento | Mi perfil |
 
 **Cómo se lee un pipeline (C3 como ejemplo):** cada etapa recibe lo que sale de la anterior, como una cadena
 de montaje.
@@ -790,20 +885,25 @@ show collections
 db.usuarios.countDocuments()
 db.senderos.countDocuments()
 db.bajadas.countDocuments()
-db.resenas.countDocuments()
+
+// Las reseñas y las bicis están embebidas: se cuentan dentro de su colección
+db.bajadas.countDocuments({ resena: { $exists: true } })                      // 153 con el seed
+db.usuarios.aggregate([ { $group: { _id: null, bicis: { $sum: { $size: { $ifNull: ["$bicis", []] } } } } } ])  // 105
 
 // Un documento de ejemplo de cada colección
 db.senderos.findOne({}, { tramos: 0 })   // sin el campo pesado
 db.bajadas.findOne()
+db.bajadas.findOne({ resena: { $exists: true } }, { recorrido: 0 })   // una bajada con su reseña
+db.usuarios.findOne({ nombre: "Lucas R." }, { hashContrasena: 0, salContrasena: 0 })   // con sus bicis
 
 // Valores distintos de un campo
 db.bajadas.distinct("tipoBici")
 db.bajadas.distinct("motivoInvalida")
+db.usuarios.distinct("bicis.marca")      // notación punto: entra a cada bici del array
 
 // Qué índices tiene cada colección
 db.senderos.getIndexes()
 db.bajadas.getIndexes()
-db.resenas.getIndexes()
 db.usuarios.getIndexes()
 ```
 
@@ -909,6 +1009,15 @@ db.senderos.find(
 
 // Senderos con exactamente 3 tramos
 db.senderos.find({ tramos: { $size: 3 } }, { _id: 0, nombre: 1 })
+
+// Lo mismo con las bicis embebidas: riders con una bici DH de rodado 29 (la MISMA bici)
+db.usuarios.find(
+  { bicis: { $elemMatch: { tipo: "DH", rodado: "29" } } },
+  { _id: 0, nombre: 1 }
+)
+
+// Riders que ya llegaron al tope de 5 bicis
+db.usuarios.find({ bicis: { $size: 5 } }, { _id: 0, nombre: 1 })
 ```
 
 ### 12.9 Fechas
@@ -1146,6 +1255,17 @@ db.senderos.aggregate([
 ])
 ```
 
+**Responde:** cuántas bicis hay de cada tipo, contando las de todos los riders.
+**Concepto:** el mismo `$unwind`, ahora sobre las bicis embebidas en `usuarios`.
+
+```js
+db.usuarios.aggregate([
+  { $unwind: "$bicis" },
+  { $group: { _id: "$bicis.tipo", bicis: { $sum: 1 }, principales: { $sum: { $cond: ["$bicis.principal", 1, 0] } } } },
+  { $sort: { bicis: -1 } }
+])
+```
+
 ### 14.6 `$project` / `$addFields` con cálculos
 
 **Responde:** los descensos con el tiempo en segundos y si superan el mínimo válido del sendero.
@@ -1247,39 +1367,41 @@ db.usuarios.aggregate([
 ])
 ```
 
-**Responde:** cuántos descensos y cuántas opiniones tiene cada rider.
-**Concepto:** dos `$lookup` sobre colecciones distintas.
+**Responde:** cuántos descensos, cuántas opiniones y cuántas bicis tiene cada rider.
+**Concepto:** `$lookup` con `let` + `pipeline` para traer de `bajadas` solo las que tienen `resena`, al lado de un
+array embebido (`bicis`) que no necesita ningún `$lookup`.
 
 ```js
 db.usuarios.aggregate([
   { $lookup: { from: "bajadas", localField: "_id", foreignField: "usuarioId", as: "d" } },
-  { $lookup: { from: "resenas",  localField: "_id", foreignField: "usuarioId", as: "r" } },
-  { $project: { _id: 0, rider: "$nombre", descensos: { $size: "$d" }, opiniones: { $size: "$r" } } },
+  { $lookup: {
+      from: "bajadas",
+      let: { u: "$_id" },
+      pipeline: [
+        { $match: { $expr: { $eq: ["$usuarioId", "$$u"] }, resena: { $exists: true } } },
+        { $count: "n" }
+      ],
+      as: "r"
+  } },
+  { $project: { _id: 0, rider: "$nombre", descensos: { $size: "$d" },
+                opiniones: { $ifNull: [ { $arrayElemAt: ["$r.n", 0] }, 0 ] },
+                bicis: { $size: { $ifNull: ["$bicis", []] } } } },
   { $sort: { descensos: -1 } }
 ])
 ```
 
-**Responde:** las opiniones escritas por alguien que tiene un descenso válido en ese mismo sendero.
-**Concepto:** `$lookup` con dos condiciones, sendero **y** usuario. Es la regla de negocio de las opiniones.
+**Responde:** cuántos riders opinaron sobre cada sendero, y si alguno opinó dos veces (tiene que dar que no).
+**Concepto:** `$group` por dos campos (`usuarioId` + `senderoId`): es la regla "una reseña por rider y por
+sendero" que cuida el índice `una_resena_por_usuario_y_sendero`.
 
 ```js
-db.resenas.aggregate([
-  { $lookup: {
-      from: "bajadas",
-      let: { t: "$senderoId", u: "$usuarioId" },
-      pipeline: [
-        { $match: { $expr: { $and: [
-          { $eq: ["$senderoId", "$$t"] },
-          { $eq: ["$usuarioId", "$$u"] },
-          { $eq: ["$valida", true] }
-        ] } } },
-        { $limit: 1 }
-      ],
-      as: "valido"
-  } },
-  { $lookup: { from: "usuarios", localField: "usuarioId", foreignField: "_id", as: "u" } },
-  { $unwind: "$u" },
-  { $project: { _id: 0, autor: "$u.nombre", calificacion: 1, tieneDescensoValido: { $gt: [{ $size: "$valido" }, 0] } } }
+db.bajadas.aggregate([
+  { $match: { resena: { $exists: true } } },
+  { $group: { _id: { usuario: "$usuarioId", sendero: "$senderoId" }, opiniones: { $sum: 1 } } },
+  { $group: { _id: "$_id.sendero", riders: { $sum: 1 }, maximoPorRider: { $max: "$opiniones" } } },
+  { $lookup: { from: "senderos", localField: "_id", foreignField: "_id", as: "t" } },
+  { $unwind: "$t" },
+  { $project: { _id: 0, sendero: "$t.nombre", riders: 1, maximoPorRider: 1 } }   // maximoPorRider: siempre 1
 ])
 ```
 
@@ -1364,9 +1486,13 @@ db.bajadas.aggregate([
 
 ### C5 — Promedio de calificación por sendero (`$avg` + `$lookup`)
 
+**Concepto:** las reseñas viven dentro de `bajadas`: primero se quedan solo las que tienen `resena`, y `$avg`
+promedia un campo embebido (`"$resena.calificacion"`).
+
 ```js
-db.resenas.aggregate([
-  { $group: { _id: "$senderoId", promedio: { $avg: "$calificacion" }, cantidad: { $sum: 1 } } },
+db.bajadas.aggregate([
+  { $match: { resena: { $exists: true } } },
+  { $group: { _id: "$senderoId", promedio: { $avg: "$resena.calificacion" }, cantidad: { $sum: 1 } } },
   { $lookup: { from: "senderos", localField: "_id", foreignField: "_id", as: "sendero" } },
   { $unwind: "$sendero" },
   { $project: { _id: 0, sendero: "$sendero.nombre", codigo: "$sendero.codigo", promedio: { $round: ["$promedio", 1] }, cantidad: 1 } },
@@ -1402,15 +1528,17 @@ db.senderos.findOne({ codigo: "circuito-dh-pequia" })
 
 ### C9 — Opiniones de un sendero, la más nueva primero
 
-**Concepto:** `$match` + `$sort` sobre el índice `{senderoId, fecha: -1}` y `$lookup`.
+**Concepto:** `$match` + `$sort` sobre el índice parcial `resenas_por_sendero` (`{ senderoId: 1, "resena.fecha": -1 }`)
+y `$lookup` a `usuarios`. El filtro `resena: { $exists: true }` es obligatorio: un índice parcial solo se usa si
+la consulta incluye su condición.
 
 ```js
-db.resenas.aggregate([
-  { $match: { senderoId: pequia._id } },
-  { $sort: { fecha: -1 } },
+db.bajadas.aggregate([
+  { $match: { senderoId: pequia._id, resena: { $exists: true } } },
+  { $sort: { "resena.fecha": -1 } },
   { $lookup: { from: "usuarios", localField: "usuarioId", foreignField: "_id", as: "usuario" } },
   { $unwind: "$usuario" },
-  { $project: { _id: 0, autor: "$usuario.nombre", comentario: 1, calificacion: 1, fecha: 1 } }
+  { $project: { _id: 0, autor: "$usuario.nombre", comentario: "$resena.comentario", calificacion: "$resena.calificacion", fecha: "$resena.fecha" } }
 ])
 ```
 
@@ -1448,13 +1576,17 @@ db.bajadas.aggregate([
 
 ### C12 — Bajadas válidas por tipo de bici
 
-**Concepto:** `$lookup` a `bicis` por `biciId` y `$avg` que mezcla un campo de la bajada (velocidad) con uno de la bici (suspensión).
+**Concepto:** `$lookup` contra un **array embebido**: `foreignField: "bicis._id"` coincide con **cualquier**
+bici del array, así que trae al dueño completo (usa el índice multikey `{ "bicis._id": 1 }`). Después `$filter` +
+`$first` sacan de su array solo la bici de esta bajada, y `$avg` mezcla un campo de la bajada (velocidad) con uno
+de la bici (suspensión).
 
 ```js
 db.bajadas.aggregate([
   { $match: { valida: true, biciId: { $type: "objectId" } } },
-  { $lookup: { from: "bicis", localField: "biciId", foreignField: "_id", as: "bici" } },
-  { $unwind: "$bici" },
+  { $lookup: { from: "usuarios", localField: "biciId", foreignField: "bicis._id", as: "duenio" } },
+  { $unwind: "$duenio" },
+  { $set: { bici: { $first: { $filter: { input: "$duenio.bicis", cond: { $eq: ["$$this._id", "$biciId"] } } } } } },
   { $group: { _id: "$bici.tipo", bajadasValidas: { $sum: 1 }, velocidadPromedioKmh: { $avg: "$velocidadPromedioKmh" }, recorridoDelanteroPromedioMm: { $avg: "$bici.recorridoDelanteroMm" } } },
   { $project: { _id: 0, tipoBici: "$_id", bajadasValidas: 1, velocidadPromedioKmh: { $round: ["$velocidadPromedioKmh", 1] }, recorridoDelanteroPromedioMm: { $round: ["$recorridoDelanteroPromedioMm", 0] } } },
   { $sort: { velocidadPromedioKmh: -1 } }
@@ -1463,12 +1595,14 @@ db.bajadas.aggregate([
 
 ### C13 — Perfil de un rider con sus bicis
 
-**Concepto:** relación 1 a N desde el lado 1. `$lookup` con `pipeline` ordena **dentro** de la unión (la principal primero, después la más vieja: el `_id` empieza con la fecha de creación).
+**Concepto:** embebido. Las bicis ya están dentro del usuario: un solo documento, **sin `$lookup`**. `$sortArray`
+ordena el array **dentro** del documento (la principal primero, después la más vieja: el `_id` empieza con la
+fecha de creación).
 
 ```js
 db.usuarios.aggregate([
   { $match: { _id: lucas._id } },
-  { $lookup: { from: "bicis", localField: "_id", foreignField: "usuarioId", pipeline: [{ $sort: { principal: -1, _id: 1 } }], as: "bicis" } },
+  { $set: { bicis: { $sortArray: { input: "$bicis", sortBy: { principal: -1, _id: 1 } } } } },
   { $project: { hashContrasena: 0, salContrasena: 0 } }
 ])
 ```
@@ -1529,9 +1663,14 @@ db.bajadas.explain("executionStats").aggregate([
 **C9 con y sin índice:**
 
 ```js
-db.resenas.find({ senderoId: pequia._id }).sort({ fecha: -1 }).explain("executionStats")
-db.resenas.find({ senderoId: pequia._id }).sort({ fecha: -1 }).hint({ $natural: 1 }).explain("executionStats")
+db.bajadas.find({ senderoId: pequia._id, resena: { $exists: true } }).sort({ "resena.fecha": -1 }).explain("executionStats")
+db.bajadas.find({ senderoId: pequia._id, resena: { $exists: true } }).sort({ "resena.fecha": -1 }).hint({ $natural: 1 }).explain("executionStats")
 ```
+
+Con el seed: con índice `FETCH > IXSCAN` (52 claves, 52 docs, 52 resultados); sin índice `SORT > COLLSCAN` (lee
+las 20.017 bajadas). Probá sacar `resena: { $exists: true }` del filtro: en el `winningPlan` vas a ver que MongoDB
+ya no usa `resenas_por_sendero` (le faltarían las bajadas sin reseña): usa el índice del ranking
+(`senderoId_1_estado_1_valida_1_duracion_1`) y aparece un `SORT` en memoria (`SORT > FETCH > IXSCAN`).
 
 ### 16.3 ¿Se usan los índices?
 
@@ -1564,12 +1703,28 @@ const esquemaDescents = {
     valida:     { bsonType: "bool" },
     tipoBici:      { enum: ["DH", "Enduro", "Trail"] },   // no está si la bajada no tiene bici
     motivoInvalida: { bsonType: "string" },                // solo en las inválidas
-    esDemo:        { bsonType: "bool" }
+    esDemo:        { bsonType: "bool" },
+    resena: {                                              // solo en las bajadas con opinión
+      bsonType: "object",
+      required: ["calificacion", "comentario", "fecha"],
+      properties: {
+        calificacion: { bsonType: "int", minimum: 1, maximum: 5 },
+        comentario:   { bsonType: "string", maxLength: 500 },
+        fecha:        { bsonType: "date" }
+      }
+    }
   }
 }
 
 // Documentos que NO cumplen el esquema (debería dar 0)
 db.bajadas.find({ $nor: [ { $jsonSchema: esquemaDescents } ] }).count()
+```
+
+La regla `$expr` de `usuarios` (sección 6) también se puede probar así, solo leyendo:
+
+```js
+// Usuarios con más de una bici principal (debería dar 0)
+db.usuarios.find({ $expr: { $gt: [ { $size: { $filter: { input: { $ifNull: ["$bicis", []] }, cond: "$$this.principal" } } }, 1 ] } }).count()
 ```
 
 ### 17.2 Aplicarlo (escribe la configuración de la colección)
@@ -1601,28 +1756,40 @@ use dh
 db.senderos.aggregate([   { $out: { db: "dh_practica", coll: "senderos" } } ])
 db.usuarios.aggregate([    { $out: { db: "dh_practica", coll: "usuarios" } } ])
 db.bajadas.aggregate([ { $out: { db: "dh_practica", coll: "bajadas" } } ])
-db.resenas.aggregate([  { $out: { db: "dh_practica", coll: "resenas" } } ])
 
 use dh_practica
 ```
 
+Con eso alcanza: las bicis viajan dentro de `usuarios` y las reseñas dentro de `bajadas`.
+
 > `$out` copia los datos pero **no los índices**. Tenés que recrearlos con `createIndex` en `dh_practica`, y eso de paso sirve de práctica (sección 18.4).
 
-### 18.1 `insertOne`: guardar una opinión (lo que hace `POST /api/reviews`)
+### 18.1 `updateOne`: guardar una opinión (lo que hace `POST /api/reviews`)
+
+La reseña no es un documento nuevo: se agrega **dentro** de una bajada. El filtro `resena: { $exists: false }`
+hace que solo se guarde si esa bajada todavía no tiene una.
 
 ```js
 const p = db.senderos.findOne({ codigo: "circuito-dh-pequia" })
 const u = db.usuarios.findOne({ nombre: "Lucas R." })
-db.resenas.insertOne({
-  senderoId: p._id, usuarioId: u._id, calificacion: 5,
-  comentario: "Prueba de inserción", fecha: new Date()
-})
+// una bajada válida de Lucas en Pequia que todavía no tenga reseña
+const b = db.bajadas.findOne({ senderoId: p._id, usuarioId: u._id, valida: true, resena: { $exists: false } })
+db.bajadas.updateOne(
+  { _id: b._id, resena: { $exists: false } },
+  { $set: { resena: { calificacion: 5, comentario: "Prueba de inserción", fecha: new Date() } } }
+)
+// Corrélo dos veces: la segunda da matchedCount: 0 (la app responde 409 "Ya dejaste una reseña para este descenso.")
 ```
+
+> Si Lucas ya tenía una reseña en Pequia (en otra bajada) y recreaste el índice `una_resena_por_usuario_y_sendero`
+> (sección 18.4), este `updateOne` da **error 11000**: es la regla "una reseña por rider y por sendero" (la app
+> responde 409 *"Ya dejaste una reseña para este sendero."*). Para ver el caso que funciona, probá con un sendero
+> donde no haya opinado.
 
 ### 18.2 `updateOne` con `$set` e `$inc`
 
 ```js
-db.resenas.updateOne({ comentario: "Prueba de inserción" }, { $set: { comentario: "Comentario editado" } })
+db.bajadas.updateOne({ "resena.comentario": "Prueba de inserción" }, { $set: { "resena.comentario": "Comentario editado" } })
 db.senderos.updateOne({ codigo: "circuito-dh-pequia" }, { $inc: { "estadisticas.tiempoPromedioS": 1 } })
 ```
 
@@ -1644,6 +1811,11 @@ db.bajadas.updateOne(
 ```js
 db.bajadas.createIndex({ senderoId: 1, estado: 1, valida: 1, duracion: 1 })
 db.senderos.createIndex({ inicio: "2dsphere" })
+// único parcial: una reseña por rider y por sendero
+db.bajadas.createIndex(
+  { usuarioId: 1, senderoId: 1 },
+  { unique: true, partialFilterExpression: { resena: { $exists: true } }, name: "una_resena_por_usuario_y_sendero" }
+)
 ```
 
 ---
@@ -1774,8 +1946,8 @@ dos funcionan igual contra la base local y contra Atlas: solo cambia la `--uri`.
 
 | Elemento | ¿Se respalda? | Por qué |
 |---|---|---|
-| Base `dh` en **Atlas** (las 6 colecciones) | Sí, es lo más importante | Ahí escriben los usuarios reales de la app publicada. Esos datos **no se pueden regenerar**. |
-| Base `dh` **local** (las 6 colecciones) | Sí | Es la base que se evalúa. Se puede volver a cargar con `npm run seed`, pero se pierde lo que hayamos probado a mano. |
+| Base `dh` en **Atlas** (las 4 colecciones) | Sí, es lo más importante | Ahí escriben los usuarios reales de la app publicada. Esos datos **no se pueden regenerar**. |
+| Base `dh` **local** (las 4 colecciones) | Sí | Es la base que se evalúa. Se puede volver a cargar con `npm run seed`, pero se pierde lo que hayamos probado a mano. |
 | Índices y validadores `$jsonSchema` | Sí, van solos | `mongodump` guarda en cada colección un archivo de metadatos con sus índices y sus opciones (incluido el validador). `mongorestore` los vuelve a crear. |
 | Bases `admin`, `local`, `config` | No | Son internas de MongoDB (sección 2.1). En Atlas las maneja el servicio. |
 | Código y scripts | No (ya están) | Viven en GitHub, con todo su historial. |
@@ -1922,7 +2094,7 @@ archivo es la anotación del responsable de la semana (sección 20.1).
 | 1. Conexión | `$uri = "mongodb://127.0.0.1:27017/dh"` o `$env:ATLAS_URI` | La de Atlas tiene la contraseña: sale de una variable de entorno. Si falta, el script avisa y termina. |
 | Chequeo previo | `Get-Command mongodump` | Si las Database Tools no están instaladas, lo dice claro en vez de fallar con un error raro. |
 | 2. Nombre | `"$Base-$fecha.gz"` en `$Destino` | Un archivo por base y por día, fuera del repo. `New-Item -Force` crea la carpeta si no existe. |
-| 3. Copia | `mongodump --uri=... --gzip --archive=...` | Copia las 6 colecciones con sus índices y validadores, comprimidas en un solo archivo. |
+| 3. Copia | `mongodump --uri=... --gzip --archive=...` | Copia las 4 colecciones con sus índices y validadores, comprimidas en un solo archivo. |
 | 4. Verificación | `$LASTEXITCODE -ne 0`, `Test-Path`, `Length -eq 0` | `mongodump` devuelve 0 si salió bien. Si no, o si el archivo no existe o está vacío, anota `ERROR` y **termina sin borrar nada**: una corrida fallida nunca puede eliminar las copias buenas. |
 | Registro | `Add-Content $log "... OK ... KB"` | Fecha, base, archivo y tamaño en `backup.log`. |
 | 5. Retención | `Get-ChildItem` + `Remove-Item` | Atlas: guarda las de los últimos 7 días y las de los domingos de las últimas 4 semanas. Local: las de las últimas 4 semanas. El resto se borra y queda anotado (`DELETED`). |
@@ -1951,7 +2123,8 @@ Para guardar la variable en el usuario de Windows (así la ve la tarea programad
 - **Colección**: un grupo de documentos. Es la "tabla".
 - **`_id` / `ObjectId`**: la clave primaria de cada documento y el tipo de 12 bytes que la genera (sección 4.1).
 - **Referencia**: un campo que guarda el `_id` de otro documento (`usuarioId`). Es la clave foránea.
-- **Embebido**: un documento guardado dentro de otro (`tramos` dentro de `senderos`).
+- **Embebido**: un documento guardado dentro de otro (`tramos` dentro de `senderos`, `bicis` dentro de
+  `usuarios`, `resena` dentro de `bajadas`).
 - **Pipeline**: la lista de etapas de una aggregation. Cada etapa recibe lo que sale de la anterior.
 - **`$match`**: filtra (como el `WHERE` de SQL). Conviene ponerlo primero, así usa índices.
 - **`$group`**: agrupa y calcula (`$sum`, `$avg`, `$min`, `$first`, `$addToSet`).
@@ -1962,7 +2135,14 @@ Para guardar la variable en el usuario de Windows (así la ve la tarea programad
 - **Idempotente**: hacer la misma operación dos veces deja todo igual que hacerla una vez (`idCorrida`).
 - **Índice / B-tree**: estructura ordenada que permite ir directo a los documentos (sección 5.1).
 - **COLLSCAN / IXSCAN**: en un `explain`, "leí toda la colección" contra "usé un índice".
-- **Único / parcial / TTL / 2dsphere**: tipos de índice (sección 5.4).
+- **Único / parcial / TTL / 2dsphere / multikey**: tipos de índice (sección 5.4).
+- **Índice parcial (cuándo se usa)**: solo tiene los documentos que cumplen su `partialFilterExpression`, así
+  que MongoDB lo usa solo si la consulta incluye esa condición (C9 filtra `resena: { $exists: true }`).
+- **`arrayFilters`**: le pone nombre a grupos de elementos de un array para cambiarlos distinto en un mismo
+  `update` (`bicis.$[otra]`, `bicis.$[elegida]`, sección 8.3).
+- **`$sortArray`**: ordena un array dentro del documento, sin desarmarlo (C13).
+- **`$expr` en un validador**: una regla con operadores de aggregation, para lo que `$jsonSchema` no puede
+  expresar (una sola bici principal, sección 6).
 - **GeoJSON**: el formato de los puntos: `{ type: "Point", coordinates: [longitud, latitud] }`.
 - **`$jsonSchema`**: las reglas que valida la base en cada escritura (sección 6).
 - **Hash / sal**: cómo se guarda una contraseña sin guardarla (sección 8.1).
