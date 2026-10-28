@@ -1,5 +1,7 @@
 import { connection } from "next/server";
+import { ObjectId } from "mongodb";
 import { getSessionUserId } from "@/lib/auth/session";
+import { MAX_BIKES_PER_RIDER, setPrimaryBike } from "@/lib/bikes/set-primary-bike";
 import { toBikeFields, validateBike } from "@/lib/bikes/validate-bike";
 import { getDb, isDbAvailable } from "@/lib/mongodb";
 import { toBici } from "@/lib/queries/c13-rider-profile";
@@ -10,18 +12,22 @@ import { toBici } from "@/lib/queries/c13-rider-profile";
  * Body: the bike fields plus `isPrimary` (true to make it the main bike).
  * The owner is ALWAYS the session's user: a usuarioId sent by the client is ignored.
  *
- * Course concept: partial unique index. `bicis` has a unique index on usuarioId that
- * only covers documents with principal: true, so the database itself makes sure each
- * rider has at most ONE main bike. That is why we first take the mark off the old
- * main bike and only then insert the new one.
+ * Course concept: embedded one-to-few relation. Bikes live INSIDE the user document
+ * (usuarios.bicis): a rider has at most 5 and they are always read together with
+ * the rider, so one document read brings everything.
+ * - The limit of 5 is enforced twice: the filter "bicis.4 does not exist" (there is no
+ *   6th position to fill) and the $jsonSchema of usuarios (maxItems: 5).
+ * - "Only one main bike" is kept by updating every bike of the array in ONE update
+ *   with arrayFilters (see setPrimaryBike). A unique index cannot do it here: unique
+ *   indexes compare different documents, not the items of one array.
  *
- * Compass equivalent (making the new bike the main one):
- *   db.bicis.updateMany({ usuarioId: ObjectId("..."), principal: true }, { $set: { principal: false } })
- *   db.bicis.insertOne({ usuarioId: ObjectId("..."), tipo: "Enduro", ..., principal: true })
+ * Compass equivalent (adding a bike that will be the main one):
+ *   db.usuarios.updateOne(
+ *     { _id: ObjectId("MY_USER_ID"), "bicis.4": { $exists: false } },
+ *     { $push: { bicis: { _id: ObjectId(), tipo: "Enduro", ..., principal: false } } }
+ *   )
+ *   then setPrimaryBike (see src/lib/bikes/set-primary-bike.ts)
  */
-
-/** More than enough for a rider; stops someone from filling the database. */
-const MAX_BIKES_PER_RIDER = 10;
 
 export async function POST(request: Request) {
   await connection();
@@ -50,22 +56,32 @@ export async function POST(request: Request) {
     return Response.json({ ok: false, message: "Ingresá a tu cuenta para cargar una bici." }, { status: 401 });
   }
 
-  const bikes = getDb().collection("bicis");
-  const count = await bikes.countDocuments({ usuarioId: userId });
+  // Typed collection: tells TypeScript that usuarios has a `bicis` array.
+  const users = getDb().collection<{ bicis?: object[] }>("usuarios");
+  const user = await users.findOne({ _id: userId }, { projection: { bicis: 1 } });
+  const count = user?.bicis?.length ?? 0;
+  const tooMany = { ok: false, message: `Podés tener hasta ${MAX_BIKES_PER_RIDER} bicis.` };
   if (count >= MAX_BIKES_PER_RIDER) {
-    return Response.json(
-      { ok: false, message: `Podés tener hasta ${MAX_BIKES_PER_RIDER} bicis.` },
-      { status: 400 },
-    );
+    return Response.json(tooMany, { status: 400 });
   }
 
-  // The first bike is always the main one.
-  const willBePrimary = isPrimary || count === 0;
-  if (willBePrimary) {
-    await bikes.updateMany({ usuarioId: userId, principal: true }, { $set: { principal: false } });
+  // Each embedded bike gets its own _id: descents point to it with biciId.
+  // The first bike is always the main one, saved like that in the same write.
+  const doc = { _id: new ObjectId(), ...toBikeFields(check.value), principal: count === 0 };
+  // "bicis.4" is the 5th position: only push while it does not exist yet.
+  const result = await users.updateOne(
+    { _id: userId, [`bicis.${MAX_BIKES_PER_RIDER - 1}`]: { $exists: false } },
+    { $push: { bicis: doc } },
+  );
+  if (result.matchedCount === 0) {
+    return Response.json(tooMany, { status: 400 });
   }
-  const doc = { usuarioId: userId, ...toBikeFields(check.value), principal: willBePrimary };
-  const result = await bikes.insertOne(doc);
 
-  return Response.json({ ok: true, bici: toBici({ ...doc, _id: result.insertedId }) }, { status: 201 });
+  // A new main bike when the rider already had one: move the mark in ONE update.
+  if (isPrimary && !doc.principal) {
+    await setPrimaryBike(userId, doc._id);
+    doc.principal = true;
+  }
+
+  return Response.json({ ok: true, bici: toBici(doc) }, { status: 201 });
 }

@@ -90,21 +90,21 @@ export async function POST(request: Request) {
     }
 
     // 3b. Who is saving it. The rider ALWAYS comes from the session cookie, never
-    // from the body. With a session: that rider and one of THEIR bikes (the bike is
-    // searched with its _id AND the rider's usuarioId, so another rider's bike is not
-    // found). Without a session: only demo runs, saved as "Demo rider" with no bike.
+    // from the body. With a session: that rider and one of THEIR bikes (bikes are
+    // embedded in the user, so the bike is searched inside the rider's own document:
+    // another rider's bike is not found). Without a session: only demo runs, saved
+    // as "Demo rider" with no bike.
     let userId: ObjectId;
     let bike: { _id: ObjectId; tipo?: string } | null = null;
     const sessionUserId = await getSessionUserId();
     if (sessionUserId) {
       userId = sessionUserId;
-      const bikes = db.collection("bicis");
-      bike = input.bikeId
-        ? await bikes.findOne(
-            { _id: new ObjectId(input.bikeId), usuarioId: sessionUserId },
-            { projection: { tipo: 1 } },
-          )
-        : await bikes.findOne({ usuarioId: sessionUserId, principal: true }, { projection: { tipo: 1 } });
+      // The positional projection "bicis.$" returns only the bike that matched the filter.
+      const filter = input.bikeId
+        ? { _id: sessionUserId, "bicis._id": new ObjectId(input.bikeId) }
+        : { _id: sessionUserId, "bicis.principal": true };
+      const owner = await db.collection("usuarios").findOne(filter, { projection: { "bicis.$": 1 } });
+      bike = (owner?.bicis as Array<{ _id: ObjectId; tipo?: string }> | undefined)?.[0] ?? null;
       if (input.bikeId && !bike) {
         return Response.json({ ok: false, message: "Esa bici no es tuya." }, { status: 403 });
       }

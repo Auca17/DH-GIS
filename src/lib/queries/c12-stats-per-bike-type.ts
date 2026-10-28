@@ -7,15 +7,23 @@ import { getDb } from "@/lib/mongodb";
  * their average speed and the average front travel of the bikes used.
  * Answers "do DH bikes go faster down these trails?".
  *
- * Course concept: $lookup to the `bicis` collection through bajadas.biciId,
- * then $group with $avg over fields of BOTH collections.
+ * Course concept: $lookup into an EMBEDDED array. Bikes live inside the user
+ * (usuarios.bicis), so bajadas.biciId is matched against usuarios."bicis._id"
+ * (a multikey index on that field makes it fast). The join brings the whole rider;
+ * $filter keeps only the bike of that descent. Then $group with $avg over fields
+ * of BOTH collections.
  *
  * Compass (collection `bajadas` → Aggregations → paste):
  *
  * [
  *   { $match: { valida: true, biciId: { $type: "objectId" } } },
- *   { $lookup: { from: "bicis", localField: "biciId", foreignField: "_id", as: "bici" } },
- *   { $unwind: "$bici" },
+ *   { $lookup: { from: "usuarios", localField: "biciId", foreignField: "bicis._id", as: "duenio" } },
+ *   { $unwind: "$duenio" },
+ *   {
+ *     $set: {
+ *       bici: { $first: { $filter: { input: "$duenio.bicis", cond: { $eq: ["$$this._id", "$biciId"] } } } }
+ *     }
+ *   },
  *   {
  *     $group: {
  *       _id: "$bici.tipo",
@@ -38,7 +46,8 @@ import { getDb } from "@/lib/mongodb";
  *
  * Stages:
  * - $match: valid descents that point to a bike (runs saved without a bike have no biciId).
- * - $lookup + $unwind: each descent gets the bike it was ridden with.
+ * - $lookup + $unwind: each descent gets the rider that owns its bike.
+ * - $set + $filter + $first: out of that rider's bikes, keep the one with _id = biciId.
  * - $group: one row per bike type; $avg mixes a descent field (speed) and a bike
  *   field (front travel).
  * - $project: $round keeps the averages readable.
@@ -55,8 +64,13 @@ export interface BikeTypeStats {
 export async function getStatsPerBikeType(): Promise<BikeTypeStats[]> {
   const pipeline = [
     { $match: { valida: true, biciId: { $type: "objectId" } } },
-    { $lookup: { from: "bicis", localField: "biciId", foreignField: "_id", as: "bici" } },
-    { $unwind: "$bici" },
+    { $lookup: { from: "usuarios", localField: "biciId", foreignField: "bicis._id", as: "duenio" } },
+    { $unwind: "$duenio" },
+    {
+      $set: {
+        bici: { $first: { $filter: { input: "$duenio.bicis", cond: { $eq: ["$$this._id", "$biciId"] } } } },
+      },
+    },
     {
       $group: {
         _id: "$bici.tipo",

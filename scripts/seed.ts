@@ -3,12 +3,14 @@
 // Idempotent: it can run many times without duplicating data.
 // - usuarios and senderos are upserted by a natural key (nombre / codigo), so their
 //   _id never changes and real descents that point to them keep working.
-// - Seed riders are the usuarios WITHOUT email (they cannot sign in). Their bicis,
-//   bajadas and resenas are deleted and inserted again. Data of real accounts
-//   (usuarios with email) is kept.
+// - Seed riders are the usuarios WITHOUT email (they cannot sign in). Their bicis
+//   (embedded in usuarios) are replaced and their bajadas (with the embedded resena)
+//   are deleted and inserted again. Data of real accounts (usuarios with email) is kept.
+// - Bikes and reviews of real accounts saved in the old `bicis` / `resenas`
+//   collections are copied to their new embedded place (nothing is deleted).
 //
 // Data comes from src/lib/mock-data.ts (the same data the frontend mock shows).
-import { MongoClient, type ObjectId } from "mongodb";
+import { MongoClient, ObjectId } from "mongodb";
 import { cerros, comentarios, leaderboardPorCerro } from "@/lib/mock-data";
 import type { TipoBici } from "@/lib/types";
 import { generateVolume, type VolumeDescent, type VolumeReview, type VolumeRider } from "./seed-volume";
@@ -67,16 +69,23 @@ async function createIndexes() {
     .collection("bajadas")
     .createIndex({ idCorrida: 1 }, { unique: true, partialFilterExpression: { idCorrida: { $type: "string" } } });
 
-  // Reviews of one trail, newest first: filter by senderoId, sort by fecha desc.
-  await db.collection("resenas").createIndex({ senderoId: 1, fecha: -1 });
-
-  // At most ONE review per descent (POST /api/reviews). Seed reviews have no
-  // bajadaId, so the index only covers documents that have one (partial index).
+  // Reviews of one trail, newest first (C9). Reviews are embedded in bajadas, so the
+  // index is partial: it only holds descents WITH a review (most descents have none).
   await db
-    .collection("resenas")
+    .collection("bajadas")
     .createIndex(
-      { bajadaId: 1 },
-      { unique: true, partialFilterExpression: { bajadaId: { $type: "objectId" } }, name: "una_resena_por_bajada" },
+      { senderoId: 1, "resena.fecha": -1 },
+      { partialFilterExpression: { resena: { $exists: true } }, name: "resenas_por_sendero" },
+    );
+
+  // At most ONE review per rider per trail, enforced by the database: unique on
+  // { usuarioId, senderoId }, but only among the descents that have a review.
+  // (One review per descent needs no index: `resena` is a single field, not an array.)
+  await db
+    .collection("bajadas")
+    .createIndex(
+      { usuarioId: 1, senderoId: 1 },
+      { unique: true, partialFilterExpression: { resena: { $exists: true } }, name: "una_resena_por_usuario_y_sendero" },
     );
 
   // Unique email: two accounts can never share one. Seed riders have no email,
@@ -85,17 +94,11 @@ async function createIndexes() {
     .collection("usuarios")
     .createIndex({ email: 1 }, { unique: true, partialFilterExpression: { email: { $type: "string" } } });
 
-  // A rider's bikes, main bike first (C13 rider profile, the bike picker).
-  await db.collection("bicis").createIndex({ usuarioId: 1, principal: -1 });
-
-  // At most ONE main bike per rider, enforced by the database: unique on usuarioId,
-  // but only among the bikes with principal: true (partial unique index).
-  await db
-    .collection("bicis")
-    .createIndex(
-      { usuarioId: 1 },
-      { unique: true, partialFilterExpression: { principal: true }, name: "una_bici_principal_por_usuario" },
-    );
+  // Bikes are embedded in usuarios. Multikey index on the _id of each bike: C12 joins
+  // bajadas.biciId against it with $lookup. (Not unique: a unique index compares
+  // different documents, so it cannot stop two main bikes inside one user; the
+  // API keeps that rule with one arrayFilters update.)
+  await db.collection("usuarios").createIndex({ "bicis._id": 1 });
 
   // Sessions are looked up by the hash of the cookie token on every request.
   await db.collection("sesiones").createIndex({ hashToken: 1 }, { unique: true });
@@ -124,31 +127,37 @@ const VALIDATORS: Record<string, object> = {
       ciudad: { bsonType: "string", minLength: 2, maxLength: 60 },
       anioInicio: { bsonType: "number", minimum: 1950, maximum: 2100 },
       fechaCreacion: { bsonType: "date" },
-    },
-  },
-  bicis: {
-    bsonType: "object",
-    required: [
-      "usuarioId",
-      "tipo",
-      "marca",
-      "modelo",
-      "anio",
-      "rodado",
-      "recorridoDelanteroMm",
-      "recorridoTraseroMm",
-      "principal",
-    ],
-    properties: {
-      usuarioId: { bsonType: "objectId" },
-      tipo: { enum: ["DH", "Enduro", "Trail"] },
-      marca: { bsonType: "string", minLength: 1, maxLength: 40 },
-      modelo: { bsonType: "string", minLength: 1, maxLength: 60 },
-      anio: { bsonType: "number", minimum: 1990, maximum: 2100 },
-      rodado: { enum: ["27.5", "29", "mullet"] },
-      recorridoDelanteroMm: { bsonType: "number", minimum: 80, maximum: 220 },
-      recorridoTraseroMm: { bsonType: "number", minimum: 0, maximum: 220 },
-      principal: { bsonType: "bool" },
+      // Embedded bikes: at most 5 (the database rejects a 6th one).
+      bicis: {
+        bsonType: "array",
+        maxItems: 5,
+        items: {
+          bsonType: "object",
+          required: [
+            "_id",
+            "tipo",
+            "marca",
+            "modelo",
+            "anio",
+            "rodado",
+            "recorridoDelanteroMm",
+            "recorridoTraseroMm",
+            "principal",
+          ],
+          properties: {
+            // Each embedded bike has its own _id: bajadas.biciId points to it.
+            _id: { bsonType: "objectId" },
+            tipo: { enum: ["DH", "Enduro", "Trail"] },
+            marca: { bsonType: "string", minLength: 1, maxLength: 40 },
+            modelo: { bsonType: "string", minLength: 1, maxLength: 60 },
+            anio: { bsonType: "number", minimum: 1990, maximum: 2100 },
+            rodado: { enum: ["27.5", "29", "mullet"] },
+            recorridoDelanteroMm: { bsonType: "number", minimum: 80, maximum: 220 },
+            recorridoTraseroMm: { bsonType: "number", minimum: 0, maximum: 220 },
+            principal: { bsonType: "bool" },
+          },
+        },
+      },
     },
   },
   sesiones: {
@@ -196,6 +205,7 @@ const VALIDATORS: Record<string, object> = {
     properties: {
       senderoId: { bsonType: "objectId" },
       usuarioId: { bsonType: "objectId" },
+      // _id of one of the rider's embedded bikes (usuarios.bicis._id).
       // Missing when the run was saved without a bike (signed out, demo mode).
       biciId: { bsonType: "objectId" },
       fechaInicio: { bsonType: "date" },
@@ -212,19 +222,27 @@ const VALIDATORS: Record<string, object> = {
       recorrido: { bsonType: "array" },
       idCorrida: { bsonType: "string" },
       fechaCreacion: { bsonType: "date" },
+      // Embedded review: at most one per descent (it is a field, not an array).
+      resena: {
+        bsonType: "object",
+        required: ["calificacion", "comentario", "fecha"],
+        properties: {
+          calificacion: { bsonType: "int", minimum: 1, maximum: 5 },
+          comentario: { bsonType: "string", maxLength: 500 },
+          fecha: { bsonType: "date" },
+        },
+      },
     },
   },
-  resenas: {
-    bsonType: "object",
-    required: ["senderoId", "usuarioId", "calificacion", "comentario", "fecha"],
-    properties: {
-      senderoId: { bsonType: "objectId" },
-      usuarioId: { bsonType: "objectId" },
-      // Only reviews made from the app point to the descent they review.
-      bajadaId: { bsonType: "objectId" },
-      calificacion: { bsonType: "int", minimum: 1, maximum: 5 },
-      comentario: { bsonType: "string", maxLength: 500 },
-      fecha: { bsonType: "date" },
+};
+
+// Rules that $jsonSchema cannot express go next to it, as normal query operators.
+// usuarios: at most ONE embedded bike with principal: true. $filter keeps the main
+// bikes, $size counts them ($ifNull: users without bikes count as an empty array).
+const EXTRA_RULES: Record<string, object> = {
+  usuarios: {
+    $expr: {
+      $lte: [{ $size: { $filter: { input: { $ifNull: ["$bicis", []] }, cond: "$$this.principal" } } }, 1],
     },
   },
 };
@@ -232,13 +250,14 @@ const VALIDATORS: Record<string, object> = {
 async function applyValidators() {
   const db = client.db();
   for (const [name, schema] of Object.entries(VALIDATORS)) {
+    const validator = { $jsonSchema: schema, ...EXTRA_RULES[name] };
     const exists = (await db.listCollections({ name }).toArray()).length > 0;
     try {
       if (exists) {
         // collMod changes the rules of a collection that already has data.
-        await db.command({ collMod: name, validator: { $jsonSchema: schema }, validationLevel: "strict" });
+        await db.command({ collMod: name, validator, validationLevel: "strict" });
       } else {
-        await db.createCollection(name, { validator: { $jsonSchema: schema } });
+        await db.createCollection(name, { validator });
       }
     } catch (error) {
       // Code 13 = Unauthorized. In Atlas, a user with only "read and write" cannot run
@@ -388,7 +407,7 @@ async function seedTrails(): Promise<Map<string, ObjectId>> {
 // ---------- Bikes ----------
 
 // One typical build per bike type. Two seed riders with the same type get the same
-// build: each one is still a separate document (a bike is a rider's own bike, not a model).
+// build: each one is still a separate bike with its own _id (a rider's own bike, not a model).
 const SEED_BIKE_BY_TYPE: Record<TipoBici, object> = {
   DH: { marca: "Specialized", modelo: "Demo", anio: 2024, rodado: "29", recorridoDelanteroMm: 200, recorridoTraseroMm: 200 },
   Enduro: { marca: "Santa Cruz", modelo: "Megatower", anio: 2023, rodado: "29", recorridoDelanteroMm: 170, recorridoTraseroMm: 165 },
@@ -409,34 +428,35 @@ function volumeBikeKey(rider: string, index: number): string {
 
 async function seedBikes(
   userIds: Map<string, ObjectId>,
-  seedUserIds: ObjectId[],
   descents: SeedDescent[],
   volumeRiders: VolumeRider[],
 ): Promise<Map<string, ObjectId>> {
-  const bikes = client.db().collection("bicis");
+  // Bikes of each rider, built in memory and then saved INSIDE the user (embedded).
+  const bikesByUser = new Map<string, Array<Record<string, unknown>>>();
+  const idByKey = new Map<string, ObjectId>();
+  function addBike(user: string, key: string, bike: Record<string, unknown>) {
+    const _id = new ObjectId();
+    idByKey.set(key, _id);
+    const list = bikesByUser.get(user) ?? [];
+    list.push({ _id, ...bike });
+    bikesByUser.set(user, list);
+  }
 
-  const documents: Array<Record<string, unknown>> = [];
-  const keys: string[] = [];
-  const hasPrimary = new Set<string>();
   for (const d of descents) {
     const key = bikeKey(d.user, d.bikeType);
-    if (keys.includes(key)) continue;
-    keys.push(key);
-    documents.push({
-      usuarioId: userIds.get(d.user)!,
+    if (idByKey.has(key)) continue;
+    addBike(d.user, key, {
       tipo: d.bikeType,
       ...SEED_BIKE_BY_TYPE[d.bikeType],
-      principal: !hasPrimary.has(d.user),
+      // The first bike of each rider is the main one.
+      principal: !bikesByUser.has(d.user),
     });
-    hasPrimary.add(d.user);
   }
 
   // Volume riders bring their bikes already built (1 to 3, the first is the main one).
   for (const rider of volumeRiders) {
     rider.bikes.forEach((bike, index) => {
-      keys.push(volumeBikeKey(rider.displayName, index));
-      documents.push({
-        usuarioId: userIds.get(rider.displayName)!,
+      addBike(rider.displayName, volumeBikeKey(rider.displayName, index), {
         tipo: bike.type,
         marca: bike.brand,
         modelo: bike.model,
@@ -449,12 +469,16 @@ async function seedBikes(
     });
   }
 
-  // Only the bikes of seed riders are deleted and inserted again.
-  await bikes.deleteMany({ usuarioId: { $in: seedUserIds } });
-  const result = await bikes.insertMany(documents);
+  // One $set of the whole array per seed rider, all in ONE bulkWrite.
+  await client
+    .db()
+    .collection("usuarios")
+    .bulkWrite(
+      [...bikesByUser].map(([user, bicis]) => ({
+        updateOne: { filter: { _id: userIds.get(user)! }, update: { $set: { bicis } } },
+      })),
+    );
 
-  const idByKey = new Map<string, ObjectId>();
-  keys.forEach((key, i) => idByKey.set(key, result.insertedIds[i]));
   return idByKey;
 }
 
@@ -514,6 +538,7 @@ async function seedDescents(
   bikeIds: Map<string, ObjectId>,
   volumeDescents: VolumeDescent[],
   volumeRiders: VolumeRider[],
+  volumeReviews: VolumeReview[],
 ) {
   const descents = client.db().collection("bajadas");
   const all = allSeedDescents();
@@ -556,44 +581,103 @@ async function seedDescents(
     });
   }
 
+  const reviewCount = attachReviews(documents, trailIds, userIds, volumeReviews);
+
   // Only the descents of seed riders (this also clears old demo runs of "Demo rider").
   await descents.deleteMany({ usuarioId: { $in: seedUserIds } });
   // ordered: false lets the server insert the batches without stopping at the first one.
   await descents.insertMany(documents, { ordered: false });
-  return documents.length;
+  return { descentCount: documents.length, reviewCount };
 }
 
 // ---------- Reviews ----------
 
-async function seedReviews(
+// Each review is embedded in a valid descent of the same rider on the same trail.
+// The same rules as the app: one review per descent and one per rider per trail
+// (the unique partial index would reject a second one). Reviews of a rider with
+// no valid descent on that trail are skipped.
+function attachReviews(
+  documents: Array<Record<string, unknown>>,
   trailIds: Map<string, ObjectId>,
   userIds: Map<string, ObjectId>,
-  seedUserIds: ObjectId[],
   volumeReviews: VolumeReview[],
-) {
-  const reviews = client.db().collection("resenas");
+): number {
   const mockIdBySlug = new Map(cerros.map((c) => [c.slug, c.id]));
-
-  const documents = comentarios.map((c) => ({
-    senderoId: trailIds.get(c.cerroId)!,
+  const reviews = comentarios.map((c) => ({
     usuarioId: userIds.get(c.autor)!,
-    calificacion: ratingByCommentId[c.id],
-    comentario: c.texto,
-    fecha: toDate(c.fecha),
+    senderoId: trailIds.get(c.cerroId)!,
+    resena: { calificacion: ratingByCommentId[c.id], comentario: c.texto, fecha: toDate(c.fecha) },
   }));
   for (const r of volumeReviews) {
-    documents.push({
-      senderoId: trailIds.get(mockIdBySlug.get(r.trailSlug)!)!,
+    reviews.push({
       usuarioId: userIds.get(r.rider)!,
-      calificacion: r.rating,
-      comentario: r.comment,
-      fecha: r.createdAt,
+      senderoId: trailIds.get(mockIdBySlug.get(r.trailSlug)!)!,
+      resena: { calificacion: r.rating, comentario: r.comment, fecha: r.createdAt },
     });
   }
 
-  await reviews.deleteMany({ usuarioId: { $in: seedUserIds } });
-  await reviews.insertMany(documents);
-  return documents.length;
+  // Key "usuarioId|senderoId" → the first valid descent of that rider on that trail.
+  const descentByPair = new Map<string, Record<string, unknown>>();
+  for (const d of documents) {
+    const key = `${d.usuarioId}|${d.senderoId}`;
+    if (d.valida === true && !descentByPair.has(key)) descentByPair.set(key, d);
+  }
+
+  let count = 0;
+  for (const review of reviews) {
+    const descent = descentByPair.get(`${review.usuarioId}|${review.senderoId}`);
+    if (!descent || descent.resena) continue;
+    descent.resena = review.resena;
+    count += 1;
+  }
+  return count;
+}
+
+// ---------- Old collections (real accounts) ----------
+
+// Before, bikes and reviews had their own collections. Real accounts may still have
+// data there: copy it to the new embedded place. Nothing is deleted; once this ran,
+// the old collections can be dropped by hand in Compass.
+async function migrateOldCollections(seedUserIds: ObjectId[]) {
+  const db = client.db();
+
+  const oldBikes = await db
+    .collection("bicis")
+    .find({ usuarioId: { $nin: seedUserIds } })
+    .sort({ _id: 1 })
+    .toArray();
+  const bikesByUser = new Map<string, Array<Record<string, unknown>>>();
+  for (const { usuarioId, ...bike } of oldBikes) {
+    const list = bikesByUser.get(String(usuarioId)) ?? [];
+    // Keep the same _id: the descents of that account already point to it.
+    if (list.length < 5) list.push(bike);
+    bikesByUser.set(String(usuarioId), list);
+  }
+  for (const [userId, bicis] of bikesByUser) {
+    // Only users that have no embedded bikes yet (running the seed twice changes nothing).
+    await db
+      .collection("usuarios")
+      .updateOne({ _id: new ObjectId(userId), bicis: { $exists: false } }, { $set: { bicis } });
+  }
+
+  const oldReviews = await db
+    .collection("resenas")
+    .find({ bajadaId: { $type: "objectId" } })
+    .toArray();
+  for (const r of oldReviews) {
+    try {
+      await db
+        .collection("bajadas")
+        .updateOne(
+          { _id: r.bajadaId, resena: { $exists: false } },
+          { $set: { resena: { calificacion: r.calificacion, comentario: r.comentario, fecha: r.fecha } } },
+        );
+    } catch (error) {
+      // 11000: that rider already has a review of this trail. Keep the first one.
+      if ((error as { code?: number }).code !== 11000) throw error;
+    }
+  }
+  return { bikes: bikesByUser.size, reviews: oldReviews.length };
 }
 
 // ---------- Main ----------
@@ -628,16 +712,25 @@ async function main() {
   ).map((u) => u._id);
 
   const trailIds = await seedTrails();
-  const bikeIds = await seedBikes(userIds, seedUserIds, allSeedDescents(), volume.riders);
-  const descentCount = await seedDescents(trailIds, userIds, seedUserIds, bikeIds, volume.descents, volume.riders);
-  const reviewCount = await seedReviews(trailIds, userIds, seedUserIds, volume.reviews);
+  const bikeIds = await seedBikes(userIds, allSeedDescents(), volume.riders);
+  const { descentCount, reviewCount } = await seedDescents(
+    trailIds,
+    userIds,
+    seedUserIds,
+    bikeIds,
+    volume.descents,
+    volume.riders,
+    volume.reviews,
+  );
+  const migrated = await migrateOldCollections(seedUserIds);
 
   console.log(`Database: ${client.db().databaseName}`);
   console.log(`usuarios: ${userIds.size}`);
   console.log(`senderos: ${trailIds.size}`);
-  console.log(`bicis:    ${bikeIds.size} (seed)`);
+  console.log(`bicis:    ${bikeIds.size} (seed, embedded in usuarios)`);
   console.log(`bajadas:  ${descentCount} (seed)`);
-  console.log(`resenas:  ${reviewCount} (seed)`);
+  console.log(`resenas:  ${reviewCount} (seed, embedded in bajadas)`);
+  console.log(`migrated: bikes of ${migrated.bikes} accounts, ${migrated.reviews} old reviews`);
 }
 
 main()

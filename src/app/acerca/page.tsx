@@ -25,23 +25,14 @@ const COLECCIONES = [
   },
   {
     nombre: "bajadas",
-    descripcion: "Cada bajada. Crece sin límite, así que referencia al sendero, al rider y a la bici.",
-    campos: ["senderoId → senderos", "usuarioId → usuarios", "biciId → bicis", "duracion", "valida"],
-  },
-  {
-    nombre: "resenas",
-    descripcion: "Las opiniones, también referenciadas para no inflar el documento del sendero.",
-    campos: ["senderoId → senderos", "usuarioId → usuarios", "calificacion", "fecha"],
+    descripcion:
+      "Cada bajada. Crece sin límite, así que referencia al sendero, al rider y a la bici. La reseña va embebida: es una sola por bajada.",
+    campos: ["senderoId → senderos", "usuarioId → usuarios", "biciId → usuarios.bicis", "duracion", "resena { }"],
   },
   {
     nombre: "usuarios",
-    descripcion: "Los riders. Se unen a bajadas, opiniones y bicis con $lookup.",
-    campos: ["nombre (único)", "nivel", "ciudad"],
-  },
-  {
-    nombre: "bicis",
-    descripcion: "Las bicis de cada rider. Un rider puede tener varias, una sola principal.",
-    campos: ["usuarioId → usuarios", "tipo", "principal"],
+    descripcion: "Los riders. Sus bicis van embebidas (máximo 5, una sola principal): siempre se leen junto con el rider.",
+    campos: ["nombre (único)", "nivel", "ciudad", "bicis[ ]"],
   },
 ];
 
@@ -63,8 +54,12 @@ const INDICES = [
     porque: "Cada corrida se guarda una sola vez aunque el pedido llegue repetido.",
   },
   {
-    indice: "resenas { senderoId: 1, fecha: -1 }",
-    porque: "Las opiniones de un sendero, la más nueva primero, sin ordenar en memoria.",
+    indice: "bajadas { senderoId, resena.fecha: -1 } parcial",
+    porque: "Las reseñas de un sendero, la más nueva primero. Solo guarda las bajadas que tienen reseña.",
+  },
+  {
+    indice: "bajadas { usuarioId, senderoId } único parcial",
+    porque: "Una sola reseña por rider en cada sendero, la regla la cumple la base.",
   },
   {
     indice: "usuarios { nombre: 1 } único",

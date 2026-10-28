@@ -88,11 +88,11 @@ async function main() {
   const c3Filter = { senderoId: trail._id, estado: "completada", valida: true };
   // C4 personal best: same index (prefix senderoId, estado, valida), then filters usuarioId.
   const c4Filter = { senderoId: trail._id, usuarioId: user._id, estado: "completada", valida: true };
-  // C9 reviews of a trail: index { senderoId, fecha: -1 }.
-  const c9Filter = { senderoId: trail._id };
+  // C9 reviews of a trail: partial index { senderoId, "resena.fecha": -1 }. The filter
+  // repeats its partialFilterExpression (resena exists), otherwise Mongo cannot use it.
+  const c9Filter = { senderoId: trail._id, resena: { $exists: true } };
 
   const descents = db.collection("bajadas");
-  const reviews = db.collection("resenas");
   const measures: Measure[] = [];
 
   for (const mode of ["without index", "with index"] as const) {
@@ -105,7 +105,7 @@ async function main() {
     const c4 = await descents.find(c4Filter, hint).explain("executionStats");
     measures.push(toMeasure("C4 personal best", mode, c4));
 
-    const c9 = await reviews.find(c9Filter, hint).sort({ fecha: -1 }).explain("executionStats");
+    const c9 = await descents.find(c9Filter, hint).sort({ "resena.fecha": -1 }).explain("executionStats");
     measures.push(toMeasure("C9 reviews", mode, c9));
   }
 

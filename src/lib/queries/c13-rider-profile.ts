@@ -5,34 +5,27 @@ import type { Bici, NivelRider, PerfilRider, RodadoBici, TipoBici } from "@/lib/
 /*
  * C13 — Rider profile with their bikes
  *
- * What it does: returns one rider and, inside it, all their bikes (main bike first).
+ * What it does: returns one rider with all their bikes (main bike first).
  * The "Mi perfil" screen and the bike picker read it through GET /api/me.
  *
- * Course concept: one-to-many relation with references. `bicis` stores usuarioId
- * (bikes grow, so they are not embedded in the user); $lookup with a pipeline
- * joins them back and sorts them inside the join.
+ * Course concept: embedded one-to-few relation. Bikes live inside the user
+ * (usuarios.bicis, at most 5) because they are always read together with the
+ * rider. One document read brings everything: no $lookup needed.
+ * (Compare with C12, which goes the other way: from bajadas to the embedded bikes.)
  *
  * Compass (collection `usuarios` → Aggregations → paste, with a real _id):
  *
  * [
  *   { $match: { _id: ObjectId("PASTE_USER_ID_HERE") } },
- *   {
- *     $lookup: {
- *       from: "bicis",
- *       localField: "_id",
- *       foreignField: "usuarioId",
- *       pipeline: [{ $sort: { principal: -1, _id: 1 } }],
- *       as: "bicis"
- *     }
- *   },
+ *   { $set: { bicis: { $sortArray: { input: "$bicis", sortBy: { principal: -1, _id: 1 } } } } },
  *   { $project: { hashContrasena: 0, salContrasena: 0 } }
  * ]
  *
  * Stages:
  * - $match: the signed-in rider (the _id comes from the session, never from the client).
- * - $lookup: every bike whose usuarioId is this rider's _id. The inner $sort puts the
- *   main bike first and then the oldest (an ObjectId starts with its creation time,
- *   so sorting by _id is sorting by creation). It can use the { usuarioId, principal } index.
+ * - $set + $sortArray: sorts the embedded array inside the document, main bike first
+ *   and then the oldest (an ObjectId starts with its creation time, so sorting by
+ *   _id is sorting by creation).
  * - $project: never send the password hash or salt out of the database.
  */
 
@@ -43,7 +36,8 @@ interface UserDoc {
   nivel: NivelRider;
   ciudad: string;
   anioInicio: number;
-  bicis: BikeDoc[];
+  // null when the rider has no bikes (for example "Demo rider").
+  bicis: BikeDoc[] | null;
 }
 
 interface BikeDoc {
@@ -77,15 +71,7 @@ export async function getRiderProfile(
 ): Promise<{ usuario: PerfilRider; bicis: Bici[] } | null> {
   const pipeline = [
     { $match: { _id: userId } },
-    {
-      $lookup: {
-        from: "bicis",
-        localField: "_id",
-        foreignField: "usuarioId",
-        pipeline: [{ $sort: { principal: -1, _id: 1 } }],
-        as: "bicis",
-      },
-    },
+    { $set: { bicis: { $sortArray: { input: "$bicis", sortBy: { principal: -1, _id: 1 } } } } },
     { $project: { hashContrasena: 0, salContrasena: 0 } },
   ];
 
@@ -101,6 +87,6 @@ export async function getRiderProfile(
       ciudad: doc.ciudad,
       andaDesde: doc.anioInicio,
     },
-    bicis: doc.bicis.map(toBici),
+    bicis: (doc.bicis ?? []).map(toBici),
   };
 }

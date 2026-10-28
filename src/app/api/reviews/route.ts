@@ -11,19 +11,23 @@ import { validateReviewBody } from "@/lib/reviews/validate-review";
  * - Only signed-in riders. The rider comes from the session cookie, never from the body.
  * - Only for THEIR OWN descent: the descent is searched with idCorrida AND the session's usuarioId.
  * - Only for a valid descent with real GPS (no demo runs).
- * - One review per descent: `resenas` has a unique partial index on bajadaId
- *   (scripts/seed.ts), so the database itself rejects a second one (error 11000).
+ * - One review per descent: the update only matches a descent WITHOUT `resena`.
+ * - One review per rider per trail: `bajadas` has a unique partial index on
+ *   { usuarioId, senderoId } that only covers descents WITH `resena` (scripts/seed.ts),
+ *   so the database itself rejects a second review of the same trail (error 11000).
  *
  * The trail's average rating is not stored anywhere: C5 computes it with $avg.
  *
- * Course concept: references between collections (the review stores senderoId, usuarioId
- * and bajadaId) and a partial unique index as a business rule.
+ * Course concept: embedded one-to-one relation. A review belongs to exactly one
+ * descent and is written together with it, so it lives INSIDE the descent
+ * (bajadas.resena) instead of in its own collection. The descent already has
+ * senderoId and usuarioId, so the review does not repeat them.
  *
  * Compass equivalent:
- *   db.resenas.insertOne({
- *     senderoId: ObjectId("..."), usuarioId: ObjectId("..."), bajadaId: ObjectId("..."),
- *     calificacion: 4, comentario: "Mucha piedra suelta", fecha: new Date()
- *   })
+ *   db.bajadas.updateOne(
+ *     { _id: ObjectId("DESCENT_ID"), resena: { $exists: false } },
+ *     { $set: { resena: { calificacion: 4, comentario: "Mucha piedra suelta", fecha: new Date() } } }
+ *   )
  */
 
 export async function POST(request: Request) {
@@ -75,20 +79,22 @@ export async function POST(request: Request) {
       );
     }
 
-    await db.collection("resenas").insertOne({
-      senderoId: descent.senderoId,
-      usuarioId: userId,
-      bajadaId: descent._id,
-      calificacion: input.rating,
-      comentario: input.comment,
-      fecha: new Date(),
-    });
-    return Response.json({ ok: true }, { status: 201 });
-  } catch (error) {
-    // 11000 = duplicate key: the unique index on bajadaId already has a review.
-    if ((error as { code?: number }).code === 11000) {
+    const result = await db.collection("bajadas").updateOne(
+      { _id: descent._id, resena: { $exists: false } },
+      { $set: { resena: { calificacion: input.rating, comentario: input.comment, fecha: new Date() } } },
+    );
+    if (result.matchedCount === 0) {
       return Response.json(
         { ok: false, message: "Ya dejaste una reseña para este descenso." },
+        { status: 409 },
+      );
+    }
+    return Response.json({ ok: true }, { status: 201 });
+  } catch (error) {
+    // 11000 = duplicate key: another descent of this rider on this trail already has a review.
+    if ((error as { code?: number }).code === 11000) {
+      return Response.json(
+        { ok: false, message: "Ya dejaste una reseña para este sendero." },
         { status: 409 },
       );
     }

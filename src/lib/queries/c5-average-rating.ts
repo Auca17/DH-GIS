@@ -6,16 +6,18 @@ import { getDb } from "@/lib/mongodb";
  * What it does: for every trail that has reviews, returns its average rating
  * (rounded to 1 decimal) and how many reviews it has, best rated first.
  *
- * Course concept: $group with the $avg accumulator, plus $lookup to bring the
- * trail name (resenas.senderoId → senderos._id).
+ * Course concept: $group with the $avg accumulator over a field of an EMBEDDED
+ * document (bajadas.resena.calificacion), plus $lookup to bring the trail name
+ * (bajadas.senderoId → senderos._id).
  *
- * Compass (collection `resenas` → Aggregations → paste):
+ * Compass (collection `bajadas` → Aggregations → paste):
  *
  * [
+ *   { $match: { resena: { $exists: true } } },
  *   {
  *     $group: {
  *       _id: "$senderoId",
- *       promedio: { $avg: "$calificacion" },
+ *       promedio: { $avg: "$resena.calificacion" },
  *       cantidad: { $sum: 1 }
  *     }
  *   },
@@ -41,8 +43,9 @@ import { getDb } from "@/lib/mongodb";
  * ]
  *
  * Stages:
- * - $group: makes one group per senderoId and, inside each group, averages the
- *   `calificacion` field ($avg) and counts the reviews ($sum: 1).
+ * - $match: only the descents that have a review.
+ * - $group: makes one group per senderoId and, inside each group, averages
+ *   `resena.calificacion` ($avg) and counts the reviews ($sum: 1).
  * - $lookup: for each group, brings the trail whose _id equals the group _id
  *   (the senderoId), so we can show its name instead of an ObjectId.
  * - $unwind: turns the one-element `sendero` array into a plain object.
@@ -59,10 +62,11 @@ export interface TrailRating {
 
 export async function getAverageRatings(): Promise<TrailRating[]> {
   const pipeline = [
+    { $match: { resena: { $exists: true } } },
     {
       $group: {
         _id: "$senderoId",
-        promedio: { $avg: "$calificacion" },
+        promedio: { $avg: "$resena.calificacion" },
         cantidad: { $sum: 1 },
       },
     },
@@ -87,5 +91,5 @@ export async function getAverageRatings(): Promise<TrailRating[]> {
     { $sort: { promedio: -1, sendero: 1 } },
   ];
 
-  return getDb().collection("resenas").aggregate<TrailRating>(pipeline).toArray();
+  return getDb().collection("bajadas").aggregate<TrailRating>(pipeline).toArray();
 }
