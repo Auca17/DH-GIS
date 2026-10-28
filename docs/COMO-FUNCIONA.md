@@ -1933,187 +1933,139 @@ db.bajadas.aggregate([
 
 ## 20. Política de resguardo (backups)
 
-Una copia de seguridad sirve para una sola cosa: **volver a tener los datos** después de un error (un
-`deleteMany` sin filtro, un seed corrido contra la base equivocada), una falla del disco o una cuenta comprometida.
-Esta política dice qué copiamos, cómo, cada cuánto, cuánto tiempo lo guardamos y cómo lo recuperamos.
+**En una frase:** todas las noches `mongodump` guarda la base entera en un archivo comprimido, el script comprueba
+que la copia salió bien y borra las que ya no hacen falta; si algo se rompe, `mongorestore` deja la base como
+estaba en esa copia.
 
-Usamos las **MongoDB Database Tools** (`mongodump` y `mongorestore`), que se instalan aparte del servidor. Las
-dos funcionan igual contra la base local y contra Atlas: solo cambia la `--uri`.
+Un backup sirve para **volver a tener los datos** después de un error nuestro (un `deleteMany` sin filtro, un seed
+contra la base equivocada) o de una falla de la compu. La política responde cinco preguntas: qué se copia, cómo,
+cada cuánto, cuánto tiempo se guarda y cómo se recupera.
 
-### 20.1 Ámbito de aplicación
+Es **la misma para cualquier base**: se copia la base a la que apunta `MONGODB_URI`, sea la local o Atlas. Lo único
+que cambia es esa cadena de conexión.
 
-**Qué se respalda:**
+### 20.1 Qué se copia
 
-| Elemento | ¿Se respalda? | Por qué |
+| Elemento | ¿Se copia? | Por qué |
 |---|---|---|
-| Base `dh` en **Atlas** (las 4 colecciones) | Sí, es lo más importante | Ahí escriben los usuarios reales de la app publicada. Esos datos **no se pueden regenerar**. |
-| Base `dh` **local** (las 4 colecciones) | Sí | Es la base que se evalúa. Se puede volver a cargar con `npm run seed`, pero se pierde lo que hayamos probado a mano. |
-| Índices y validadores `$jsonSchema` | Sí, van solos | `mongodump` guarda en cada colección un archivo de metadatos con sus índices y sus opciones (incluido el validador). `mongorestore` los vuelve a crear. |
-| Bases `admin`, `local`, `config` | No | Son internas de MongoDB (sección 2.1). En Atlas las maneja el servicio. |
-| Código y scripts | No (ya están) | Viven en GitHub, con todo su historial. |
-| `.env.local` (contraseña de Atlas) | No | Es un secreto: nunca se copia junto a los datos. Si se pierde, se genera una contraseña nueva en Atlas. |
+| Base `dh`: `usuarios`, `senderos`, `bajadas`, `sesiones` | Sí | Son los datos de la app. Las bicis y las reseñas van adentro (embebidas), así que se copian con ellas. |
+| Índices y validadores `$jsonSchema` | Sí, solos | `mongodump` los guarda junto con cada colección y `mongorestore` los vuelve a crear. |
+| Bases internas (`admin`, `local`, `config`) | No | Son de MongoDB, no nuestras. |
+| Código | No | Ya está en GitHub. |
+| `.env.local` (contraseña) | No | Es un secreto: nunca se guarda junto a los datos. |
 
-**Quiénes:** los cuatro integrantes del equipo. Cada semana hay **un responsable** (rota en el orden Augustus,
-Nicolas, Ariel, Josefina) que corre las copias y anota el resultado. Los archivos de respaldo contienen emails y
-hashes de contraseñas, así que **solo los ve el equipo**: no se suben al repositorio ni se comparten por fuera.
+Las copias tienen emails y hashes de contraseñas: quedan en la compu, **fuera del repositorio**, y no se comparten.
 
-### 20.2 Mecanismos de copia según infraestructura
+### 20.2 Cómo se copia
 
-Seguimos la **regla 3-2-1**: 3 copias de los datos, en 2 medios distintos, 1 fuera del lugar.
+Con dos programas de las **MongoDB Database Tools** (se instalan aparte del servidor):
 
-| Copia | Medio | Cómo |
-|---|---|---|
-| 1 | La base misma (Atlas o local) | Los datos originales. |
-| 2 | **Disco** de la compu del responsable, fuera del repo: `C:\respaldos\dh\` | `mongodump` comprimido en un solo archivo. |
-| 3 | **Nube**: carpeta compartida del equipo en Google Drive | Se sube el mismo archivo. Si se rompe o se roba la compu, la copia sigue existiendo. |
+- `mongodump` lee la base y la guarda en un archivo.
+- `mongorestore` hace lo contrario: carga ese archivo en una base.
 
-Lo que **no** usamos, y por qué:
-
-- **Cintas:** son para volúmenes de terabytes y guardado por años. Nuestra base comprimida pesa unos pocos MB.
-- **Servidor dedicado de backups:** no tenemos uno, y para este volumen un disco más la nube cubren lo mismo.
-- **El replica set de Atlas como "backup":** los 3 servidores de Atlas (sección 2.1) protegen contra que se caiga
-  una máquina, **no contra un error nuestro**. Si alguien corre `db.bajadas.deleteMany({})`, el borrado se copia
-  a los 3 servidores en un segundo. Replicar no es respaldar.
-- **Las copias automáticas de Atlas:** el plan gratuito (M0) no las incluye. Por eso hacemos el `mongodump` nosotros.
-
-Los comandos (en PowerShell; `--gzip --archive` deja todo en un único archivo comprimido):
+Todo lo hace el script `scripts/backup.ps1`, que se corre con:
 
 ```powershell
-# Base local
-$fecha = Get-Date -Format yyyy-MM-dd
-mongodump --uri="mongodb://127.0.0.1:27017/dh" --gzip --archive="C:\respaldos\dh\local-$fecha.gz"
-
-# Atlas (la cadena es la del .env.local, termina en /dh)
-mongodump --uri="mongodb+srv://USUARIO:CONTRASEÑA@dh.35crots.mongodb.net/dh" --gzip --archive="C:\respaldos\dh\atlas-$fecha.gz"
+npm run backup
 ```
 
-En la práctica no se escriben a mano: los corre el script `scripts/backup.ps1` (sección 20.6), que además
-verifica la copia, la anota y borra las viejas.
+Paso a paso, el script:
 
-### 20.3 Periodicidad de ejecución
+1. **Elige la base:** toma `MONGODB_URI`; si no está definida, usa la local (`mongodb://127.0.0.1:27017/dh`).
+2. **Arma el nombre:** un archivo por día en `C:\respaldos\dh\`, por ejemplo `dh-2026-10-28.gz`.
+3. **Copia:** `mongodump --gzip --archive` guarda las 4 colecciones, con sus índices y validadores, en ese único
+   archivo comprimido.
+4. **Verifica:** si `mongodump` falló o el archivo quedó vacío, anota `ERROR` y **termina sin borrar nada**. Una
+   corrida mala nunca puede eliminar las copias buenas.
+5. **Anota:** deja una línea en `C:\respaldos\dh\backup.log` con la fecha, el archivo y el tamaño.
+6. **Borra las viejas:** según la retención de la sección 20.4.
 
-La frecuencia depende de **cuánto cambia la base y cuánto nos duele perder un día**:
+Lo que muestra cuando sale bien (base local, 459 KB):
 
-| Base | Cuándo | Por qué |
-|---|---|---|
-| Atlas | **Todos los días**, a la noche | Recibe datos reales que no se pueden recrear. Perder como mucho un día es aceptable para el proyecto. |
-| Local | **Una vez por semana** (domingo) | Cambia poco y casi todo sale del seed. |
-| Las dos | **Antes de cualquier operación riesgosa** | Correr el seed, cambiar un validador, renombrar o borrar colecciones (por ejemplo, borrar las colecciones viejas en inglés). Es el momento en que más fácil se pierde algo. |
+```text
+done dumping `dh.usuarios` (70 documents)
+done dumping `dh.senderos` (3 documents)
+done dumping `dh.sesiones` (0 documents)
+done dumping `dh.bajadas` (20017 documents)
+Backup OK: C:\respaldos\dh\dh-2026-10-28.gz (459 KB)
+```
 
-Todas las copias son **completas** (toda la base), no incrementales: con este tamaño tardan segundos, y para
-recuperar alcanza con un solo archivo, sin tener que encadenar varios.
+> **Replicar no es respaldar.** Atlas guarda los datos en 3 servidores, pero eso protege contra que se caiga una
+> máquina, no contra un error nuestro: un `db.bajadas.deleteMany({})` se borra en los 3 al mismo tiempo. Y el plan
+> gratuito de Atlas no trae backups automáticos. Por eso hacemos el `mongodump` nosotros.
 
-### 20.4 Período de retención
+### 20.3 Cada cuánto
 
-| Tipo de copia | Cuántas se guardan | Qué pasa con las viejas |
-|---|---|---|
-| Diaria (Atlas) | Las últimas **7** | La de hace 8 días se borra. |
-| Semanal (local y la del domingo de Atlas) | Las últimas **4** | La de hace 5 semanas se borra. |
-| Antes de una operación riesgosa | Hasta la siguiente copia semanal verificada | Se borra cuando hay una semanal más nueva que restauró bien. |
-| Final del ciclo lectivo | **1**, hasta que la materia esté aprobada por los cuatro | Después se destruye. |
+| Copia | Cuándo |
+|---|---|
+| **Diaria** | Todos los días, al terminar el día (23:00). |
+| **Semanal** | La copia del domingo: es la misma diaria, pero se guarda más tiempo. |
+| **Antes de algo riesgoso** | A mano, antes de correr el seed, cambiar un validador o borrar colecciones. |
 
-Se guardan 7 diarias porque un error puede tardar días en notarse (por ejemplo, un ranking que "se ve raro").
-Destruir significa borrar el archivo del disco, vaciar la papelera y borrarlo también de Google Drive (incluida
-su papelera).
+Siempre se copia **la base entera**: pesa menos de 1 MB, tarda un segundo y para recuperar alcanza con un archivo.
 
-**Marco legal:** la base tiene datos personales (nombre de usuario, email, ciudad). La Ley 25.326 de Protección
-de Datos Personales pide guardarlos con seguridad y **no conservarlos más tiempo del necesario** para lo que
-fueron recolectados. Por eso la retención es corta y tiene fecha de fin: terminado el proyecto, las copias se
-destruyen. Como no somos una empresa, no hay una norma de auditoría que nos obligue a guardar años.
-
-### 20.5 Disponibilidad y recuperación
-
-Una copia que nunca se probó **no es una copia**: puede estar vacía, cortada o ser de la base equivocada. Por eso:
-
-- **Prueba mensual:** el responsable restaura la última copia en una base aparte, `dh_restore`, sin tocar `dh`, y
-  comprueba que esté completa.
-- **Objetivos:** perder como mucho **1 día** de datos en Atlas y **1 semana** en local (RPO), y volver a tener la
-  base andando en **menos de 30 minutos** (RTO). Con unos pocos MB, la restauración real tarda segundos; el resto
-  es encontrar el archivo y verificar.
-
-**Probar una copia** (restaura en `dh_restore`, la base `dh` no se toca):
+Para que corra sola todas las noches, se programa una vez en el Programador de tareas de Windows:
 
 ```powershell
-mongorestore --uri="mongodb://127.0.0.1:27017" --gzip --archive="C:\respaldos\dh\local-2026-10-26.gz" `
-  --nsFrom="dh.*" --nsTo="dh_restore.*"
+schtasks /create /tn "Backup DH" /sc daily /st 23:00 /tr "powershell -ExecutionPolicy Bypass -File C:\ruta\al\proyecto\scripts\backup.ps1"
 ```
 
-Y en la shell de Compass, comparar contra la original:
+### 20.4 Cuánto tiempo se guardan
+
+| Copia | Cuántas se guardan |
+|---|---|
+| Diarias | Las de los últimos **7 días**. |
+| Semanales (domingos) | Las de las últimas **4 semanas**. |
+
+En la carpeta siempre hay unas 10 copias. Las más viejas las borra el script y quedan anotadas en el log
+(`DELETED`). Se guardan 7 días porque un error puede tardar en notarse.
+
+La base tiene datos personales (usuario, email, ciudad) y la **Ley 25.326 de Protección de Datos Personales** pide
+no guardarlos más de lo necesario. Por eso la retención es corta y, al terminar la materia, las copias se borran.
+
+### 20.5 Cómo se recupera
+
+Una copia que nunca se probó **no es una copia**: puede estar vacía o ser de la base equivocada. Por eso, una vez
+por mes, se prueba la última.
+
+**1. Restaurar en una base aparte**, `dh_restore`, sin tocar `dh` (`--nsFrom`/`--nsTo` cambian el nombre de la base
+al cargar):
+
+```powershell
+mongorestore --uri="mongodb://127.0.0.1:27017" --gzip --archive="C:\respaldos\dh\dh-2026-10-28.gz" --nsFrom="dh.*" --nsTo="dh_restore.*"
+```
+
+**2. Comparar en mongosh** (en la conexión de la base donde se restauró). Conviene pegar cada bloque por separado,
+porque mongosh solo muestra el resultado de la última línea.
 
 ```js
-// Cantidad de documentos por colección: tiene que dar igual en dh y en dh_restore
+// Documentos por colección: copia / original. Tienen que dar iguales.
 const r = db.getSiblingDB("dh_restore")
-r.getCollectionNames().forEach(c =>
-  print(c, r[c].countDocuments(), db.getSiblingDB("dh")[c].countDocuments()))
+r.getCollectionNames().forEach(c => print(`${c}: ${r[c].countDocuments()} / ${db.getSiblingDB("dh")[c].countDocuments()}`))
+```
 
-// Los índices y el validador también volvieron
-r.senderos.getIndexes()
-r.getCollectionInfos({ name: "bajadas" })[0].options.validator
+```js
+// Los índices también volvieron: [ '_id_', 'inicio_2dsphere', 'codigo_1' ]
+r.senderos.getIndexes().map(i => i.name)
+```
 
+```js
 // Al terminar, borrar la base de prueba
 r.dropDatabase()
 ```
 
-**Recuperar de verdad** (ante un desastre en `dh`): `--drop` borra cada colección antes de cargarla, así queda
-igual a la copia y no se mezclan documentos viejos y nuevos.
+Resultado de la prueba con la copia del 2026-10-28: `sesiones: 0 / 0`, `usuarios: 70 / 70`, `senderos: 3 / 3`,
+`bajadas: 20017 / 20017`.
+
+**Recuperar de verdad** (si se rompió `dh`): se carga la copia sobre la base original. `--drop` borra cada colección
+antes de cargarla, así queda exactamente igual a la copia.
 
 ```powershell
-mongorestore --uri="mongodb://127.0.0.1:27017" --gzip --archive="C:\respaldos\dh\local-2026-10-26.gz" --drop
+mongorestore --uri="mongodb://127.0.0.1:27017" --gzip --archive="C:\respaldos\dh\dh-2026-10-28.gz" --drop
 ```
 
-Para Atlas es el mismo comando con su `--uri`. Después de restaurar, se abre la app y se revisa que el ranking de
-un sendero muestre datos.
-
-Si no hay ninguna copia que sirva, el último recurso es `npm run seed`: recupera la estructura (colecciones,
-índices, validadores) y los datos de prueba, pero **no** las cuentas ni las bajadas reales.
-
-### 20.6 El script de backup (`scripts/backup.ps1`)
-
-El script hace en un solo paso todo lo de las secciones 20.2 a 20.4: la copia, la verificación, el registro y
-la retención. Es PowerShell porque las cuatro compus del equipo son Windows.
-
-**Cómo se usa:**
-
-```powershell
-# Base local (o: npm run backup)
-powershell -ExecutionPolicy Bypass -File scripts/backup.ps1
-
-# Atlas: la cadena va en una variable de entorno, nunca escrita en el script
-$env:ATLAS_URI = "mongodb+srv://USUARIO:CONTRASEÑA@dh.35crots.mongodb.net/dh"
-powershell -ExecutionPolicy Bypass -File scripts/backup.ps1 -Base atlas
-```
-
-Deja `C:\respaldos\dh\local-2026-10-26.gz` (o `atlas-…`) y una línea en `C:\respaldos\dh\backup.log`. Ese
-archivo es la anotación del responsable de la semana (sección 20.1).
-
-**Qué hace, parte por parte:**
-
-| Parte | Código | Qué hace |
-|---|---|---|
-| Parámetros | `param([ValidateSet("local","atlas")] $Base = "local", $Destino = "C:\respaldos\dh")` | Qué base copiar y dónde dejar la copia. `ValidateSet` rechaza cualquier otro valor. |
-| 1. Conexión | `$uri = "mongodb://127.0.0.1:27017/dh"` o `$env:ATLAS_URI` | La de Atlas tiene la contraseña: sale de una variable de entorno. Si falta, el script avisa y termina. |
-| Chequeo previo | `Get-Command mongodump` | Si las Database Tools no están instaladas, lo dice claro en vez de fallar con un error raro. |
-| 2. Nombre | `"$Base-$fecha.gz"` en `$Destino` | Un archivo por base y por día, fuera del repo. `New-Item -Force` crea la carpeta si no existe. |
-| 3. Copia | `mongodump --uri=... --gzip --archive=...` | Copia las 4 colecciones con sus índices y validadores, comprimidas en un solo archivo. |
-| 4. Verificación | `$LASTEXITCODE -ne 0`, `Test-Path`, `Length -eq 0` | `mongodump` devuelve 0 si salió bien. Si no, o si el archivo no existe o está vacío, anota `ERROR` y **termina sin borrar nada**: una corrida fallida nunca puede eliminar las copias buenas. |
-| Registro | `Add-Content $log "... OK ... KB"` | Fecha, base, archivo y tamaño en `backup.log`. |
-| 5. Retención | `Get-ChildItem` + `Remove-Item` | Atlas: guarda las de los últimos 7 días y las de los domingos de las últimas 4 semanas. Local: las de las últimas 4 semanas. El resto se borra y queda anotado (`DELETED`). |
-
-**Programarlo para que corra solo** (Programador de tareas de Windows, una vez por compu):
-
-```powershell
-# Atlas todas las noches (la variable ATLAS_URI tiene que estar guardada en el usuario de Windows)
-schtasks /create /tn "Backup DH Atlas" /sc daily /st 23:00 /tr "powershell -ExecutionPolicy Bypass -File C:\ruta\al\proyecto\scripts\backup.ps1 -Base atlas"
-
-# Local los domingos
-schtasks /create /tn "Backup DH local" /sc weekly /d SUN /st 23:00 /tr "powershell -ExecutionPolicy Bypass -File C:\ruta\al\proyecto\scripts\backup.ps1"
-```
-
-Para guardar la variable en el usuario de Windows (así la ve la tarea programada):
-`[Environment]::SetEnvironmentVariable("ATLAS_URI", "mongodb+srv://…/dh", "User")`.
-
-**Lo que el script no hace** (queda a cargo del responsable): subir el archivo a la carpeta de Google Drive
-(copia 3 de la regla 3-2-1) y la prueba mensual de restauración en `dh_restore` (sección 20.5).
+**Objetivo:** perder como mucho **1 día** de datos (lo que pasó desde la última copia) y tener la base andando en
+**menos de 30 minutos**.
 
 ---
 
